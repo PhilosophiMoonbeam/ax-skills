@@ -4,7 +4,13 @@ A single progressive-disclosure skill for `@ax-llm/ax`. [SKILL.md](SKILL.md) con
 
 ## Installation and disclosure
 
-Install or copy the entire `skills/ax-skills` directory into the skill directory supported by your agent host, retaining the directory name `ax-skills`, `SKILL.md` and `references/`. Configure the host to discover that directory according to its own installation instructions. Installing only `SKILL.md` omits required guidance.
+Install the collection with the Skills CLI:
+
+```sh
+npx skills add PhilosophiMoonbeam/ax-skills
+```
+
+When prompted to select a skill, choose `ax-skills` and the target agent host.
 
 The host discovers the name and description first, loads the master when an Ax task activates it, and loads the matching references on demand. Follow the master's boundaries when tasks overlap; do not load all references by default. Reference links are relative to the collection root. No separately installed Ax skills, original source files or full Ax library checkout are needed to use this collection. Remote documentation/example links are supplementary resources, not substitute local skill entrypoints.
 
