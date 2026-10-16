@@ -1,6 +1,6 @@
 # Ax Library Quick Reference
 
-Ax (`@ax-llm/ax`) is a TypeScript library for type-safe LLM signatures, streaming, and multiple providers. Use this overview for `ax()`, `ai()`, `f()`, `s()`, `agent()`, `flow()`, `AxGen`, `AxAgent`, and `AxFlow`; use the focused companion references for detailed contracts. Source API snapshot: 25.3.0.
+Ax (`@ax-llm/ax`) is a TypeScript library for type-safe LLM signatures, streaming, and multiple providers. Use this overview for `ax()`, `ai()`, `f()`, `s()`, `agent()`, `flow()`, `AxGen`, `AxAgent`, and `AxFlow`; use the focused companion references for detailed contracts. Source API snapshot: 25.4.1.
 
 Companion guidance: [AI providers](references/ai.md) covers providers, routing, and adaptive balancing; [Typesafe/Jev](references/typesafe.md) covers decisions, criteria, and native scoring; [signatures](references/signature.md) covers signatures and types; [generators](references/gen.md) covers generator behavior. For agents, select [core agents/tools](references/agent.md), [runtime/RLM/delegation](references/agent-rlm.md), [callbacks/logs/usage](references/agent-observability.md), [recall/dynamic skills](references/agent-memory-skills.md), or [tuning/evaluation](references/agent-optimize.md). See [flows](references/flow.md) for workflows and [GEPA](references/gepa.md) for top-level `optimize(...)`, BootstrapFewShot-to-GEPA migration, and Pareto optimization.
 
@@ -85,7 +85,7 @@ Programs use `forward(ai, values, options?)` and `streamingForward(ai, values, o
 
 ## Forward Options
 
-Provider capabilities determine applicable outputs and options. Typesafe/Jev and OpenAI Decisions support required boolean/class/rubric score signatures. Use `(evidence)` or `.withEvidence()` for probabilities, scores, and native confidence through AxGen; provenance distinguishes native from elicited evidence. Use native clients for advanced request shapes and generative providers for prose or tools. Read [Typesafe/Jev](references/typesafe.md) before applying these general generation options to Jev.
+Provider capabilities determine applicable outputs and options. Typesafe/Jev and OpenAI Decisions support required boolean/class/rubric score signatures. Jev additionally supports PNG/JPEG image inputs with native Box localization outputs; OpenAI Decisions supports image inputs but not Box outputs, so provider capabilities are not uniform. Use `(evidence)` or `.withEvidence()` for probabilities, scores, and native confidence through AxGen; provenance distinguishes native from elicited evidence. Use native clients for advanced request shapes and generative providers for prose or tools. Read [Typesafe/Jev](references/typesafe.md) before applying these general generation options to Jev.
 
 | Goal | Option | Example |
 | --- | --- | --- |

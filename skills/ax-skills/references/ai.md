@@ -1,6 +1,6 @@
 # AI providers, models, and runtime configuration
 
-Use for `ai()`, deployment profiles, model catalogs/presets, routing and balancing, embeddings, thinking, service tiers, caching, cancellation, and provider-specific request contracts. Prefer short copyable code, not tutorial prose unless requested. Source API snapshot: 25.3.0. Audio task-specific detail belongs in [audio](references/audio.md); signature design in [signatures](references/signature.md); agent/runtime design is outside this reference.
+Use for `ai()`, deployment profiles, model catalogs/presets, routing and balancing, embeddings, thinking, service tiers, caching, cancellation, and provider-specific request contracts. Prefer short copyable code, not tutorial prose unless requested. Source API snapshot: 25.4.1. Audio task-specific detail belongs in [audio](references/audio.md); signature design in [signatures](references/signature.md); agent/runtime design is outside this reference.
 
 ## Factory and deployment profiles
 
@@ -49,7 +49,9 @@ Boolean conversion uses `noul >= trueThreshold`; the default is `0.5`, and the f
 
 Value descriptions from `boolean(true "...", false "...")` and `class "support, billing"(support "...", billing "...")` become native criteria. The same annotations render as readable descriptions for conventional providers. See [signatures](references/signature.md) for string and fluent `.describeValues(...)` forms. Original resource: https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-signature.md.
 
-Numeric outputs, including bounded numbers, are unsupported; scoring uses explicit `score` rubrics in signatures. Freeform text, optional/array/nested outputs, media, tools, and sampling controls are also unsupported. Ax sends its normal prompt as state. Use a separate generative program for prose or tools.
+Numeric outputs, including bounded numbers, are unsupported; scoring uses explicit `score` rubrics in signatures. Required single `box` outputs and PNG/JPEG image inputs are supported in TypeScript; see [Typesafe image and Box contracts](references/typesafe.md) for exact model, image, and localization requirements. Freeform text, optional/array/nested outputs, audio, files, tools, and sampling controls remain unsupported. Ax sends its normal prompt as state. Use a separate generative program for prose or tools.
+
+The image/Box exception follows the updated `ax-typesafe` source contract; its provider-summary counterpart still contains an older blanket media exclusion.
 
 Typesafe-only balancers retain schema-required generation. Mixed pools select Typesafe only when the actual request already contains a supported schema. Incompatible requests are excluded from fallbacks even with degradation enabled. Usage and raw adapter answers remain in the existing usage and chat-log APIs. Python, Java, C++, Go, and Rust also implement these interfaces. Use each generated package's native API syntax.
 
@@ -498,7 +500,7 @@ Gemini 3 uses `thinkingLevel`; Gemini 2.5 and older models use numeric `thinking
 
 The native `google-gemini` deployment profile and its aliases use these Gemini rules, including when configured for Vertex with `projectId` and `region`. The separate OpenAI-compatible `vertex-ai` profile keeps its own request rules and does not inherit native Gemini fields from a Gemini-looking model ID.
 
-For GPT-5.6 and GPT-6 (Astra, Sol, Luna), these map to `none`, `low`, `low`, `medium`, `high`, and a top rung that depends on the API surface: `xhigh` on Chat Completions, which rejects `max`, and `max` on the Responses API, which is the only place it is served. These models default an omitted effort to `medium`, so `none` is sent explicitly; GPT-6 Astra refuses `none` and Ax throws. Earlier OpenAI models retain their existing mapping.
+For GPT-5.6 and GPT-6 (Astra, Sol, Luna, GPT-6.1 Sol), these map to `none`, `low`, `low`, `medium`, `high`, and a top rung that depends on the API surface: `xhigh` on Chat Completions, which rejects `max`, and `max` on the Responses API, which is the only place it is served. These models default an omitted effort to `medium`, so `none` is sent explicitly; GPT-6 Astra and GPT-6.1 Sol refuse `none` and Ax throws. Earlier OpenAI models retain their existing mapping.
 
 ### Anthropic Model-Specific Behavior
 
@@ -690,7 +692,7 @@ const bedrock = ai({
 });
 ```
 
-To reach OpenAI's GPT models on those endpoints through the `openai` or `openai-responses` provider, name them with Bedrock's IDs: `openai.gpt-6-sol` on bedrock-mantle, or a cross-Region inference profile such as `us.openai.gpt-6-sol` or `global.openai.gpt-6-astra` on bedrock-runtime. Ax applies the named model's contracts: its built-in model info (so `temperature` and `top_p` are not sent), the GPT-5.6 and GPT-6 effort ladders, Astra's rules, and, on `openai`, routing the GPT-6 family to `<apiURL>/responses`. It leaves off what Bedrock does not serve: prompt-cache breakpoints on Chat Completions (Bedrock caches these models on the Responses API only) and Astra chat sessions, since async tools, steering, and reasoning updates are not available there.
+To reach OpenAI's GPT models on those endpoints through the `openai` or `openai-responses` provider, name them with Bedrock's IDs: `openai.gpt-6-sol` on bedrock-mantle, or a cross-Region inference profile such as `us.openai.gpt-6-sol` or `global.openai.gpt-6-astra` on bedrock-runtime. Ax applies the named model's contracts: its built-in model info (so `temperature` and `top_p` are not sent), the GPT-5.6 and GPT-6 effort ladders, the reasoning rules of Astra and GPT-6.1 Sol, and, on `openai`, routing the GPT-6 family to `<apiURL>/responses`. It leaves off what Bedrock does not serve: prompt-cache breakpoints on Chat Completions (Bedrock caches these models on the Responses API only) and Astra chat sessions, since async tools, steering, and reasoning updates are not available there.
 
 ```typescript
 const gpt = ai({
@@ -713,7 +715,7 @@ const bedrock = new AxAIBedrock({
 });
 ```
 
-The native client uses Bedrock `Converse` and `ConverseStream`. Claude models advertise native functions, streaming, image/document input, prompt-cache breakpoints, and their verified thinking modes. GPT-6 Sol, Luna, and Astra (`AxAIBedrockModel.Gpt6Sol`, `Gpt6Luna`, `Gpt6Astra`) advertise native functions, streaming, image input, and reasoning effort. Structured-output and service-tier support remain model-specific; query `bedrock.getFeatures(model)` instead of assuming every Bedrock model has the same capabilities. The AWS SDK remains a dependency of `@ax-llm/ax-ai-aws-bedrock` only and is not pulled into `@ax-llm/ax`.
+The native client uses Bedrock `Converse` and `ConverseStream`. Claude models advertise native functions, streaming, image/document input, prompt-cache breakpoints, and their verified thinking modes. GPT-6 Sol, Luna, Astra, and GPT-6.1 Sol (`AxAIBedrockModel.Gpt6Sol`, `Gpt6Luna`, `Gpt6Astra`, `Gpt61Sol`) advertise native functions, streaming, image input, and reasoning effort. Structured-output and service-tier support remain model-specific; query `bedrock.getFeatures(model)` instead of assuming every Bedrock model has the same capabilities. The AWS SDK remains a dependency of `@ax-llm/ax-ai-aws-bedrock` only and is not pulled into `@ax-llm/ax`.
 
 Use `contextCache.ttlSeconds` for a 5-minute or supported 1-hour cache point, and `thinkingTokenBudget` for legacy budget thinking or the corresponding adaptive-thinking effort on current Claude models:
 
@@ -733,7 +735,7 @@ const response = await bedrock.chat(
 );
 ```
 
-On the native Bedrock client, Claude Sonnet 5 and Opus 5.5 always use adaptive thinking and reject `thinkingTokenBudget: 'none'`; Claude Opus 5 permits disabling it. On GPT-6, `thinkingTokenBudget` sets the reasoning effort (`minimal` → `low`, `highest` → `max`, `none` turns reasoning off), except that Astra rejects `'none'` before sending. GPT-6 requests omit `temperature` and `topP`, which these models do not accept.
+On the native Bedrock client, Claude Sonnet 5 and Opus 5.5 always use adaptive thinking and reject `thinkingTokenBudget: 'none'`; Claude Opus 5 permits disabling it. On GPT-6, `thinkingTokenBudget` sets the reasoning effort (`minimal` → `low`, `highest` → `max`, `none` turns reasoning off), except that Astra and GPT-6.1 Sol reject `'none'` before sending. GPT-6 requests omit `temperature` and `topP`, which these models do not accept.
 
 ## Vercel AI SDK Integration
 
@@ -800,6 +802,10 @@ Select `ai({ name: 'openai', config: { model: AxAIOpenAIModel.GPT6Astra }, apiKe
 
 GPT-6 Sol (`AxAIOpenAIModel.GPT6Sol`) and Luna (`AxAIOpenAIModel.GPT6Luna`) also route through Responses, since Chat Completions refuses their function tools while they reason. Unlike Astra they accept `thinkingTokenBudget: 'none'`, and chat sessions and `configuration_update` remain Astra-only. OpenAI reports a GPT-6 priority request's served tier as `fast`; Ax records it as `priority`.
 
+GPT-6.1 Sol (`AxAIOpenAIModel.GPT61Sol`) is a GPT-6 family member: it routes through Responses, caches at breakpoints with `ttl: '30m'`, and drops sampling and log-probability options while reasoning. Like Astra it cannot disable reasoning, so `thinkingTokenBudget: 'none'` throws and Chat Completions refuses its function tools at every effort. Ax does not yet expose chat sessions or `configuration_update` for this model.
+
+Its Standard input/cache-read/cache-write/output rates per million tokens are $2/$0.10/$2.50/$10, rising to $4/$0.20/$5/$15 above 272K total input tokens. Priority costs 2x Standard and Flex costs 0.5x, including cache tokens and the long-context rates. A served `fast` tier is recorded as `priority` for cost accounting. On profiles without model metadata, fixed Bedrock OpenAI IDs use the corresponding OpenAI sampling restrictions; unknown IDs remain unchanged.
+
 Keep calling `forward()` and `streamingForward()`. Declare independent tools with `fn('lookup').description('...').execution('background').handler(...).build()`. Ordinary tools default to blocking. JavaScript promises and MCP annotations do not opt a tool into background execution. Set `asyncMode: 'off'` to use the ordinary tool loop. Providers without session support retain that loop.
 
 Use `const control = runControl()` and pass `{ control }` in forward options. Call `control.steer(text)`, `control.setThinkingTokenBudget('high')`, or `control.abort()`. `control.onEvent(listener)` observes queued/applied updates, run lifecycle, tool activity, and model output activity. A run emits `started`, then `completed` or `failed` (with its `error`). `control.abort()` emits `aborted` at once, and the run then ends as `failed` with the abort error. A consumer that stops a `streamingForward` early (for example with `break`) ends the run as `aborted` instead. Untargeted updates apply to the root and future descendants. `{ target: 'root/nodeName' }` restricts an update to a flow node and its descendants. Completed nodes are not rerun. Controller-attached runs bypass result caching; provider prompt caching remains enabled.
@@ -856,3 +862,9 @@ npm run tsx src/examples/typescript/generation/openai-decisions-image.ts
 ```
 
 They use `OPENAI_API_KEY` or `OPENAI_APIKEY`. Python, Java, C++, Go, and Rust also support the signature adapter and native ordered questions. Their native factories are `openai_decisions`, `Ax.openaiDecisions`, `axllm::openai_decisions`, `axllm.OpenAIDecisions`, and `openai_decisions`, respectively. Native requests and responses use the language JSON map/value representation and preserve refusals and all usage fields. Runnable examples are under each language generation directory as `openai-decisions` and `openai-decisions-native` (Java uses `OpenAIDecisionsExample` and `OpenAIDecisionsNativeExample`). See the [Decisions guide](https://developers.openai.com/api/docs/guides/decisions) for the current provider contract and availability.
+
+## Streaming Usage And Incomplete Responses
+
+OpenAI Responses reports a token-limit stop as `length` and a content-filter stop as `content_filter`. The terminal response status takes precedence even when no message was produced or an earlier message completed. Incomplete streams retain their token usage and the served service tier. Reusing a client keeps each stream's usage separate; consume the terminal event for final totals.
+
+Anthropic `message_delta` counts are cumulative. Present input and cache counts replace earlier counts, including explicit zero; omitted or null fields retain previous values. Successive deltas retain the latest input, cache, and speed metadata while updating output tokens.

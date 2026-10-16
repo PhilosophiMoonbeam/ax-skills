@@ -1,6 +1,6 @@
 # Core AxAgent Construction and Runtime Contracts
 
-Use for `agent(...)`, ordinary tool-using assistants, identity, child delegation, namespaced functions, discovery, `bubbleErrors`, host-side completion, clarification, and public run/state APIs. Generate the smallest correct factory-based shape and copyable code; do not add tutorial prose unless requested. Source API snapshot: `@ax-llm/ax` 25.3.0.
+Use for `agent(...)`, ordinary tool-using assistants, identity, child delegation, namespaced functions, discovery, `bubbleErrors`, host-side completion, clarification, and public run/state APIs. Generate the smallest correct factory-based shape and copyable code; do not add tutorial prose unless requested. Source API snapshot: `@ax-llm/ax` 25.4.1.
 
 ## Choose the Agent Shape
 
@@ -25,7 +25,7 @@ For Typesafe/Jev decisions, keep a generative model for the actor's tools, code,
 - Configure `ai`, `judgeAI`, and `agentIdentity` for instance defaults or child metadata.
 - Prefer namespaced functions, e.g. `utils.search(...)` and `kb.find(...)`.
 - Delegate through explicit child agents in `functions`, not recursive `llmQuery(...)`.
-- Actor responses must contain one executable program. Multiple fenced code blocks reject the entire turn without executing any block; the runtime asks for one program.
+- Actor responses must contain one executable program. Multiple fenced code blocks reject the entire turn without executing any block; the runtime asks for one program. This applies to text and structured JSON responses, with LF or CRLF line endings.
 - Actor code stages require structured generation with the exact `javascriptCode` wire key. Native-capable providers retain strict `json_schema`; providers such as DeepSeek use validated `json_object` and need no provider-visible tools for runtime execution.
 - Generated Go, Python, Java, C++, and Rust distiller/executor stages use `validation_retries`, with one correction attempt by default; set `0` to fail on the first invalid response.
 - Do not combine actor `console.log(...)` with `final(...)`.

@@ -16,7 +16,7 @@ The host discovers the name and description first, loads the master when an Ax t
 
 ## Provenance and source snapshots
 
-The conversion inputs are the 18 unchanged `.agents/skills/ax*/SKILL.md` files in this repository. They remain provenance and semantic-audit inputs, not production aliases. `skills-lock.json` remains unchanged as the existing source provenance record. Source frontmatter records `25.3.0` for 17 inputs; `ax-event-runtime` does not declare a version. These values describe the imported source snapshots, not a promise of compatibility with every release or a latest-API guarantee. Use installed package declarations and authoritative documentation to resolve version differences.
+The conversion inputs are the 18 copied `.agents/skills/ax*/SKILL.md` files in this repository. They remain provenance and semantic-audit inputs, not production aliases. The current refresh follows upstream snapshot commit `83f7000`, compared with `5fdf5c3`; it leaves those imported files and `skills-lock.json` untouched. Source frontmatter records `25.4.1` for 17 inputs; `ax-event-runtime` remains unchanged and unversioned. These are documented source snapshots, not guarantees about every package release or live provider. Use installed package declarations and authoritative documentation to resolve version differences.
 
 The fixed map below is relative to this repository for sources and to this collection root for references. Each source maps to exactly one reference; the master routes directly to every reference.
 
@@ -59,13 +59,24 @@ The fixed map below is relative to this repository for sources and to this colle
 
 The procedure above is reusable; the checked conversion snapshot below records observed results, not a guarantee for later edits.
 
-## Verified conversion snapshot
+## Verified 25.4.1 refresh
 
-The final review partitions every original line into 334 source-section units across all 18 Ax skills. One non-Ax input (`beads`) was excluded. Original hashes match [the source manifest](assets/source-manifest.json). The frozen semantic rubric, source-to-reference measurements, all section verdicts, comparison spans, routing scenarios, and manual resolutions are in [the coverage audit](assets/coverage-audit.json). These supporting assets are not activation instructions and should not be preloaded.
+The upstream delta changes behavior in four skills (`ax-ai`, `ax-agent`, `ax-signature`, `ax-typesafe`) and version metadata in 13 others. The unversioned event-runtime source is unchanged.
 
-Three full-corpus judgment passes were followed by evidence-based escalation. The first pass clipped 36 provider-reference contexts; complete counterpart sections replaced those prefixes without changing the rubric or its 60,000-character cap. The final pass has no truncations or errors. Its raw verdicts are 326 covered, one missing, and seven organizational-only units. Manual review overturns the low-confidence missing verdict: all 12 RLM defaults remain in the defaults section and canonical selection table. The seven other units contain headings only. All 334 units are accounted for: 327 semantic-coverage units and seven organizational units; no unresolved coverage defects.
+- **Providers:** GPT-6.1 Sol reasoning, Responses routing, caching, pricing and Bedrock contracts; terminal incomplete-response status and per-stream usage; cumulative Anthropic input/cache/output accounting.
+- **Core agents:** multiple actor code fences reject the entire turn for text or structured JSON, with LF or CRLF.
+- **Signatures and decisions:** description escaping and round-trips; explicit ordered-score rubrics; `AxBox`/evidence geometry; Jev 1.14 PNG/JPEG localization, asset transport, model/header/image limits, presence checks, and provider-specific restrictions.
+- **Discovery:** the master routes image/Box, GPT-6.1, streaming-usage and actor-fence tasks directly to their owning references.
 
-Across the passes, 91 unique escalated units were inspected. Confirmed corrections consolidated repeated RLM selectors and retrieval prohibitions, removed invented factory exceptions, and restored `checkpointed + balanced` as the default for most RLM tasks. Other density flags were checked against distinct examples, API contracts, schema representations, or separately scoped memory/skill behavior rather than accepted as automatic deletion requests.
+Two upstream inconsistencies are explicit rather than silently propagated: the provider overview still excludes all Jev media, while the updated Typesafe contract adds PNG/JPEG images; the signature source places generated-language Box support in the AxIR backlog, while the Typesafe source claims six-language availability. The collection follows the updated image contract and preserves the unresolved language-parity disagreement. TypeScript Box guidance is complete; inspect the generated package before relying on Box in another language.
+
+### Coverage and provenance
+
+The current audit partitions all 7,864 source lines into 337 sections across all 18 Ax skills. One non-Ax skill (`beads`) is excluded. [The source manifest](assets/source-manifest.json) records current source hashes; [the coverage audit](assets/coverage-audit.json) records exact comparison spans, current reference hashes, all verdicts, manual resolutions, metrics, and exercised checks. These supporting assets are not activation instructions and should not be preloaded.
+
+The final full-corpus pass returned 332 covered, two low-confidence missing, and three organizational verdicts, with no errors or truncations. Manual review resolves all 53 final escalations: the two missing verdicts concern unchanged retrieval batching/child-callback ownership and RLM defaults already present in canonical sections. Seven source sections are heading-only, regardless of their raw model bucket. All 337 sections are accounted for: 330 semantic units and seven organizational units; no unresolved coverage defects. The upgrade introduced no flagged density regressions.
+
+The audit first used a whole-reference density question, then invalidated that rubric and re-judged every section with an explicit upgrade-regression baseline. Two complete passes under the replacement rubric cover the actual final snapshot. Historical conversion evidence remains retrievable from the preceding Git snapshot; old hashes and verdicts are not relabeled as current evidence.
 
 ### Instruction and disclosure size
 
@@ -73,20 +84,21 @@ Counts use `cl100k_base` with `tiktoken` 0.14.0, not a claim about every host's 
 
 | Load | Tokens |
 | --- | ---: |
-| All original skill instructions, including frontmatter | 87,047 |
-| All converted references | 78,690 |
-| Unified master, including frontmatter | 1,791 |
-| Unified master plus all references | 80,481 |
-| Master plus smallest selected reference | 2,576 |
-| Master plus largest selected reference | 16,589 |
+| All current original skill instructions, including frontmatter | 88,565 |
+| All converted references | 80,579 |
+| Unified master, including frontmatter | 1,890 |
+| Unified master plus all references | 82,469 |
+| Master plus smallest selected reference | 2,675 |
+| Master plus largest selected reference | 17,151 |
 
-References use 9.60% fewer tokens than the original instructions; including the master, the reduction is 7.54%. Selective disclosure is the main saving: a task loads its relevant references rather than the full collection. Multiple-topic tasks can legitimately require more than one reference.
+References use 9.02% fewer tokens than current original instructions; including the master, the reduction is 6.88%. Selective disclosure is the main saving: load only relevant references. Multiple-topic tasks can legitimately require more than one.
 
 ### Exercised verification
 
 - `skills-ref validate`, `read-properties`, and `to-prompt` validate and expose the actual single skill entrypoint.
-- `python3 scripts/validate_ax_skills.py` checks all source hashes, exact reference inventory, direct links, local targets/fragments, frontmatter, and fences.
+- `npx --yes skills add ./skills/ax-skills --list` discovers the local updated collection as one skill without installing it.
+- `python3 scripts/validate_ax_skills.py` checks source hashes, exact reference inventory, direct links, local targets/fragments, frontmatter, and fences.
 - Nine isolated validator smoke cases exercise valid input, missing target, missing fragment, changed source hash, obsolete skill loading, obsolete skill URI, allowed package/negative dependency prose, path escape, and unclosed fence.
-- Eighteen semantic routing scenarios select the expected primary reference from the actual master; each selected file is then loaded from the collection.
+- Twenty-three semantic routing scenarios cover every existing topic plus the new provider, usage, image/Box, escaping and actor-fence guidance; each selected file is then loaded from the actual collection. An initial actor-fence misroute was corrected in the master and the entire routing set repeated.
 
-No Python language server was available. Provider-backed Ax examples were not executed: this conversion preserves documented source snapshots, not verified compatibility with newer package releases or live provider endpoints. Re-run the structural checks and semantic audit after changing instructional content.
+No live provider calls or Ax package examples were executed. This is a verified documentation/disclosure refresh, not a live endpoint or generated-language compatibility certification. Re-run structural checks and semantic review after instructional changes.
