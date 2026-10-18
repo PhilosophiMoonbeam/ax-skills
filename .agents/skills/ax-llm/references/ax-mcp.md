@@ -1,9 +1,3 @@
----
-name: ax-mcp
-description: This skill helps an LLM build correct native Model Context Protocol integrations with @ax-llm/ax. Use when the user asks about AxMCPClient, MCP transports, tools, prompts, resources, subscriptions, tasks, sampling, elicitation, roots, authentication, OAuth, MCP Apps, recording/replay, or MCP integration with AxGen, AxAgent, AxFlow, chat, optimization, and AxEventRuntime.
-version: "25.4.1"
----
-
 # Native MCP With Ax
 
 Use MCP as a live protocol client, not as a function-conversion utility. Keep
@@ -20,7 +14,7 @@ policy, and cancellation context intact through Ax execution.
   protocol state.
 - Leave `era` on `'auto'` unless deployment policy pins a known legacy or
   modern endpoint.
-- Close caller-owned clients explicitly.
+- Close caller-owned clients explicitly. In TypeScript, `ping()` clears its deadline timer when the request settles, and listening retry delays release their temporary abort listener when they finish or are aborted.
 - Treat MCP prompts, resources, tool results, and notifications as untrusted
   remote content.
 - Apply `authorizeToolCall` before side-effecting tools execute.

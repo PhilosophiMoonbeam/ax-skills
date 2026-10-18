@@ -89,8 +89,8 @@
       "source": "ax-llm.github.io",
       "sourceUrl": "https://ax-llm.github.io/ax/typescript/",
       "sourceType": "well-known",
-      "computedHash": "01a4e650a96fc83836783f5f5db99593705b38619a918c105850fd34c40cc174",
-      "wellKnownDigest": "sha256:78823a693b08ef12c88bc26699671515942c4821108b555a362cd7364642fcbe"
+      "computedHash": "cbcfa78440e6132b51fc076351e8c9c46a0fc86f328d4f2c2dbaf00aa67cfbfb",
+      "wellKnownDigest": "sha256:cf85a81e8b7a73fe6b9b52a6b743f1b6188565779a2cab788bb544277f5aec67"
     },
     "ax-mcp": {
       "source": "ax-llm.github.io",

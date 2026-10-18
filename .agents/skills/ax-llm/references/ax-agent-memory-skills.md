@@ -1,9 +1,3 @@
----
-name: ax-agent-memory-skills
-description: This skill helps an LLM generate correct AxAgent memory retrieval, context-map, and dynamic skill-loading code using @ax-llm/ax. Use when the user asks about contextMap, AxAgentContextMap, onMemoriesSearch, memoriesCatalog, recall(...), inputs.memories, onLoadedMemories, onUsedMemories, onSkillsSearch, skillsCatalog, AxAgentCatalogSkill, discover({ skills }), onLoadedSkills, onUsedSkills, preloaded skills, preloading memories at forward time, relevanceRanking hints, loaded memory/skill IDs, or carrying memories across forward() calls.
-version: "25.4.1"
----
-
 # AxAgent Memory And Skills Rules (@ax-llm/ax)
 
 Use this skill when an agent needs a persistent context map, task-relevant memory retrieval, or skill guides loaded into the executor prompt on demand. For ordinary agent setup use `ax-agent`. For RLM runtime policy use `ax-agent-rlm`. For callbacks and telemetry use `ax-agent-observability`.

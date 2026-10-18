@@ -1,9 +1,3 @@
----
-name: ax-flow
-description: This skill helps an LLM generate correct AxFlow workflow code using @ax-llm/ax. Use when the user asks about flow(), AxFlow, workflow orchestration, parallel execution, DAG workflows, conditional routing, map/reduce patterns, or multi-node AI pipelines.
-version: "25.4.1"
----
-
 # AxFlow Codegen Rules (@ax-llm/ax)
 
 Use this skill to generate `AxFlow` workflow code. Prefer short, modern, copyable patterns. Do not write tutorial prose unless the user explicitly asks for explanation.

@@ -1,9 +1,3 @@
----
-name: ax-refine
-description: Use this skill when writing or reviewing Ax bestOfN/refine code, reward functions, thresholds, native sample selection, serial attempts, generated advice, and attempt diagnostics.
-version: "25.4.1"
----
-
 # Ax Refine And BestOfN
 
 Use `bestOfN(...)` when you can score complete outputs independently. Use `refine(...)` when failed rounds should produce feedback that changes the next attempt.

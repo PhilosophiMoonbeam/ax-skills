@@ -1,9 +1,3 @@
----
-name: ax-agent-context
-description: This skill helps an LLM pick the right AxAgent context tool for a job - contextMap for recurring corpora, contextPolicy presets for within-run trajectory compaction, agent.optimize for offline GEPA instruction/demo tuning, agent.playbook for an evolving context playbook (offline evolve + online update), and recall/memories + skills for per-turn retrieval. Use when the user asks "which context feature should I use", confuses contextMap with contextPolicy or memory, or wants a decision guide for long-context agents. For contextPolicy/contextMap codegen use ax-agent-rlm; for recall/skills use ax-agent-memory-skills; for agent.optimize or agent.playbook use ax-agent-optimize.
-version: "25.4.1"
----
-
 # AxAgent Context Selection (@ax-llm/ax)
 
 Use this skill to route a context-management need to the right AxAgent tool, then open the matching codegen skill. AxAgent manages four distinct context objects; choosing the wrong one is the usual mistake. Do not write tutorial prose; pick the tool and hand off.

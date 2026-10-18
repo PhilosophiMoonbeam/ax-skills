@@ -1,8 +1,3 @@
----
-name: ax-event-runtime
-description: Use AxEventRuntime to ingest events, explicitly wake or resume AxGen, AxAgent, and AxFlow, persist state and results, and route outputs safely.
----
-
 # Ax Event Runtime
 
 Use this skill when an Ax program should react to notifications, webhooks,

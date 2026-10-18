@@ -1,9 +1,3 @@
----
-name: ax-agent-optimize
-description: This skill helps an LLM generate correct AxAgent tuning and evaluation code using @ax-llm/ax. Use when the user asks about agent.optimize(...), judgeOptions, eval datasets, optimization targets, saved optimizedProgram artifacts, or agent optimization guidance.
-version: "25.4.1"
----
-
 # AxAgent Optimize Codegen Rules (@ax-llm/ax)
 
 Use this skill for `agent.optimize(...)` workflows. Prefer short, modern, copyable patterns. Do not repeat general agent-authoring guidance unless the user needs it. For generic `ax(...)` or `flow(...)` tuning with top-level `optimize(...)`, use the `ax-gepa` skill instead.
@@ -85,7 +79,7 @@ Bad pattern:
 
 Choose the scoring path based on how objectively the task can be measured:
 
-- Use a custom `metric` when you can score success directly from `prediction` and `example`.
+- Use a custom `metric` when you can score success directly from `prediction` and `example`. In TypeScript, `AxEvalUtil.novelF1ScoreOptimized(history, prediction, groundTruth, returnRecall?)` excludes stopwords and history, counts repeated-token overlap by minimum occurrence count, and returns finite F1 or recall. Two empty filtered inputs score 1; one empty input scores 0.
 - Use the built-in agent judge when success depends on a full-run qualitative review across tool choices, clarifications, and final output.
 - Use `judgeOptions.description` to tell the built-in judge what to value most.
 - Use helper-based judge code only when the user is not inside `agent.optimize(...)` and still wants LLM judging.
