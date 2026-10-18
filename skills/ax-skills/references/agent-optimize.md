@@ -1,6 +1,6 @@
 # AxAgent Optimization and Evaluation
 
-Use for `agent.optimize(...)`, task datasets, judge options, optimization targets, evaluation semantics, delegation tuning, and saved `optimizedProgram` artifacts in `@ax-llm/ax`. Source API snapshot: 25.4.1. Configure a runnable agent first; see [agent authoring](references/agent.md). Generic `ax(...)`/`flow(...)` tuning with top-level `optimize(program, train, metric, options)` belongs in [GEPA](references/gepa.md), not this agent workflow. Keep examples short and copyable; repeat general agent guidance only when needed.
+Use for `agent.optimize(...)`, task datasets, judge options, optimization targets, evaluation semantics, delegation tuning, and saved `optimizedProgram` artifacts in `@ax-llm/ax`. Source API snapshot: 25.4.3. Configure a runnable agent first; see [agent authoring](references/agent.md). Generic `ax(...)`/`flow(...)` tuning with top-level `optimize(program, train, metric, options)` belongs in [GEPA](references/gepa.md), not this agent workflow. Keep examples short and copyable; repeat general agent guidance only when needed.
 
 ## Defaults and target selection
 
@@ -30,6 +30,8 @@ Use eval-safe tools or in-memory mocks because tasks replay many times, especial
 ## Metric versus judge
 
 Use deterministic `metric` for directly measurable `prediction`/`example` success: known extraction/classification answers, exact expected/forbidden calls, business scoring, explicit costs, tool/child-call counts, or turn counts. This gives repeatable low-variance optimization.
+
+In TypeScript, `AxEvalUtil.novelF1ScoreOptimized(history, prediction, groundTruth, returnRecall?)` excludes stopwords and history, counts repeated-token overlap by minimum occurrence count, and returns finite F1 or recall. Two empty filtered inputs score 1; one empty input scores 0.
 
 Use the built-in agent judge for practical assistant quality without a trusted metric: open-ended synthesis, nuanced clarifications, tool choices/errors, final-answer quality, and holistic completion. It reviews the full run: completion type, clarification payload, final output, action log, normalized function calls, tool errors, and turn count.
 

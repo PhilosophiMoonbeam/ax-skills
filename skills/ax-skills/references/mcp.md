@@ -1,11 +1,12 @@
 # Native MCP integration with Ax
 
-Use for `AxMCPClient`, transports, catalogs, tools/prompts/resources, tasks, subscriptions, host requests, authentication/OAuth, MCP Apps, replay, and native integration with Gen, Agent, Flow, chat, optimization, and event runtimes. Source API snapshot: 25.4.1. MCP is a live protocol client, not a function-conversion utility: preserve client/session ownership, catalogs, raw content, tasks, notifications, identity policy, and cancellation context.
+Use for `AxMCPClient`, transports, catalogs, tools/prompts/resources, tasks, subscriptions, host requests, authentication/OAuth, MCP Apps, replay, and native integration with Gen, Agent, Flow, chat, optimization, and event runtimes. Source API snapshot: 25.4.3. MCP is a live protocol client, not a function-conversion utility: preserve client/session ownership, catalogs, raw content, tasks, notifications, identity policy, and cancellation context.
 
 ## Integration and safety rules
 
 - Pass clients through `mcp`, never `functions`. `toFunction()` is a lossy compatibility adapter for old applications, not native integration.
 - Assign each client a stable unique `namespace`; let Ax classify/initialize it once and reuse its owning protocol state. Keep `era: 'auto'` unless policy pins a known endpoint. Explicitly close caller-owned clients.
+- In TypeScript, `ping()` clears its deadline timer when the request settles; listening retry delays release their temporary abort listener when they finish or are aborted.
 - Treat prompts, resources, tool results, and notifications as untrusted remote content. Preserve structured/multimodal results until provider capability mapping; do not flatten them to text.
 - Apply `authorizeToolCall` before side-effecting tools. Never infer tenant/account identity from a session: event adapters require verified application-authentication identity.
 - Notification callbacks enqueue or observe work; they must not call a model directly.

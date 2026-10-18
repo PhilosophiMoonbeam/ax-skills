@@ -1,104 +1,128 @@
 # Ax Skills Collection
 
-A single progressive-disclosure skill for `@ax-llm/ax`. [SKILL.md](SKILL.md) contains discovery metadata, operating policy and task routing. Its 18 directly linked references contain the technical guidance. README is supporting documentation, not a second skill entrypoint.
+One self-contained progressive-disclosure skill for designing and implementing TypeScript applications with `@ax-llm/ax`, grounded in the official **25.4.3** skill bundle. The collection supports holistic architectural decisions before code and precise API use during implementation. It uses terse-yet-complete Standard Technical English: remove repetition, not distinct contracts, constraints, examples or warnings.
 
-## Installation and disclosure
+## Design first, then implement
 
-Install the collection with the Skills CLI:
+Before choosing APIs, define the task, input/output contracts, quality criteria, authority boundaries and operational constraints. Decide which work is structured generation, agent-directed tool use, explicit workflow orchestration or event-driven resumption. Assign ownership of context, state, side effects, persistence, retries, cancellation and evaluation. Distinguish within-run context management, retrieval, reusable knowledge and offline optimization; they solve different problems.
+
+The collection has three instruction layers:
+
+| Layer | Purpose | Loading |
+| --- | --- | --- |
+| [Master](SKILL.md) | Capability orientation, safety/authorization policy, design-first routing and implementation routes | Always retained when this skill is active |
+| [Architecture guide](references/architecture.md) | Cross-subsystem design decisions, trade-offs and handoff to implementation | On demand for architecture, planning or consequential design changes |
+| 18 implementation references | Source-derived API contracts, constraints, examples and specialist behavior | Only the guides needed for the task |
+
+The architecture guide is authored, source-grounded synthesis, not an official API quotation or a promise of runtime guarantees. Implementation references preserve the official contracts and their caveats. Read the architecture guide with selected implementation guides when design depends on exact capabilities. Multiple guides are appropriate for overlapping tasks; loading the entire corpus is not the default.
+
+The host discovers metadata first, loads the master when the skill activates, then follows its local routes. README and audit assets are supporting documentation, not additional entrypoints. Using the installed collection requires neither the original source snapshot nor a full Ax checkout or separately installed specialist skills. External documentation supplements local guidance; check installed package declarations and authoritative documentation when versions differ.
+
+## Installation and one active Ax master
 
 ```sh
 npx skills add PhilosophiMoonbeam/ax-skills
 ```
 
-When prompted to select a skill, choose `ax-skills` and the target agent host.
+When prompted, select **`ax-skills`** and the target agent host. This collection is intended to be the workspace's one active Ax master. Do not activate a duplicate official `ax-llm` entrypoint or separately registered specialists alongside it; inspect existing installations and deliberately choose which entrypoint remains active.
 
-The host discovers the name and description first, loads the master when an Ax task activates it, and loads the matching references on demand. Follow the master's boundaries when tasks overlap; do not load all references by default. Reference links are relative to the collection root. No separately installed Ax skills, original source files or full Ax library checkout are needed to use this collection. Remote documentation/example links are supplementary resources, not substitute local skill entrypoints.
+[Official installation guidance](https://axllm.dev/typescript/skills/) documents a separate upstream installation path. Installing `@ax-llm/ax` automatically sets up official `ax-llm` and its local guides in `.claude/skills` outside CI; it does not install this collection. To prevent duplicate setup:
 
-## Provenance and source snapshots
+- Set `AX_SKIP_SKILL_INSTALL=1` during package installation to skip that run.
+- Run `npx @ax-llm/ax skills-auto-install off` from the project root to save `ax.skills.autoInstall: false` in `package.json`; merge that setting before the first installation if needed. `skills-auto-install on` restores future automatic setup. CI and the environment opt-out take precedence.
+- These preferences do not remove existing skills. Manual `npx @ax-llm/ax setup-claude` still works when automatic setup is disabled; `--all` registers specialists separately. Upstream documents `remove-claude` followed by `setup-claude` for migrating an older official full installation to its official single entrypoint. Do not run that migration merely to install this collection; review existing files before intentional removal or replacement.
 
-The conversion inputs are the 18 copied `.agents/skills/ax*/SKILL.md` files in this repository. They remain provenance and semantic-audit inputs, not production aliases. The current refresh follows upstream snapshot commit `83f7000`, compared with `5fdf5c3`; it leaves those imported files and `skills-lock.json` untouched. Source frontmatter records `25.4.1` for 17 inputs; `ax-event-runtime` remains unchanged and unversioned. These are documented source snapshots, not guarantees about every package release or live provider. Use installed package declarations and authoritative documentation to resolve version differences.
+## Official bundle and local mapping
 
-The fixed map below is relative to this repository for sources and to this collection root for references. Each source maps to exactly one reference; the master routes directly to every reference.
+The preserved source snapshot is the complete **19-file official bundle** under `.agents/skills/ax-llm`, published for `@ax-llm/ax` 25.4.3 at upstream revision `818d15b02d57de8f215f6d2cb23bd3d3921a6e5e`. The [official index](https://ax-llm.github.io/ax/typescript/.well-known/agent-skills/index.json) identifies the [bundle archive](https://ax-llm.github.io/ax/typescript/.well-known/agent-skills/ax-llm/skill.tar.gz). The snapshot is provenance and audit input, not another production entrypoint.
 
-| Original source | Converted reference |
+Source paths below are relative to `.agents/skills/ax-llm`; destinations are relative to this collection. The bundle becomes one master plus 18 implementation references, supplemented by one authored architecture reference. The master directly links all 19 references.
+
+| Official source | Local destination |
 | --- | --- |
-| `.agents/skills/ax-llm/SKILL.md` | [references/llm.md](references/llm.md) |
-| `.agents/skills/ax-ai/SKILL.md` | [references/ai.md](references/ai.md) |
-| `.agents/skills/ax-audio/SKILL.md` | [references/audio.md](references/audio.md) |
-| `.agents/skills/ax-signature/SKILL.md` | [references/signature.md](references/signature.md) |
-| `.agents/skills/ax-gen/SKILL.md` | [references/gen.md](references/gen.md) |
-| `.agents/skills/ax-agent/SKILL.md` | [references/agent.md](references/agent.md) |
-| `.agents/skills/ax-agent-context/SKILL.md` | [references/agent-context.md](references/agent-context.md) |
-| `.agents/skills/ax-agent-memory-skills/SKILL.md` | [references/agent-memory-skills.md](references/agent-memory-skills.md) |
-| `.agents/skills/ax-agent-rlm/SKILL.md` | [references/agent-rlm.md](references/agent-rlm.md) |
-| `.agents/skills/ax-agent-observability/SKILL.md` | [references/agent-observability.md](references/agent-observability.md) |
-| `.agents/skills/ax-agent-optimize/SKILL.md` | [references/agent-optimize.md](references/agent-optimize.md) |
-| `.agents/skills/ax-flow/SKILL.md` | [references/flow.md](references/flow.md) |
-| `.agents/skills/ax-event-runtime/SKILL.md` | [references/event-runtime.md](references/event-runtime.md) |
-| `.agents/skills/ax-gepa/SKILL.md` | [references/gepa.md](references/gepa.md) |
-| `.agents/skills/ax-playbook/SKILL.md` | [references/playbook.md](references/playbook.md) |
-| `.agents/skills/ax-refine/SKILL.md` | [references/refine.md](references/refine.md) |
-| `.agents/skills/ax-mcp/SKILL.md` | [references/mcp.md](references/mcp.md) |
-| `.agents/skills/ax-typesafe/SKILL.md` | [references/typesafe.md](references/typesafe.md) |
+| `SKILL.md` | [SKILL.md](SKILL.md) and [references/llm.md](references/llm.md) |
+| `references/quickstart.md` | [references/llm.md](references/llm.md) |
+| `references/ax-ai.md` | [references/ai.md](references/ai.md) |
+| `references/ax-audio.md` | [references/audio.md](references/audio.md) |
+| `references/ax-signature.md` | [references/signature.md](references/signature.md) |
+| `references/ax-gen.md` | [references/gen.md](references/gen.md) |
+| `references/ax-agent.md` | [references/agent.md](references/agent.md) |
+| `references/ax-agent-context.md` | [references/agent-context.md](references/agent-context.md) |
+| `references/ax-agent-memory-skills.md` | [references/agent-memory-skills.md](references/agent-memory-skills.md) |
+| `references/ax-agent-rlm.md` | [references/agent-rlm.md](references/agent-rlm.md) |
+| `references/ax-agent-observability.md` | [references/agent-observability.md](references/agent-observability.md) |
+| `references/ax-agent-optimize.md` | [references/agent-optimize.md](references/agent-optimize.md) |
+| `references/ax-flow.md` | [references/flow.md](references/flow.md) |
+| `references/ax-event-runtime.md` | [references/event-runtime.md](references/event-runtime.md) |
+| `references/ax-gepa.md` | [references/gepa.md](references/gepa.md) |
+| `references/ax-playbook.md` | [references/playbook.md](references/playbook.md) |
+| `references/ax-refine.md` | [references/refine.md](references/refine.md) |
+| `references/ax-mcp.md` | [references/mcp.md](references/mcp.md) |
+| `references/ax-typesafe.md` | [references/typesafe.md](references/typesafe.md) |
+| Authored cross-subsystem synthesis; no one-to-one source | [references/architecture.md](references/architecture.md) |
 
-## Repository maintenance
+[Source manifest](assets/source-manifest.json) schema 2 records the source root, package/version, upstream commit, index/archive URLs and archive SHA-256. Every official Markdown member has a repository-relative source path, collection-relative destinations, SHA-256, original byte count and line count. `authored_references` distinguishes architecture synthesis from copied-source mappings. Archive and member hashes are the ongoing bundle provenance authority. `skills-lock.json` is installer-managed historical metadata: do not manually rewrite it to simulate synchronization.
 
-1. Run `bd prime` and `bd ready`; create or claim the relevant Beads issue before changing the collection. Record scope, provenance decisions and review findings in the issue rather than markdown task lists.
-2. Read `SKILLS_SPEC.md` and the affected source/reference sections. Preserve the originals and lock file. Change the mapped reference, update master routing when triggers or boundaries change, and update this guide when installation, provenance or maintenance changes.
-3. Keep one `SKILL.md`, named `ax-skills` in frontmatter. Keep its description within 1024 characters, its body below 500 lines and the recommended 5000 tokens, and all 18 root-relative reference links direct. References have no frontmatter and no additional skill entrypoints. They must remain usable without the originals or external skill-loading dependencies.
-4. Preserve actionable API shapes, constraints, options, edge cases, warnings, example intent and resource URLs. Consolidate genuine repetition rather than deleting distinct coverage to hit a size target. Do not silently upgrade snapshot APIs.
-5. After all edits land, an authorized integration owner runs structural validation and reviews disclosure routes. From the repository root, with Python 3 and the `skills-ref` CLI available, run:
+Two source conflicts remain explicit:
 
-   ```sh
-   python3 scripts/validate_ax_skills.py
-   skills-ref validate skills/ax-skills
-   ```
+- The provider overview excludes Jev media, while the Typesafe contract supports PNG/JPEG images. The collection follows the detailed image contract without treating the overview as evidence of broader media support.
+- Signature guidance places generated-language Box support in the AxIR backlog, while Typesafe guidance claims six-language availability. TypeScript Box guidance is available; inspect the target generated package before relying on another language's support.
 
-6. Separately review semantic coverage against the unchanged originals: structural validation alone cannot establish it. Resolve missing, incorrect, mixed or uncertain coverage findings, then repeat the full review after corrections. Exercise overlapping routing scenarios by loading the master and only the selected references; confirm the task requires neither original skills nor unrelated reference loading.
-7. Record actual validation commands/results and source snapshot evidence in the handoff and audit records. Add measured disclosure/size evidence only after measurement; do not claim coverage or efficiency from author estimates. Close the issue only after the integration owner completes its acceptance checks. Commit, push and remote sync require repository/user authorization.
+## Routine synchronization and integration
 
-The procedure above is reusable; the checked conversion snapshot below records observed results, not a guarantee for later edits.
+Track work in Beads: run `bd prime` and `bd ready`, then create or claim the relevant issue. Read `SKILLS_SPEC.md` and affected source/reference sections before editing. From the repository root:
 
-## Verified 25.4.1 refresh
+```sh
+python3 scripts/sync_ax_sources.py --check
+python3 scripts/sync_ax_sources.py --update
+```
 
-The upstream delta changes behavior in four skills (`ax-ai`, `ax-agent`, `ax-signature`, `ax-typesafe`) and version metadata in 13 others. The unversioned event-runtime source is unchanged.
+No argument means `--check`. Check mode is read-only and reports drift or invalid publication with a nonzero exit status. Explicit `--update` validates the official publication and updates only the preserved source snapshot and schema-2 manifest. It refuses unexpected local files, symlinks and managed source bytes modified relative to the manifest; preserve and resolve local changes rather than overwriting them. Neither mode installs skills, rewrites the lock file, integrates curated references or updates the semantic audit.
 
-- **Providers:** GPT-6.1 Sol reasoning, Responses routing, caching, pricing and Bedrock contracts; terminal incomplete-response status and per-stream usage; cumulative Anthropic input/cache/output accounting.
-- **Core agents:** multiple actor code fences reject the entire turn for text or structured JSON, with LF or CRLF.
-- **Signatures and decisions:** description escaping and round-trips; explicit ordered-score rubrics; `AxBox`/evidence geometry; Jev 1.14 PNG/JPEG localization, asset transport, model/header/image limits, presence checks, and provider-specific restrictions.
-- **Discovery:** the master routes image/Box, GPT-6.1, streaming-usage and actor-fence tasks directly to their owning references.
+Optional CLI arguments are `--repo PATH`, `--collection PATH`, `--index-url URL` and `--npm-url URL`. Publication URL overrides are explicitly trusted inputs, including local test fixtures; do not substitute untrusted endpoints. Exact snapshot/manifest agreement returns exit status 0; drift, invalid metadata/archive, unsafe paths and network/write errors return 1. Update returns 0 after a validated import or no-op; it is mutually exclusive with `--check`.
 
-Two upstream inconsistencies are explicit rather than silently propagated: the provider overview still excludes all Jev media, while the updated Typesafe contract adds PNG/JPEG images; the signature source places generated-language Box support in the AxIR backlog, while the Typesafe source claims six-language availability. The collection follows the updated image contract and preserves the unresolved language-parity disagreement. TypeScript Box guidance is complete; inspect the generated package before relying on Box in another language.
+A successful download or source update is not acceptance. After each update:
 
-### Coverage and provenance
+1. Integrate every relevant source change into the mapped implementation references, preserving actionable API shapes, constraints, defaults, edge cases, warnings, example intent and resource URLs. Remove obsolete claims rather than adding compatibility prose for superseded snapshots.
+2. Review the master and architecture guide for changed capabilities, decision boundaries and cross-guide routes. A source or code update does not silently certify existing architectural insights.
+3. Refresh current audit evidence against the final source and collection bytes. Changed source, references or master invalidate corresponding earlier evidence.
+4. Have the integration owner perform the acceptance procedure below after all edits land. Record observed commands/results and close the issue only after acceptance. Commit, push and remote synchronization require authorization.
 
-The current audit partitions all 7,864 source lines into 337 sections across all 18 Ax skills. One non-Ax skill (`beads`) is excluded. [The source manifest](assets/source-manifest.json) records current source hashes; [the coverage audit](assets/coverage-audit.json) records exact comparison spans, current reference hashes, all verdicts, manual resolutions, metrics, and exercised checks. These supporting assets are not activation instructions and should not be preloaded.
+Keep one `SKILL.md`, with frontmatter name `ax-skills`, description within 1024 characters, body below 500 lines and the recommended 5000 tokens. References have no frontmatter or additional skill entrypoints. Keep all reference routes local, direct and usable without the provenance snapshot.
 
-The final full-corpus pass returned 332 covered, two low-confidence missing, and three organizational verdicts, with no errors or truncations. Manual review resolves all 53 final escalations: the two missing verdicts concern unchanged retrieval batching/child-callback ownership and RLM defaults already present in canonical sections. Seven source sections are heading-only, regardless of their raw model bucket. All 337 sections are accounted for: 330 semantic units and seven organizational units; no unresolved coverage defects. The upgrade introduced no flagged density regressions.
+## Acceptance and evidence
 
-The audit first used a whole-reference density question, then invalidated that rubric and re-judged every section with an explicit upgrade-regression baseline. Two complete passes under the replacement rubric cover the actual final snapshot. Historical conversion evidence remains retrievable from the preceding Git snapshot; old hashes and verdicts are not relabeled as current evidence.
+Structural validation and semantic/design review answer different questions. The integration owner runs the following after integration, with Python 3 and `skills-ref` available:
 
-### Instruction and disclosure size
+```sh
+python3 scripts/sync_ax_sources.py --check
+python3 scripts/validate_ax_skills.py
+skills-ref validate skills/ax-skills
+```
 
-Counts use `cl100k_base` with `tiktoken` 0.14.0, not a claim about every host's tokenizer. Supporting README/audit assets are excluded from instruction counts.
+Exercise sync/validator behavior tests and host discovery/disclosure smoke checks as well. Inspect the actual master and selected local guides, not just route labels. These are acceptance instructions, not claims that this revision has passed them.
 
-| Load | Tokens |
+The final **original-versus-new full semantic coverage review** must cover all 19 official source files against the final master and mapped references. Account for every semantic unit and organizational section; resolve missing, incorrect, uncertain or conflicting findings, then repeat the full review after corrections. Check exact contracts and preserved warnings, not keyword presence.
+
+Separately exercise pre-development design and implementation scenarios: select generation versus agents versus flows versus event resumption; assign context/state and side-effect ownership; choose retrieval versus compaction versus optimization; then implement cross-cutting tasks such as agent + MCP, provider + structured outputs, audio + generation, and event-driven agent/flow resumption using only the master and selected guides. Review architecture synthesis for source grounding, explicit assumptions and unsupported guarantees. Verify narrow tasks do not require unrelated guides and overlapping tasks can load several.
+
+[Coverage audit](assets/coverage-audit.json) holds current review evidence only for the source and destination hashes it identifies. Record actual methods, verdicts, resolutions, scenario results and exercised gates; do not relabel historical verdicts as current. The prior 25.4.1 audit, manifest and measurements remain historical Git objects, for example `4cd9d844:skills/ax-skills/assets/coverage-audit.json` and `4cd9d844:skills/ax-skills/README.md` (inspect with `git show`). They do not certify the 25.4.3 bundle or authored architecture guide.
+
+Aggregate corpus compression is not task-level quality. A smaller complete collection can still omit a critical constraint, make a poor architectural choice or load irrelevant guides. Evaluate semantic completeness, design correctness and actual selected-guide disclosure separately. Report size/token measurements only with the measured snapshot, tokenizer and load composition; no density percentage or historical token count establishes current acceptance. Documentation checks do not certify live provider behavior, generated-language parity or application correctness.
+
+## Verified foundation snapshot
+
+The 25.4.3 foundation review covers all 7,817 official source lines in 324 sections: 307 covered units, four explicitly curated source-disagreement units and 13 organizational units. Manual review resolves both automatic missing-coverage findings against existing canonical retrieval rules and context-preset recommendations. All 29 source escalations and both density escalations are resolved; no current coverage defect remains. The audit records the superseded combined coverage/density framing separately from the accepted current-only comparison.
+
+Fifteen architectural scenarios have documented support, and all 38 first-disclosure scenarios select their expected destinations: 15 design-first and 23 direct implementation routes. Selected files were loaded from the actual collection. These checks and independent source-grounding review establish documentary support and disclosure behavior, not a production model-quality improvement.
+
+Observed gates passed: the live official source check; 13 isolated sync regressions; structural validation; `skills-ref validate` and `to-prompt`; and list-only Skills CLI discovery. Five additional isolated CLI scenarios exercise drift, update, subsequent check, no-op and local-edit refusal while preserving curated references, audit and lock data. Ten validator fixtures exercise valid input and malformed links, provenance, inventory, entrypoints, fences and authored-reference paths.
+
+| Instruction load | Tokens |
 | --- | ---: |
-| All current original skill instructions, including frontmatter | 88,565 |
-| All converted references | 80,579 |
-| Unified master, including frontmatter | 1,890 |
-| Unified master plus all references | 82,469 |
-| Master plus smallest selected reference | 2,675 |
-| Master plus largest selected reference | 17,151 |
+| Master, including metadata | 1,805 |
+| Architecture guide | 5,725 |
+| Master plus architecture guide | 7,530 |
+| All implementation references | 80,778 |
 
-References use 9.02% fewer tokens than current original instructions; including the master, the reduction is 6.88%. Selective disclosure is the main saving: load only relevant references. Multiple-topic tasks can legitimately require more than one.
-
-### Exercised verification
-
-- `skills-ref validate`, `read-properties`, and `to-prompt` validate and expose the actual single skill entrypoint.
-- `npx --yes skills add ./skills/ax-skills --list` discovers the local updated collection as one skill without installing it.
-- `python3 scripts/validate_ax_skills.py` checks source hashes, exact reference inventory, direct links, local targets/fragments, frontmatter, and fences.
-- Nine isolated validator smoke cases exercise valid input, missing target, missing fragment, changed source hash, obsolete skill loading, obsolete skill URI, allowed package/negative dependency prose, path escape, and unclosed fence.
-- Twenty-three semantic routing scenarios cover every existing topic plus the new provider, usage, image/Box, escaping and actor-fence guidance; each selected file is then loaded from the actual collection. An initial actor-fence misroute was corrected in the master and the entire routing set repeated.
-
-No live provider calls or Ax package examples were executed. This is a verified documentation/disclosure refresh, not a live endpoint or generated-language compatibility certification. Re-run structural checks and semantic review after instructional changes.
+Counts use `cl100k_base` with `tiktoken` 0.14.0; supporting README and JSON assets are excluded. The master is smaller than the preceding maintained master despite adding architectural orientation. The new design guide adds instructional coverage; do not interpret aggregate size as equal-coverage compression or measured application quality. No live provider, audio or generated-language compatibility check was performed. Re-run acceptance after any source or instructional change.

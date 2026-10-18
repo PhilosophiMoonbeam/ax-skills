@@ -1,6 +1,6 @@
 # AI providers, models, and runtime configuration
 
-Use for `ai()`, deployment profiles, model catalogs/presets, routing and balancing, embeddings, thinking, service tiers, caching, cancellation, and provider-specific request contracts. Prefer short copyable code, not tutorial prose unless requested. Source API snapshot: 25.4.1. Audio task-specific detail belongs in [audio](references/audio.md); signature design in [signatures](references/signature.md); agent/runtime design is outside this reference.
+Use for `ai()`, deployment profiles, model catalogs/presets, routing and balancing, embeddings, thinking, service tiers, caching, cancellation, and provider-specific request contracts. Prefer short copyable code, not tutorial prose unless requested. Source API snapshot: 25.4.3. Audio task-specific detail belongs in [audio](references/audio.md); signature design in [signatures](references/signature.md); agent/runtime design is outside this reference.
 
 ## Factory and deployment profiles
 
@@ -192,6 +192,8 @@ Choose the primitive by responsibility:
 - `AxProviderRouter` selects a provider by request capability and may degrade unsupported media through configured processors. When the selected provider supports images natively, each image remains an image object with its payload, MIME type, detail level, cache and optimization hints, alt text, and ordering with surrounding text intact.
 - `AxBalancer` without a strategy orders equivalent services once with a comparator, retries transient provider failures, and fails over in that order.
 - `AxBalancer` with `strategy.type: 'adaptive'` selects among services exposing the same logical model aliases using learned provider reliability, successful latency, and estimated cost.
+
+In TypeScript, `capabilities.requiresAudioOutput` or `modelConfig.audio.output.enabled` requires a service with `media.audio.output.supported`. Audio input and output are separate requirements. Balancer output formats come only from children that support output; compatibility reports count requested input and output independently.
 
 Adaptive balancing is operational routing, not semantic prompt-to-model routing. Every provider model behind an alias must be an acceptable substitute for that application. Keep quality evaluation and content-aware model selection outside the balancer.
 

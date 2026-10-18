@@ -1,6 +1,6 @@
 # AxGen execution, streaming, and validation
 
-Use for `ax()`, `AxGen`, `forward()`, `streamingForward()`, structured outputs, assertions, processors, hooks, and self-tuning. Source snapshot: Ax 25.4.1. Prefer short, modern, copyable code; add tutorial prose only when requested. Use [signature reference](references/signature.md) for field contracts, [AI reference](references/ai.md) for providers, [refine reference](references/refine.md) for reward-scored selection, [MCP reference](references/mcp.md) for MCP construction/transports/prompts/resources/tools/tasks/subscriptions/authentication/events, and [event runtime reference](references/event-runtime.md) for wake/resume routing.
+Use for `ax()`, `AxGen`, `forward()`, `streamingForward()`, structured outputs, assertions, processors, hooks, and self-tuning. Source snapshot: Ax 25.4.3. Prefer short, modern, copyable code; add tutorial prose only when requested. Use [signature reference](references/signature.md) for field contracts, [AI reference](references/ai.md) for providers, [refine reference](references/refine.md) for reward-scored selection, [MCP reference](references/mcp.md) for MCP construction/transports/prompts/resources/tools/tasks/subscriptions/authentication/events, and [event runtime reference](references/event-runtime.md) for wake/resume routing.
 
 ## Construction and execution defaults
 
@@ -144,6 +144,7 @@ for await (const chunk of stream) {
 
 - Chunks are `{ version, index, delta }`. Merge per `index`: append strings/arrays; replace other values. Reset accumulated output when `version` changes.
 - Versions never decrease. Validation/refusal retries and later steps replacing already-emitted output (such as processor feedback) start a new version; thought accumulated so far is re-emitted.
+- In TypeScript, partial JSON repair preserves string text such as `, t`, `, n`, trailing punctuation, and commas before brackets inside strings. Structural repair applies outside strings so these fragments do not change into literals or repeat in merged deltas.
 - Streamed `code` drops fences regardless of chunk split. Incomplete possible fences and partial labels are held back so merged deltas equal non-streaming values.
 - Deltas never end in half a surrogate pair: a trailing high surrogate waits for its low half.
 - Error/token-limit terminal results are rejected even if the final chunk is empty and earlier chunks already form valid output.

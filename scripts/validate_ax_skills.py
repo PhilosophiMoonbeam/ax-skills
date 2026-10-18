@@ -25,11 +25,16 @@ TOPICS = (
     "agent-optimize", "agent-rlm", "ai", "audio", "event-runtime", "flow",
     "gen", "gepa", "llm", "mcp", "playbook", "refine", "signature", "typesafe",
 )
-SOURCE_GLOB = ".agents/skills/ax*/SKILL.md"
+SOURCE_ROOT = ".agents/skills/ax-llm"
 EXPECTED = {
-    f".agents/skills/ax-{topic}/SKILL.md": f"references/{topic}.md"
-    for topic in TOPICS
+    f"{SOURCE_ROOT}/SKILL.md": ("SKILL.md", "references/llm.md"),
+    f"{SOURCE_ROOT}/references/quickstart.md": ("references/llm.md",),
+    **{
+        f"{SOURCE_ROOT}/references/ax-{topic}.md": (f"references/{topic}.md",)
+        for topic in TOPICS if topic != "llm"
+    },
 }
+AUTHORED_REFERENCES = {"references/architecture.md"}
 OLD_NAMES = r"(?<![\w@/.-])ax-(?:" + "|".join(sorted(TOPICS, key=len, reverse=True)) + r")(?![\w/-]|\.[\w])"
 OLD_PATH = re.compile(
     r"(?<![\w@.-])(?:skill://ax-[\w-]+(?![\w-])|"
@@ -367,8 +372,16 @@ class Validator:
         return candidate
 
     def read_json(self, path):
+        def unique(pairs):
+            result = {}
+            for key, value in pairs:
+                if key in result:
+                    raise ValueError(f"duplicate JSON key {key!r}")
+                result[key] = value
+            return result
+
         try:
-            return json.loads(path.read_text(encoding='utf-8'))
+            return json.loads(path.read_text(encoding='utf-8'), object_pairs_hook=unique)
         except (OSError, UnicodeError, ValueError) as exc:
             self.error(f"{path}: cannot read JSON: {exc}")
             return None
@@ -378,34 +391,75 @@ class Validator:
         if not isinstance(data, dict):
             self.error("source manifest must be a JSON object")
             return set()
-        if data.get('schema_version') != 1 or data.get('source_glob') != SOURCE_GLOB:
-            self.error("source manifest must use schema_version 1 and the frozen source_glob")
+        if set(data) != {'schema_version', 'source_root', 'upstream', 'sources', 'authored_references'}:
+            self.error("source manifest must contain exactly the schema 2 fields")
+        if type(data.get('schema_version')) is not int or data.get('schema_version') != 2 or data.get('source_root') != SOURCE_ROOT:
+            self.error("source manifest must use schema_version 2 and the frozen source_root")
+        upstream = data.get('upstream')
+        upstream_fields = {'package', 'version', 'git_commit', 'index_url', 'archive_url', 'archive_sha256'}
+        if not isinstance(upstream, dict) or set(upstream) != upstream_fields:
+            self.error("source manifest upstream must contain the complete publication identity")
+        else:
+            if upstream['package'] != '@ax-llm/ax':
+                self.error("source manifest upstream package must be @ax-llm/ax")
+            for field, pattern in (
+                ('version', r'\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?'),
+                ('git_commit', r'[0-9a-f]{40}'),
+                ('archive_sha256', r'[0-9a-f]{64}'),
+            ):
+                if not isinstance(upstream[field], str) or not re.fullmatch(pattern, upstream[field]):
+                    self.error(f"source manifest upstream {field} is invalid")
+            for field in ('index_url', 'archive_url'):
+                try:
+                    parts = urlsplit(upstream[field]) if isinstance(upstream[field], str) else None
+                    if not parts or parts.scheme not in ('https', 'http') or not parts.netloc or parts.username or parts.password or parts.fragment:
+                        raise ValueError("expected an absolute HTTP(S) URL without credentials or fragment")
+                except ValueError as exc:
+                    self.error(f"source manifest upstream {field}: {exc}")
+        authored = data.get('authored_references')
+        if not isinstance(authored, list) or any(not isinstance(path, str) for path in authored):
+            self.error("source manifest authored_references must be an array of paths")
+        else:
+            if len(authored) != len(set(authored)):
+                self.error("source manifest authored_references contains duplicate paths")
+            self.compare_sets('authored references', AUTHORED_REFERENCES, set(authored))
         entries = data.get('sources')
         if not isinstance(entries, list):
             self.error("source manifest sources must be an array")
             return set()
         seen, destinations = set(), set()
+        entry_fields = {'source', 'destinations', 'sha256', 'original_bytes', 'original_lines'}
         for index, entry in enumerate(entries, 1):
             label = f"source manifest entry {index}"
             if not isinstance(entry, dict):
                 self.error(f"{label}: expected an object")
                 continue
-            source, destination = entry.get('source'), entry.get('destination')
+            if set(entry) != entry_fields:
+                self.error(f"{label}: expected exactly the schema 2 source fields")
+            source, targets = entry.get('source'), entry.get('destinations')
             if not isinstance(source, str) or source not in EXPECTED:
                 self.error(f"{label}: unexpected source {source!r}")
                 continue
             if source in seen:
                 self.error(f"{label}: duplicate source {source}")
             seen.add(source)
-            if destination != EXPECTED[source]:
-                self.error(f"{label}: destination must be {EXPECTED[source]!r}, got {destination!r}")
-            if isinstance(destination, str):
-                if destination in destinations:
+            expected_targets = list(EXPECTED[source])
+            if targets != expected_targets:
+                self.error(f"{label}: destinations must be {expected_targets!r}, got {targets!r}")
+            if not isinstance(targets, list):
+                continue
+            target_seen = set()
+            for destination in targets:
+                if not isinstance(destination, str):
+                    self.error(f"{label}: destination must be a path string")
+                    continue
+                if destination in target_seen:
                     self.error(f"{label}: duplicate destination {destination}")
+                target_seen.add(destination)
                 destinations.add(destination)
-            target = self.inside(self.collection, destination, label)
-            if target and not target.is_file():
-                self.error(f"{label}: missing destination {destination}")
+                target = self.inside(self.collection, destination, label)
+                if target and not target.is_file():
+                    self.error(f"{label}: missing destination {destination}")
             original = self.inside(self.repo, source, label)
             if original is None:
                 continue
@@ -424,13 +478,40 @@ class Validator:
             for field, value in actual.items():
                 if type(entry.get(field)) is not type(value) or entry.get(field) != value:
                     self.error(f"{source}: source preservation mismatch for {field}: expected {entry.get(field)!r}, got {value!r}")
+            if source == f'{SOURCE_ROOT}/SKILL.md' and isinstance(upstream, dict):
+                try:
+                    metadata, _ = frontmatter(content.decode('utf-8').splitlines())
+                except (ValueError, TypeError, UnicodeError) as exc:
+                    self.error(f"official master has invalid frontmatter: {exc}")
+                    metadata = {}
+                if metadata.get('version') != upstream.get('version'):
+                    self.error("source manifest upstream version differs from the official master version")
         self.compare_sets('manifest sources', set(EXPECTED), seen)
-        actual_sources = {p.relative_to(self.repo).as_posix() for p in self.repo.glob(SOURCE_GLOB)}
+        source_root = self.repo / SOURCE_ROOT
+        actual_sources = set()
+        if any(path.is_symlink() for path in (source_root, source_root.parent, source_root.parent.parent)):
+            self.error("original source root and its ancestors must not be symlinks")
+        for path in source_root.rglob('*'):
+            relative = path.relative_to(self.repo).as_posix()
+            if path.is_symlink():
+                self.error(f"original source inventory: symlink is not allowed: {relative}")
+            elif path.is_file():
+                actual_sources.add(relative)
+            elif path.is_dir():
+                if path != source_root / 'references':
+                    self.error(f"original source inventory: unexpected directory {relative}")
+            else:
+                self.error(f"original source inventory: unsupported file type {relative}")
         self.compare_sets('original source inventory', set(EXPECTED), actual_sources)
         references = self.collection / 'references'
         actual_references = {p.relative_to(self.collection).as_posix() for p in references.rglob('*') if p.is_file()}
-        self.compare_sets('reference inventory', set(EXPECTED.values()), actual_references)
-        return destinations
+        expected_references = {target for targets in EXPECTED.values() for target in targets if target != 'SKILL.md'} | AUTHORED_REFERENCES
+        self.compare_sets('reference inventory', expected_references, actual_references)
+        for destination in AUTHORED_REFERENCES:
+            target = self.inside(self.collection, destination, 'authored reference')
+            if target and not target.is_file():
+                self.error(f"authored reference: missing destination {destination}")
+        return (destinations - {'SKILL.md'}) | AUTHORED_REFERENCES
 
     def compare_sets(self, label, expected, actual):
         for missing in sorted(expected - actual):
