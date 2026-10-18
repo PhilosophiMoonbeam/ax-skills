@@ -10,8 +10,8 @@ The collection has three instruction layers:
 
 | Layer | Purpose | Loading |
 | --- | --- | --- |
-| [Master](SKILL.md) | Capability orientation, safety/authorization policy, design-first routing and implementation routes | Always retained when this skill is active |
-| [Architecture guide](references/architecture.md) | Cross-subsystem design decisions, trade-offs and handoff to implementation | On demand for architecture, planning or consequential design changes |
+| [Master](skills/ax-skills/SKILL.md) | Capability orientation, safety/authorization policy, design-first routing and implementation routes | Always retained when this skill is active |
+| [Architecture guide](skills/ax-skills/references/architecture.md) | Cross-subsystem design decisions, trade-offs and handoff to implementation | On demand for architecture, planning or consequential design changes |
 | 18 implementation references | Source-derived API contracts, constraints, examples and specialist behavior | Only the guides needed for the task |
 
 The architecture guide is authored, source-grounded synthesis, not an official API quotation or a promise of runtime guarantees. Implementation references preserve the official contracts and their caveats. Read the architecture guide with selected implementation guides when design depends on exact capabilities. Multiple guides are appropriate for overlapping tasks; loading the entire corpus is not the default.
@@ -36,32 +36,32 @@ When prompted, select **`ax-skills`** and the target agent host. This collection
 
 The preserved source snapshot is the complete **19-file official bundle** under `.agents/skills/ax-llm`, published for `@ax-llm/ax` 25.4.3 at upstream revision `818d15b02d57de8f215f6d2cb23bd3d3921a6e5e`. The [official index](https://ax-llm.github.io/ax/typescript/.well-known/agent-skills/index.json) identifies the [bundle archive](https://ax-llm.github.io/ax/typescript/.well-known/agent-skills/ax-llm/skill.tar.gz). The snapshot is provenance and audit input, not another production entrypoint.
 
-Source paths below are relative to `.agents/skills/ax-llm`; destinations are relative to this collection. The bundle becomes one master plus 18 implementation references, supplemented by one authored architecture reference. The master directly links all 19 references.
+Source paths below are relative to `.agents/skills/ax-llm`; destination labels are relative to `skills/ax-skills/`, and links resolve from this repository root. The bundle becomes one master plus 18 implementation references, supplemented by one authored architecture reference. The master directly links all 19 references.
 
 | Official source | Local destination |
 | --- | --- |
-| `SKILL.md` | [SKILL.md](SKILL.md) and [references/llm.md](references/llm.md) |
-| `references/quickstart.md` | [references/llm.md](references/llm.md) |
-| `references/ax-ai.md` | [references/ai.md](references/ai.md) |
-| `references/ax-audio.md` | [references/audio.md](references/audio.md) |
-| `references/ax-signature.md` | [references/signature.md](references/signature.md) |
-| `references/ax-gen.md` | [references/gen.md](references/gen.md) |
-| `references/ax-agent.md` | [references/agent.md](references/agent.md) |
-| `references/ax-agent-context.md` | [references/agent-context.md](references/agent-context.md) |
-| `references/ax-agent-memory-skills.md` | [references/agent-memory-skills.md](references/agent-memory-skills.md) |
-| `references/ax-agent-rlm.md` | [references/agent-rlm.md](references/agent-rlm.md) |
-| `references/ax-agent-observability.md` | [references/agent-observability.md](references/agent-observability.md) |
-| `references/ax-agent-optimize.md` | [references/agent-optimize.md](references/agent-optimize.md) |
-| `references/ax-flow.md` | [references/flow.md](references/flow.md) |
-| `references/ax-event-runtime.md` | [references/event-runtime.md](references/event-runtime.md) |
-| `references/ax-gepa.md` | [references/gepa.md](references/gepa.md) |
-| `references/ax-playbook.md` | [references/playbook.md](references/playbook.md) |
-| `references/ax-refine.md` | [references/refine.md](references/refine.md) |
-| `references/ax-mcp.md` | [references/mcp.md](references/mcp.md) |
-| `references/ax-typesafe.md` | [references/typesafe.md](references/typesafe.md) |
-| Authored cross-subsystem synthesis; no one-to-one source | [references/architecture.md](references/architecture.md) |
+| `SKILL.md` | [SKILL.md](skills/ax-skills/SKILL.md) and [references/llm.md](skills/ax-skills/references/llm.md) |
+| `references/quickstart.md` | [references/llm.md](skills/ax-skills/references/llm.md) |
+| `references/ax-ai.md` | [references/ai.md](skills/ax-skills/references/ai.md) |
+| `references/ax-audio.md` | [references/audio.md](skills/ax-skills/references/audio.md) |
+| `references/ax-signature.md` | [references/signature.md](skills/ax-skills/references/signature.md) |
+| `references/ax-gen.md` | [references/gen.md](skills/ax-skills/references/gen.md) |
+| `references/ax-agent.md` | [references/agent.md](skills/ax-skills/references/agent.md) |
+| `references/ax-agent-context.md` | [references/agent-context.md](skills/ax-skills/references/agent-context.md) |
+| `references/ax-agent-memory-skills.md` | [references/agent-memory-skills.md](skills/ax-skills/references/agent-memory-skills.md) |
+| `references/ax-agent-rlm.md` | [references/agent-rlm.md](skills/ax-skills/references/agent-rlm.md) |
+| `references/ax-agent-observability.md` | [references/agent-observability.md](skills/ax-skills/references/agent-observability.md) |
+| `references/ax-agent-optimize.md` | [references/agent-optimize.md](skills/ax-skills/references/agent-optimize.md) |
+| `references/ax-flow.md` | [references/flow.md](skills/ax-skills/references/flow.md) |
+| `references/ax-event-runtime.md` | [references/event-runtime.md](skills/ax-skills/references/event-runtime.md) |
+| `references/ax-gepa.md` | [references/gepa.md](skills/ax-skills/references/gepa.md) |
+| `references/ax-playbook.md` | [references/playbook.md](skills/ax-skills/references/playbook.md) |
+| `references/ax-refine.md` | [references/refine.md](skills/ax-skills/references/refine.md) |
+| `references/ax-mcp.md` | [references/mcp.md](skills/ax-skills/references/mcp.md) |
+| `references/ax-typesafe.md` | [references/typesafe.md](skills/ax-skills/references/typesafe.md) |
+| Authored cross-subsystem synthesis; no one-to-one source | [references/architecture.md](skills/ax-skills/references/architecture.md) |
 
-[Source manifest](assets/source-manifest.json) schema 2 records the source root, package/version, upstream commit, index/archive URLs and archive SHA-256. Every official Markdown member has a repository-relative source path, collection-relative destinations, SHA-256, original byte count and line count. `authored_references` distinguishes architecture synthesis from copied-source mappings. Archive and member hashes are the ongoing bundle provenance authority. `skills-lock.json` is installer-managed historical metadata: do not manually rewrite it to simulate synchronization.
+[Source manifest](skills/ax-skills/assets/source-manifest.json) schema 2 records the source root, package/version, upstream commit, index/archive URLs and archive SHA-256. Every official Markdown member has a repository-relative source path, collection-relative destinations, SHA-256, original byte count and line count. `authored_references` distinguishes architecture synthesis from copied-source mappings. Archive and member hashes are the ongoing bundle provenance authority. `skills-lock.json` is installer-managed historical metadata: do not manually rewrite it to simulate synchronization.
 
 Two source conflicts remain explicit:
 
@@ -106,7 +106,7 @@ The final **original-versus-new full semantic coverage review** must cover all 1
 
 Separately exercise pre-development design and implementation scenarios: select generation versus agents versus flows versus event resumption; assign context/state and side-effect ownership; choose retrieval versus compaction versus optimization; then implement cross-cutting tasks such as agent + MCP, provider + structured outputs, audio + generation, and event-driven agent/flow resumption using only the master and selected guides. Review architecture synthesis for source grounding, explicit assumptions and unsupported guarantees. Verify narrow tasks do not require unrelated guides and overlapping tasks can load several.
 
-[Coverage audit](assets/coverage-audit.json) holds current review evidence only for the source and destination hashes it identifies. Record actual methods, verdicts, resolutions, scenario results and exercised gates; do not relabel historical verdicts as current. The prior 25.4.1 audit, manifest and measurements remain historical Git objects, for example `4cd9d844:skills/ax-skills/assets/coverage-audit.json` and `4cd9d844:skills/ax-skills/README.md` (inspect with `git show`). They do not certify the 25.4.3 bundle or authored architecture guide.
+[Coverage audit](skills/ax-skills/assets/coverage-audit.json) holds current review evidence only for the source and destination hashes it identifies. Record actual methods, verdicts, resolutions, scenario results and exercised gates; do not relabel historical verdicts as current. The prior 25.4.1 audit, manifest and measurements remain historical Git objects, for example `4cd9d844:skills/ax-skills/assets/coverage-audit.json` and `4cd9d844:skills/ax-skills/README.md` (inspect with `git show`). They do not certify the 25.4.3 bundle or authored architecture guide.
 
 Aggregate corpus compression is not task-level quality. A smaller complete collection can still omit a critical constraint, make a poor architectural choice or load irrelevant guides. Evaluate semantic completeness, design correctness and actual selected-guide disclosure separately. Report size/token measurements only with the measured snapshot, tokenizer and load composition; no density percentage or historical token count establishes current acceptance. Documentation checks do not certify live provider behavior, generated-language parity or application correctness.
 
