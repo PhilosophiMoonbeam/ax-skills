@@ -34,7 +34,7 @@ When prompted, select **`ax-skills`** and the target agent host. This collection
 
 ## Official bundle and local mapping
 
-The preserved source snapshot is the complete **19-file official bundle** under `.agents/skills/ax-llm`, published for `@ax-llm/ax` 25.4.3 at upstream revision `818d15b02d57de8f215f6d2cb23bd3d3921a6e5e`. The [official index](https://ax-llm.github.io/ax/typescript/.well-known/agent-skills/index.json) identifies the [bundle archive](https://ax-llm.github.io/ax/typescript/.well-known/agent-skills/ax-llm/skill.tar.gz). The snapshot is provenance and audit input, not another production entrypoint.
+The local reference snapshot is the complete **19-file official bundle** under `.agents/skills/ax-llm`, published for `@ax-llm/ax` 25.4.3 at upstream revision `818d15b02d57de8f215f6d2cb23bd3d3921a6e5e`. The [official index](https://ax-llm.github.io/ax/typescript/.well-known/agent-skills/index.json) identifies the [bundle archive](https://ax-llm.github.io/ax/typescript/.well-known/agent-skills/ax-llm/skill.tar.gz). The entire `.agents/skills/` directory, including official references and local tooling skills such as Beads, is ignored and untracked. Only `skills/ax-skills/` is the published skill collection; local caches are provenance/tooling inputs, not distribution entrypoints.
 
 Source paths below are relative to `.agents/skills/ax-llm`; destination labels are relative to `skills/ax-skills/`, and links resolve from this repository root. The bundle becomes one master plus 18 implementation references, supplemented by one authored architecture reference. The master directly links all 19 references.
 
@@ -71,6 +71,8 @@ Two source conflicts remain explicit:
 ## Routine synchronization and integration
 
 Track work in Beads: run `bd prime` and `bd ready`, then create or claim the relevant issue. Read `SKILLS_SPEC.md` and affected source/reference sections before editing. From the repository root:
+
+Maintainer checks require the local `.agents/skills/ax-llm` reference cache. A fresh clone does not include it: restore the exact official archive identified by the source manifest before running source synchronization or structural validation. The sync helper checks or updates an existing snapshot; it does not bootstrap a missing cache. Installed-skill users need none of these local inputs.
 
 ```sh
 python3 scripts/sync_ax_sources.py --check
