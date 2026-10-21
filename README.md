@@ -21,7 +21,7 @@ The host discovers metadata first, loads the master when the skill activates, th
 ## Installation and one active Ax master
 
 ```sh
-npx skills add PhilosophiMoonbeam/ax-skills
+npx skills@latest add https://github.com/PhilosophiMoonbeam/ax-skills/tree/main/skills/ax-skills
 ```
 
 When prompted, select **`ax-skills`** and the target agent host. This collection is intended to be the workspace's one active Ax master. Do not activate a duplicate official `ax-llm` entrypoint or separately registered specialists alongside it; inspect existing installations and deliberately choose which entrypoint remains active.
