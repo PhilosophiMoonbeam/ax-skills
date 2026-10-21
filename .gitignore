@@ -8,6 +8,3 @@
 
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
-
-# Local reference and tooling skills; publish only skills/ax-skills/.
-/.agents/skills/
