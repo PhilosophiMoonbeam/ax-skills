@@ -2,7 +2,7 @@
 
 Use this guide to choose an architecture, justify rejected alternatives and produce an implementation reading plan before writing code. For a narrow API change, use the owning reference directly.
 
-This is **authored synthesis** grounded in the collection's official `@ax-llm/ax` **25.4.5** snapshots, not an additional upstream API contract. “Recommend” identifies application design guidance; statements about Ax behavior have specialist destinations below. Check the installed version and declarations before implementation. These TypeScript contracts do not establish universal generated-language parity.
+This is **authored synthesis** grounded in the collection's official `@ax-llm/ax` **25.4.6** snapshots, not an additional upstream API contract. “Recommend” identifies application design guidance; statements about Ax behavior have specialist destinations below. Check the installed version and declarations before implementation. These TypeScript contracts do not establish universal generated-language parity.
 
 ## 1. Define the Design Deliverable
 
@@ -51,11 +51,13 @@ AxAgent runs distiller → executor → responder, but `directResponse: 'auto'` 
 
 | Provider choice | Design obligation | Specialist destination |
 | --- | --- | --- |
-| Provider/model/catalog | Check operation availability, structured output, tools, media input **and output**, thinking, runtime and deployment restrictions. Bundled catalogs/pricing are snapshots, not live guarantees. | [AI providers: Model Catalog](references/ai.md#model-catalog) and provider-specific sections |
+| Provider/model/catalog | Check the deployment profile and operation as well as model ID: structured output, tools, media input **and output**, thinking and runtime restrictions depend on that combination. Bundled catalogs/pricing are snapshots, not live guarantees. | [AI providers: Model Catalog](references/ai.md#model-catalog) and provider-specific sections |
 | Caller-selected logical model | `AxMultiServiceRouter` dispatches the selected key; it does not decide which model a task needs. | [AI providers: Routing And Balancing](references/ai.md#routing-and-balancing) |
 | Request-capability selection | `AxProviderRouter` selects by capability; configured processors may degrade unsupported media. Compatibility reports rank providers and report supported/missing capabilities, including independent audio input/output counts; they do not measure semantic quality. Decide whether degraded input still satisfies the task. | [AI providers: Routing And Balancing](references/ai.md#routing-and-balancing) |
 | Equivalent operational substitutes | `AxBalancer` provides ordered failover or adaptive reliability/latency/estimated-cost selection. Every model behind an alias must be acceptable for this workload. Quality evaluation/content-aware selection is application-owned, not semantic balancing. | [AI providers: Routing And Balancing](references/ai.md#routing-and-balancing) |
 | Streaming fallback | Failover can occur before the first emitted chunk; partial output cannot be transparently replayed after emission. Define UI failure/reset behavior. | [AI providers: Routing And Balancing](references/ai.md#routing-and-balancing); [Generators: Streaming output and replacement versions](references/gen.md#streaming-output-and-replacement-versions) |
+
+**Bedrock schema output and function tools require different choices.** For schema-only generation on verified Bedrock OpenAI Chat Completions models, choose native JSON Schema; complex AxGen signatures use it by default, so do not disable reasoning merely to obtain structured output. For function tools on GPT-6 Sol/Luna or GPT-5.6 Sol, explicitly select `thinkingTokenBudget: 'none'` (or `config.reasoningEffort: 'none'`); this deliberately disables reasoning. Reject Astra/GPT-6.1 Sol Chat tool designs before transport: these models require reasoning and reject function tools on that profile. When both reasoning and tools are required, choose `name: 'openai-responses'` with the same Bedrock base URL rather than a blanket reasoning disable. Choose Standard for the verified Chat models; unsupported Flex/Priority tiers fail locally. Native AWS Converse is a separate transport, not either OpenAI-compatible profile. Implementation: [AI providers: AWS Bedrock](references/ai.md#aws-bedrock).
 
 **Streaming is a presentation protocol, not a commit signal.** Merge deltas per `index`, append strings/arrays, replace other values and reset accumulated output on a new `version`. Validation/refusal retries or processor feedback may replace prior output. Partial JSON repair preserves string contents; do not “fix” partial strings into new literals. A valid-looking partial result can still end in failure. Recommend publishing business effects only through an authorized application action, never from a UI delta. See [Generators: Streaming output and replacement versions](references/gen.md#streaming-output-and-replacement-versions).
 
@@ -94,6 +96,8 @@ Recommend treating user clarification, authenticated approval and execution auth
 | Cancellation / uncertainty | Distinguish cancellation, failure, pending external tasks and `outcome_unknown`. Reconcile uncertain external outcomes through application policy rather than asserting success or automatic rollback. |
 
 These are not exactly-once processing or durable cross-system transaction guarantees. Choose timeout, backoff, replay, retention, approval and escalation policies in the application. Implementation: [Event runtime: Rules](references/event-runtime.md#rules), Continuation Pattern and Testing; [Core agents: Event-Driven Agents](references/agent.md#event-driven-agents); [MCP: Tasks, progress, and cancellation](references/mcp.md#tasks-progress-and-cancellation).
+
+At the Go agent error boundary, 25.4.6 preserves `AxGenerateError` and nested provider metadata through forward/streaming calls; retain those details when classifying failures rather than flattening them into strings. This bounded fix is not a universal generated-language error-parity claim. Read [Core agents: Bubble Errors](references/agent.md#bubble-errors) and [PR 866](https://github.com/ax-llm/ax/pull/866).
 
 ## 7. Establish MCP Trust and Tool Authority
 
@@ -139,7 +143,7 @@ Recommend isolated eval-safe tools or recording/replay for repeated runs, never 
 
 Do not combine conversational audio output with native structured response formats unless that provider explicitly supports it. Generative Box evidence is elicited, with no fabricated native confidence; OpenAI Decisions supports image decisions but rejects Box outputs.
 
-**Preserve two official-source discrepancies in 25.4.5:**
+**Preserve two official-source discrepancies in 25.4.6:**
 
 - The provider summary still excludes Jev media broadly; the dedicated Typesafe contract specifically supports experimental PNG/JPEG/Box while excluding audio/files/tools. Use that narrow TypeScript image exception, not universal media support or a blanket image ban.
 - The Typesafe source claims Image/Box across TypeScript, Python, Java, C++, Go and Rust with examples; the signature source says generated-language Box remains in the AxIR backlog. This collection establishes the TypeScript contract, not either universal port availability or universal absence. Before a port, inspect the exact generated package/version, declarations and runnable examples. The disagreement remains explicit in [Typesafe](references/typesafe.md#image-inputs-and-box-outputs) and [Signatures](references/signature.md#bounding-boxes).
