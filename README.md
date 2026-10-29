@@ -1,6 +1,6 @@
 # Ax Skills Collection
 
-One self-contained progressive-disclosure skill for designing and implementing TypeScript applications with `@ax-llm/ax`, grounded in the official **25.4.6** skill bundle. The collection supports holistic architectural decisions before code and precise API use during implementation. It uses terse-yet-complete Standard Technical English: remove repetition, not distinct contracts, constraints, examples or warnings.
+One self-contained progressive-disclosure skill for designing and implementing TypeScript applications with `@ax-llm/ax`, grounded in the official **25.4.7** skill bundle. The collection supports holistic architectural decisions before code and precise API use during implementation. It uses terse-yet-complete Standard Technical English: remove repetition, not distinct contracts, constraints, examples or warnings.
 
 ## Design first, then implement
 
@@ -34,13 +34,13 @@ When prompted, select **`ax-skills`** and the target agent host. This collection
 
 ## Official bundle and local mapping
 
-The local reference snapshot is the complete **19-file official bundle** under `.agents/skills/ax-llm`, published for `@ax-llm/ax` 25.4.6 at upstream revision `7948e19213325e41f39ba0715ad8fd2a89714210`. The [official index](https://ax-llm.github.io/ax/typescript/.well-known/agent-skills/index.json) identifies the [bundle archive](https://ax-llm.github.io/ax/typescript/.well-known/agent-skills/ax-llm/skill.tar.gz), SHA-256 `94dba17cb6926d1dd8e10b37c9aa68120b2ab4e3c4f29af7cf4f4a1d872aae25`. All 19 local source members match that publication byte-for-byte: 374,817 bytes and 7,846 lines. The user-restored official sources are tracked reference fixtures. Only `skills/ax-skills/` is the published skill collection; source fixtures and local tooling are not distribution entrypoints.
+The local reference snapshot is the complete **19-file official bundle** under `.agents/skills/ax-llm`, published for `@ax-llm/ax` 25.4.7 with npm `gitHead` `42fceae3d6cd4b83374e41e8cc7a1dd3b40029a2`. Local source-snapshot commit `8c3ae8cbd35d89d07502807a8cbe12c42f4baeb6` and its parent provide the 25.4.7-versus-25.4.6 comparison boundary, not the upstream publication revision. The [official index](https://ax-llm.github.io/ax/typescript/.well-known/agent-skills/index.json) identifies the [bundle archive](https://ax-llm.github.io/ax/typescript/.well-known/agent-skills/ax-llm/skill.tar.gz), SHA-256 `c440a2ee6efa56d68f36df06a7f33cf8d3ee0807508bf27215d536ecbc991faa`. All 19 local source members match that publication byte-for-byte: 376,710 bytes and 7,858 lines. The user-restored official sources are tracked reference fixtures. Only `skills/ax-skills/` is the published skill collection; source fixtures and local tooling are not distribution entrypoints.
 
 Source paths below are relative to `.agents/skills/ax-llm`; destination labels are relative to `skills/ax-skills/`, and links resolve from this repository root. The bundle becomes one master plus 18 implementation references, supplemented by one authored architecture reference. The master directly links all 19 references.
 
-Relative to the preserved 25.4.5 bundle, 17 official files are byte-identical, the root `SKILL.md` changes only version metadata, and `ax-ai.md` adds 11 lines about Amazon Bedrock's OpenAI Chat Completions profile. The addition scopes native JSON Schema, mapped reasoning budgets, Standard-tier validation and function-tool restrictions to named GPT models; it distinguishes schema output from tools and directs reasoning-plus-tools requests to `openai-responses`. It does not change GPT-OSS or unknown-model defaults.
+Relative to the preserved 25.4.6 bundle, 16 official files are byte-identical and the root `SKILL.md` changes only version metadata. `ax-gen.md` clarifies refusal retry-history cleanup. `ax-gepa.md` adds baseline capture, evaluation-budget and bootstrap contracts and updates its scalar example. These are the complete official-guide changes, not a claim that all release behavior changed in those guides.
 
-The [25.4.6 release](https://github.com/ax-llm/ax/releases/tag/25.4.6) also includes changes beyond the official skill delta. [PR 865](https://github.com/ax-llm/ax/pull/865) adds Claude Haiku 5.5 capability/model rows to the separate AWS Bedrock package's `AxAIBedrock` native Converse transport; it does not change the OpenAI-compatible profile or portable generated roots. [PR 866](https://github.com/ax-llm/ax/pull/866) implements the scoped Bedrock Chat Completions schema/reasoning/tool/tier rules and preserves `AxGenerateError` with nested provider metadata through Go agent forward/streaming calls. Canonical AxIR/templates and all five generated packages are updated together; this is not blanket generated-language parity. These release-only details supplement the official bundle rather than enlarge its 11-line guidance change. Upstream PR 866 reports mocked provider traffic, not live AWS qualification; this repository's documentation work does not establish live-provider or generated-language execution.
+The [25.4.7 release](https://github.com/ax-llm/ax/releases/tag/25.4.7) also includes implementation changes beyond the official skill delta: [PR 871](https://github.com/ax-llm/ax/pull/871) addresses refusal cleanup, [PR 870](https://github.com/ax-llm/ax/pull/870) fixes Windows stdio MCP transport, [PR 872](https://github.com/ax-llm/ax/pull/872) adds optimizer baselines and generated refusal parity, and [PR 873](https://github.com/ax-llm/ax/pull/873) publishes the release. These scoped changes do not establish universal generated-language parity or live-provider qualification. The preceding [25.4.6 release](https://github.com/ax-llm/ax/releases/tag/25.4.6) remains the boundary for the Bedrock Chat Completions profile, separate native Converse Haiku support and Go provider-error preservation; this refresh does not present those as new 25.4.7 capabilities.
 
 | Official source | Local destination |
 | --- | --- |
@@ -112,31 +112,31 @@ The final **original-versus-new full semantic coverage review** must cover all 1
 
 Separately exercise pre-development design and implementation scenarios: select generation versus agents versus flows versus event resumption; assign context/state and side-effect ownership; choose retrieval versus compaction versus optimization; then implement cross-cutting tasks such as agent + MCP, provider + structured outputs, audio + generation, and event-driven agent/flow resumption using only the master and selected guides. Review architecture synthesis for source grounding, explicit assumptions and unsupported guarantees. Verify narrow tasks do not require unrelated guides and overlapping tasks can load several.
 
-[Coverage audit](skills/ax-skills/assets/coverage-audit.json) holds current review evidence only for the source and destination hashes it identifies. Record actual methods, verdicts, resolutions, scenario results and exercised gates; do not relabel historical verdicts as current. The prior 25.4.1 audit, manifest and measurements remain historical Git objects, for example `4cd9d844:skills/ax-skills/assets/coverage-audit.json` and `4cd9d844:skills/ax-skills/README.md` (inspect with `git show`). They do not certify the 25.4.6 bundle or authored architecture guide.
+[Coverage audit](skills/ax-skills/assets/coverage-audit.json) holds review evidence only for the source and destination hashes it identifies. The 25.4.6 results and measurements below are explicitly historical until replaced with observed 25.4.7 evidence; they do not certify this refresh. Record actual methods, verdicts, resolutions, scenario results and exercised gates; do not relabel historical verdicts as current. The prior 25.4.1 audit, manifest and measurements remain historical Git objects, for example `4cd9d844:skills/ax-skills/assets/coverage-audit.json` and `4cd9d844:skills/ax-skills/README.md` (inspect with `git show`). They do not certify the 25.4.7 bundle or authored architecture guide.
 
 Aggregate corpus compression is not task-level quality. A smaller complete collection can still omit a critical constraint, make a poor architectural choice or load irrelevant guides. Evaluate semantic completeness, design correctness and actual selected-guide disclosure separately. Report size/token measurements only with the measured snapshot, tokenizer and load composition; no density percentage or historical token count establishes current acceptance. Documentation checks do not certify live provider behavior, generated-language parity or application correctness.
 
-## 25.4.6 refresh results
+## 25.4.7 refresh results
 
-The fresh full-source comparison covers all 7,846 official lines in 326 sections: 287 covered, 34 organizational and five explicitly curated source-disagreement units. All 213 source/density escalations, including low-confidence accepted choices, were resolved against current canonical guidance and exact normative-content comparisons. No coverage gap or density regression remains accepted; the acknowledged upstream disagreements remain explicit.
+The fresh full-source comparison covers all 7,858 official lines in 326 sections: 297 covered, 24 organizational and five explicitly curated source-disagreement units. All 55 source-review escalations, including low-confidence choices, were resolved against current canonical guidance. No coverage gap remains accepted; unchanged upstream disagreements remain explicit. This pass evaluates coverage, not a new whole-corpus density score.
 
-All 22 architectural scenarios have documented support. The 51-case first-disclosure check selected 49 expected routes automatically. Literal master-policy and route-table inspection resolved all 17 flagged cases, including two wrong judge labels, and supported all 51 expected paths. Two independent bounded reviews found no additional defects. These are documentary/design/disclosure results, not production model-quality measurements.
+All 25 architectural scenarios have documented support. The 57-case first-disclosure check selected 54 expected routes automatically. Literal master-policy and route-table inspection resolved all 22 flagged cases, including three wrong judge labels, and supported all 57 expected paths. Two independent bounded reviews found no additional defects in the changed contracts and recovery guidance. These are documentary/design/disclosure results, not production model-quality measurements.
 
-Passed: exact published-source verification, 13 sync regressions, structural validation, `skills-ref validate`/`to-prompt`, list-only discovery of the distribution leaf, and an isolated current-version sync no-op preserving all 42 fixture-file hashes. Twenty-two local consumer cases exercised the actual published 25.4.6 TypeScript SDK: verified model/geographic IDs, native schema with reasoning, tool/reasoning restrictions, Standard-tier mapping and Flex/Priority rejection, effort mapping, unchanged conservative defaults, Responses reasoning-plus-tools and nested AxGen output. Twelve requests used an injected deterministic local transport. No live provider calls, audio or generated-language execution occurred; native Haiku and Go release notes were reviewed against pinned source, not runtime-qualified here.
+Passed: exact published-source verification, 13 sync regressions, structural validation, `skills-ref validate`/`to-prompt`, list-only discovery of the distribution leaf, and an isolated current-version sync no-op preserving all 42 fixture-file hashes. Twelve optimizer scenarios and four refusal/recovery scenarios exercised the published 25.4.7 TypeScript SDK through deterministic local services/transports. They cover original baselines, scalar/vector scoring, bootstrap budgets, trace isolation, partial streams and tool-result retry boundaries. No live provider calls, Windows qualification, audio or generated-language execution occurred.
 
-## 25.4.6 measurements
+## 25.4.7 measurements
 
 These counts use `cl100k_base` with `tiktoken` 0.14.0. Instruction totals include Markdown metadata; README, JSON assets and tooling are excluded.
 
 | Instruction load | Tokens |
 | --- | ---: |
-| Master | 1,869 |
-| Architecture guide | 6,395 |
-| Master plus architecture guide | 8,264 |
-| All implementation references | 82,570 |
-| Complete official collection | 88,111 |
-| Complete unified collection | 90,834 |
+| Master | 1,889 |
+| Architecture guide | 6,669 |
+| Master plus architecture guide | 8,558 |
+| All implementation references | 83,117 |
+| Complete official collection | 88,478 |
+| Complete unified collection | 91,675 |
 
 The unified total includes the authored architecture synthesis; this is not an equal-coverage compression benchmark. Narrow tasks still load the master and selected implementation sections, not the architecture guide by default. Neither token counts nor documentary review establish application quality.
 
-The prior 25.4.5 refresh review and measurements remain historical in `e3d86c0:skills/ax-skills/assets/coverage-audit.json` and `e3d86c0:README.md`; the 25.4.3 foundation remains in `b0b655b:skills/ax-skills/assets/coverage-audit.json` and `b0b655b:README.md`. Neither certifies the current snapshot.
+Prior review evidence remains historical: 25.4.6 in `93020c9:skills/ax-skills/assets/coverage-audit.json` and `93020c9:README.md`; 25.4.5 in `e3d86c0:skills/ax-skills/assets/coverage-audit.json` and `e3d86c0:README.md`; the 25.4.3 foundation in `b0b655b:skills/ax-skills/assets/coverage-audit.json` and `b0b655b:README.md`. None certifies the current snapshot.

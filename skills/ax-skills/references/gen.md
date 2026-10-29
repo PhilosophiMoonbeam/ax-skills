@@ -1,6 +1,6 @@
 # AxGen execution, streaming, and validation
 
-Use for `ax()`, `AxGen`, `forward()`, `streamingForward()`, structured outputs, assertions, processors, hooks, and self-tuning. Source snapshot: Ax 25.4.6. Prefer short, modern, copyable code; add tutorial prose only when requested. Use [signature reference](references/signature.md) for field contracts, [AI reference](references/ai.md) for providers, [refine reference](references/refine.md) for reward-scored selection, [MCP reference](references/mcp.md) for MCP construction/transports/prompts/resources/tools/tasks/subscriptions/authentication/events, and [event runtime reference](references/event-runtime.md) for wake/resume routing.
+Use for `ax()`, `AxGen`, `forward()`, `streamingForward()`, structured outputs, assertions, processors, hooks, and self-tuning. Source snapshot: Ax 25.4.7. Prefer short, modern, copyable code; add tutorial prose only when requested. Use [signature reference](references/signature.md) for field contracts, [AI reference](references/ai.md) for providers, [refine reference](references/refine.md) for reward-scored selection, [MCP reference](references/mcp.md) for MCP construction/transports/prompts/resources/tools/tasks/subscriptions/authentication/events, and [event runtime reference](references/event-runtime.md) for wake/resume routing.
 
 ## Construction and execution defaults
 
@@ -364,6 +364,7 @@ try {
 - `AxGenerateError.details` contains `model`, `signature`.
 - Failed forwards use `Generate failed: <reason>` with wrapped error as `cause`. Exhausted validation/assertion/refusal retries use `Generate failed: Unable to fix validation error: <last error>`, ending with `LLM Output:` and last-attempt answers (samples joined with `---`).
 - Token-limit truncation fails with `Generate failed: Max tokens reached before completion`, streamed or not.
+- A refusal retry removes the refused assistant turn and resends from the same user or function-result message, including when refusal follows already-streamed partial content. This request-history cleanup does not undo text already presented to the caller; apply the streaming version-reset rules.
 - Wrapping follows type, not message: `ValidationError` / `AxAssertionError` outside retries surface unchanged; other failures wrap regardless of message.
 - `stop()` / `abortSignal` cancellation throws `AxAIServiceAbortedError`.
 - Constructor/call `strictMode: true` requires the answer to start with its first required field's label. Unlabeled answers retry with correction instead of being treated as single-field answers; call value wins.
