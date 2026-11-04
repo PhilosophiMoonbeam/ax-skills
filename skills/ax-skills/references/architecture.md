@@ -2,7 +2,7 @@
 
 Use this guide to choose an architecture, justify rejected alternatives and produce an implementation reading plan before writing code. For a narrow API change, use the owning reference directly.
 
-This is **authored synthesis** grounded in the collection's official `@ax-llm/ax` **25.4.7** snapshots, not an additional upstream API contract. “Recommend” identifies application design guidance; statements about Ax behavior have specialist destinations below. Check the installed version and declarations before implementation. These TypeScript contracts do not establish universal generated-language parity.
+This is **authored synthesis** grounded in the collection's official `@ax-llm/ax` **25.4.8** snapshots, not an additional upstream API contract. “Recommend” identifies application design guidance; statements about Ax behavior have specialist destinations below. Check the installed version and declarations before implementation. These TypeScript contracts do not establish universal generated-language parity.
 
 ## 1. Define the Design Deliverable
 
@@ -62,6 +62,8 @@ AxAgent runs distiller → executor → responder, but `directResponse: 'auto'` 
 **Streaming is a presentation protocol, not a commit signal.** Merge deltas per `index`, append strings/arrays, replace other values and reset accumulated output on a new `version`. Validation/refusal retries or processor feedback may replace prior output. Partial JSON repair preserves string contents; do not “fix” partial strings into new literals. A valid-looking partial result can still end in failure. Recommend publishing business effects only through an authorized application action, never from a UI delta. See [Generators: Streaming output and replacement versions](references/gen.md#streaming-output-and-replacement-versions).
 
 **Refusal recovery separates model history from presentation.** A refusal retry drops the refused assistant turn, even after partial streaming, and resumes from the same user or function-result message. That prevents refused content from contaminating the retry prompt; the application must still reset provisional UI output on a new version. It does not authorize replaying completed external effects. Read [Generators: Errors and strict labels](references/gen.md#errors-and-strict-labels).
+
+**Protocol-complete tool outcomes are not execution authority.** TypeScript AxGen answers an unknown function name with a per-call error while retaining valid sibling results, so the next model request has every call ID answered and can correct the name. This does not grant permission, make effects idempotent or assign replay ownership: authorization, deduplication and any deliberate replay remain application responsibilities. It is not an agent/RLM parity claim; generated ports retain the old raise-and-retry behavior until ported ([PR 878](https://github.com/ax-llm/ax/pull/878)). Read [Generators: Function calling and stop functions](references/gen.md#function-calling-and-stop-functions).
 
 **Cache creation is an instruction-policy boundary.** Gemini caches retain the system instructions captured at creation; define immutable creation policy and recreate caches when that policy changes. The 25.4.4 prefix/breakpoint fix preserves every ordered system message on either side of the content breakpoint. Upgrading does not repair existing cached instructions: expire or recreate affected caches before relying on the corrected policy. Read [AI providers: Gemini system instructions and cache migration](references/ai.md#gemini-system-instructions-and-cache-migration).
 
@@ -147,7 +149,7 @@ Recommend isolated eval-safe tools or recording/replay for repeated runs, never 
 
 Do not combine conversational audio output with native structured response formats unless that provider explicitly supports it. Generative Box evidence is elicited, with no fabricated native confidence; OpenAI Decisions supports image decisions but rejects Box outputs.
 
-**Preserve two official-source discrepancies in 25.4.7:**
+**Preserve two official-source discrepancies in 25.4.8:**
 
 - The provider summary still excludes Jev media broadly; the dedicated Typesafe contract specifically supports experimental PNG/JPEG/Box while excluding audio/files/tools. Use that narrow TypeScript image exception, not universal media support or a blanket image ban.
 - The Typesafe source claims Image/Box across TypeScript, Python, Java, C++, Go and Rust with examples; the signature source says generated-language Box remains in the AxIR backlog. This collection establishes the TypeScript contract, not either universal port availability or universal absence. Before a port, inspect the exact generated package/version, declarations and runnable examples. The disagreement remains explicit in [Typesafe](references/typesafe.md#image-inputs-and-box-outputs) and [Signatures](references/signature.md#bounding-boxes).

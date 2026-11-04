@@ -3,11 +3,11 @@
   "source_root": ".agents/skills/ax-llm",
   "upstream": {
     "package": "@ax-llm/ax",
-    "version": "25.4.7",
-    "git_commit": "42fceae3d6cd4b83374e41e8cc7a1dd3b40029a2",
+    "version": "25.4.8",
+    "git_commit": "686f8ba96cf652e044cf922b67c16c8f09754a70",
     "index_url": "https://ax-llm.github.io/ax/typescript/.well-known/agent-skills/index.json",
     "archive_url": "https://ax-llm.github.io/ax/typescript/.well-known/agent-skills/ax-llm/skill.tar.gz",
-    "archive_sha256": "c440a2ee6efa56d68f36df06a7f33cf8d3ee0807508bf27215d536ecbc991faa"
+    "archive_sha256": "d9370e5ff179b72e70cabae56ad070bcb821c55aca477309a08bceda9dfe90d9"
   },
   "sources": [
     {
@@ -16,7 +16,7 @@
         "SKILL.md",
         "references/llm.md"
       ],
-      "sha256": "84c3046d35d87afb7f6d642d559df87dd126aa908c7df4f6d62ae685b1ecd3ed",
+      "sha256": "7e02f2b928e62c4a154f48a3ca62a585527ed329b05cfb1285a339409e5ccbba",
       "original_bytes": 3359,
       "original_lines": 54
     },
