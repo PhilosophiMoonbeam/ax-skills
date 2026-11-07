@@ -1,6 +1,6 @@
 # Ax Skills Collection
 
-One self-contained progressive-disclosure skill for designing and implementing TypeScript applications with `@ax-llm/ax`, grounded in the official **25.4.8** skill bundle. The collection supports holistic architectural decisions before code and precise API use during implementation. It uses terse-yet-complete Standard Technical English: remove repetition, not distinct contracts, constraints, examples or warnings.
+One self-contained progressive-disclosure skill for designing and implementing TypeScript applications with `@ax-llm/ax`, grounded in the official **25.4.9** skill bundle. The collection supports holistic architectural decisions before code and precise API use during implementation. It uses terse-yet-complete Standard Technical English: remove repetition, not distinct contracts, constraints, examples or warnings.
 
 ## Design first, then implement
 
@@ -26,7 +26,7 @@ npx skills@latest add https://github.com/PhilosophiMoonbeam/ax-skills/tree/main/
 
 When prompted, select **`ax-skills`** and the target agent host. This collection is intended to be the workspace's one active Ax master. Do not activate a duplicate official `ax-llm` entrypoint or separately registered specialists alongside it; inspect existing installations and deliberately choose which entrypoint remains active.
 
-[Official installation guidance](https://axllm.dev/typescript/skills/) documents a separate upstream installation path. Installing `@ax-llm/ax` automatically sets up official `ax-llm` and its local guides in `.claude/skills` outside CI; it does not install this collection. To prevent duplicate setup:
+[Official installation guidance](https://axllm.dev/typescript/skills/) documents a separate upstream installation path. In 25.4.9, when package-install scripts run, automatic setup requires the resolved consumer root's `package.json` to list `@ax-llm/ax` in `dependencies`, `devDependencies` or `optionalDependencies`. It installs official `ax-llm` and local guides in that root's `.claude/skills`, not this collection. Transitive and global installs skip setup, as does CI; runtime imports do not perform this installation. Root resolution prefers `INIT_CWD`, then the installed package's topmost `node_modules` parent. To prevent duplicate setup:
 
 - Set `AX_SKIP_SKILL_INSTALL=1` during package installation to skip that run.
 - Run `npx @ax-llm/ax skills-auto-install off` from the project root to save `ax.skills.autoInstall: false` in `package.json`; merge that setting before the first installation if needed. `skills-auto-install on` restores future automatic setup. CI and the environment opt-out take precedence.
@@ -34,13 +34,13 @@ When prompted, select **`ax-skills`** and the target agent host. This collection
 
 ## Official bundle and local mapping
 
-The local reference snapshot is the complete **19-file official bundle** under `.agents/skills/ax-llm`, published for `@ax-llm/ax` 25.4.8 with npm `gitHead` `686f8ba96cf652e044cf922b67c16c8f09754a70`. Local source-snapshot commit `16a76fb66cf9689a13e00d3d382ed0471d5ff48f` and its parent `57b5cba` provide the 25.4.8-versus-25.4.7 comparison boundary, not the upstream publication revision. The [official index](https://ax-llm.github.io/ax/typescript/.well-known/agent-skills/index.json) identifies the [bundle archive](https://ax-llm.github.io/ax/typescript/.well-known/agent-skills/ax-llm/skill.tar.gz), SHA-256 `d9370e5ff179b72e70cabae56ad070bcb821c55aca477309a08bceda9dfe90d9`. All 19 local source members match that publication byte-for-byte: 376,710 bytes and 7,858 lines. The user-restored official sources are tracked reference fixtures. Only `skills/ax-skills/` is the published skill collection; source fixtures and local tooling are not distribution entrypoints.
+The local reference snapshot is the complete **19-file official bundle** under `.agents/skills/ax-llm`, published for `@ax-llm/ax` 25.4.9 with npm `gitHead` `3ad7b69947e05f1770b1bd6cb1316a8ec7fcd106`. Local source-snapshot commit `72bdb96e1db79f9e95d983a97ca3cfe9acef4655` and its parent `d2a94fa` provide the 25.4.9-versus-25.4.8 comparison boundary, not the upstream publication revision. The [official index](https://ax-llm.github.io/ax/typescript/.well-known/agent-skills/index.json) identifies the [bundle archive](https://ax-llm.github.io/ax/typescript/.well-known/agent-skills/ax-llm/skill.tar.gz), SHA-256 `f49ea43da83174dcdeef0b2d454dd3627984d513e4671e323c15aa614f2f2a4c`. All 19 local source members match that publication byte-for-byte: 377,164 bytes and 7,865 lines. The user-restored official sources are tracked reference fixtures. Only `skills/ax-skills/` is the published skill collection; source fixtures and local tooling are not distribution entrypoints.
 
 Source paths below are relative to `.agents/skills/ax-llm`; destination labels are relative to `skills/ax-skills/`, and links resolve from this repository root. The bundle becomes one master plus 18 implementation references, supplemented by one authored architecture reference. The master directly links all 19 references.
 
-Relative to the preserved 25.4.7 bundle, all 18 official guides are byte-identical; the root `SKILL.md` changes only version metadata. The installer lock records new digests, not additional API contracts. The unified collection updates its snapshot labels and publication pins without presenting unchanged guidance as new functionality.
+Relative to the preserved 25.4.8 bundle, 16 official guides are byte-identical. The master changes version metadata; Providers adds empty-text replay and cache-marker rules; Generation adds per-call unknown-tool recovery and formatter bypass. The installer lock records new digests, not additional API contracts.
 
-The [25.4.8 release](https://github.com/ax-llm/ax/releases/tag/25.4.8) separately fixes AxGen unknown-tool recovery in [PR 878](https://github.com/ax-llm/ax/pull/878). An unknown name receives a per-call error result; valid sibling calls retain their results instead of being abandoned with the batch. This collection supplements the unchanged generation guide with that precise TypeScript contract and its architectural implications for protocol completeness, side effects and application-owned replay. The PR explicitly leaves generated-language ports on the older raise-and-retry behavior until ported; no universal parity or live-provider qualification is implied.
+The [25.4.9 release](https://github.com/ax-llm/ax/releases/tag/25.4.9) separates visible output from sensitive replay state: [PR 876](https://github.com/ax-llm/ax/pull/876) omits truly empty text after preserved Anthropic thinking; [PR 883](https://github.com/ax-llm/ax/pull/883) aligns generated-client cache placement and plain unknown-tool errors. Generated clients already continued unknown-tool batches; the previous downstream raise-and-retry caveat is obsolete. The collection preserves the bounded recovery contract and application-owned authority, deduplication and replay policy—not universal port parity. [PR 881](https://github.com/ax-llm/ax/pull/881) narrows automatic skill setup as described above. The new authenticated-local MCP example and security-reporting documentation add no library API or runtime guarantee.
 
 | Official source | Local destination |
 | --- | --- |
@@ -116,27 +116,29 @@ Separately exercise pre-development design and implementation scenarios: select 
 
 Aggregate corpus compression is not task-level quality. A smaller complete collection can still omit a critical constraint, make a poor architectural choice or load irrelevant guides. Evaluate semantic completeness, design correctness and actual selected-guide disclosure separately. Report size/token measurements only with the measured snapshot, tokenizer and load composition; no density percentage or historical token count establishes current acceptance. Documentation checks do not certify live provider behavior, generated-language parity or application correctness.
 
-## 25.4.8 refresh results
+## 25.4.9 refresh results
 
-The fresh full-source comparison covers all 7,858 official lines in 326 sections: 297 covered, 24 organizational and five explicitly curated source-disagreement units. All 57 source-review escalations were resolved, including the five explicit curations and seven false-gap labels checked against canonical current guidance. No coverage gap remains accepted; unchanged upstream disagreements remain explicit. This is current coverage evidence, not a new whole-corpus density score.
+The fresh full-source comparison covers all 7,865 official lines in 326 sections. Raw Jev labels were 303 covered, 14 organizational, eight gaps and one curated. Inspection resolved all 57 escalations: eight false-gap labels were supported by current canonical sections; five explicit curations remain bounded; official frontmatter is organizational. Accepted totals are 306 covered, 15 organizational and five curated, with no unresolved coverage defect. No prior verdict was relabeled as current.
 
-All 27 architectural scenarios have documented support. The 61-case first-disclosure check selected 58 expected routes automatically; literal master-policy and route-table inspection resolved all 22 flagged cases, including three wrong judge labels. One inherited scenario's expected path was corrected to Architecture because its unchanged task asks for mechanism selection; the master policy was not changed to fit the check. An independent bounded source/SDK review found all five existing curations accurate. Focused checks found the two new recovery passages correctly scoped and terse-yet-complete. These are documentary/design/disclosure results, not production model-quality measurements.
+All 29 architecture scenarios have documented support. One 60,612-character design state exceeded the frozen 60,000-character cap; its marked truncation and complete manual review are recorded. All 65 first-disclosure routes matched automatically; five low-confidence cases were confirmed against literal master policy. Five new prose checks were dense; all five accuracy escalations were resolved against primary sources and actual SDK evidence. Two independent bounded reviews found no defects. All 425 review-state fingerprints were independently reconstructed. These are documentary/design/disclosure results, not production model-quality or whole-corpus density scores.
 
-Passed: exact published-source verification, 13 sync regressions, structural validation, `skills-ref validate`/`to-prompt`, list-only discovery of the distribution leaf, and an isolated current-version sync no-op preserving all 42 fixture-file hashes. Five scenarios exercised the published 25.4.8 TypeScript SDK through deterministic local mock services: mixed and unknown-only recovery, streamed recovery, and unrelated handler-error boundaries in both execution modes. The same harness reproduced all three recovery failures on 25.4.7 while its two handler-error boundary cases passed. SDK smokes made no live provider calls; Windows, audio and generated-language execution were not qualified.
+Passed: exact published-source verification, 13 sync regressions, structural validation, `skills-ref validate`/`to-prompt`, list-only distribution-leaf discovery, and isolated current-version sync no-op preserving 42 fixture-file hashes. Actual TypeScript SDK replay checks passed all 28 current cases and reproduced 22 expected empty-text failures plus six passing controls on 25.4.8. All 20 tool-recovery/formatter/error-boundary scenarios passed across both versions. Published installer decision modules passed 37 isolated checks per version, confirming direct-root setup versus transitive/global skips without writing skills.
 
-## 25.4.8 measurements
+SDK smokes made no live provider calls; signatures were opaque fixtures, not cryptographic validation. Actual package-manager installation, manual setup, Windows, audio and generated-language execution were not qualified. Local-leaf discovery does not prove bare-repository discovery isolation. Owned scratch was removed after evidence capture.
+
+## 25.4.9 measurements
 
 These counts use `cl100k_base` with `tiktoken` 0.14.0. Instruction totals include Markdown metadata; README, JSON assets and tooling are excluded.
 
 | Instruction load | Tokens |
 | --- | ---: |
-| Master | 1,896 |
-| Architecture guide | 6,811 |
-| Master plus architecture guide | 8,707 |
-| All implementation references | 83,290 |
-| Complete official collection | 88,478 |
-| Complete unified collection | 91,997 |
+| Master | 1,908 |
+| Architecture guide | 7,061 |
+| Master plus architecture guide | 8,969 |
+| All implementation references | 83,483 |
+| Complete official collection | 88,575 |
+| Complete unified collection | 92,452 |
 
 The unified total includes the authored architecture synthesis; this is not an equal-coverage compression benchmark. Narrow tasks still load the master and selected implementation sections, not the architecture guide by default. Neither token counts nor documentary review establish application quality.
 
-Prior review evidence remains historical: 25.4.7 in `57b5cba:skills/ax-skills/assets/coverage-audit.json` and `57b5cba:README.md`; 25.4.6 in `93020c9:skills/ax-skills/assets/coverage-audit.json` and `93020c9:README.md`; 25.4.5 in `e3d86c0:skills/ax-skills/assets/coverage-audit.json` and `e3d86c0:README.md`; the 25.4.3 foundation in `b0b655b:skills/ax-skills/assets/coverage-audit.json` and `b0b655b:README.md`. None certifies the current snapshot.
+Prior review evidence remains historical: 25.4.8 in `d2a94fa:skills/ax-skills/assets/coverage-audit.json` and `d2a94fa:README.md`; 25.4.7 in `57b5cba:skills/ax-skills/assets/coverage-audit.json` and `57b5cba:README.md`; 25.4.6 in `93020c9:skills/ax-skills/assets/coverage-audit.json` and `93020c9:README.md`; 25.4.5 in `e3d86c0:skills/ax-skills/assets/coverage-audit.json` and `e3d86c0:README.md`; the 25.4.3 foundation in `b0b655b:skills/ax-skills/assets/coverage-audit.json` and `b0b655b:README.md`. None certifies the current snapshot.

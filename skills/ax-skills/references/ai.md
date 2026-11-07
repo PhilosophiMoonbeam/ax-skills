@@ -550,6 +550,8 @@ For GPT-5.6 and GPT-6 (Astra, Sol, Luna, GPT-6.1 Sol), these map to `none`, `low
 - Opus 4.5: budget_tokens + effort levels (capped at `'high'`)
 - Other thinking models: budget tokens only
 
+For assistant replay, empty visible text (`content: ''`) adds no synthetic text block. Cache markers attach only to text or tool-use blocks, never to signed or redacted thinking. See the [25.4.9 replay mapper](https://github.com/ax-llm/ax/blob/3ad7b69947e05f1770b1bd6cb1316a8ec7fcd106/src/ax/ai/anthropic/api.ts#L1871-L2013).
+
 Anthropic `modelConfig.effort` can be set directly on a request. Fast mode and task budgets are Anthropic-only opt-ins; `taskBudget.total` must be at least 20,000 tokens.
 
 ```typescript
