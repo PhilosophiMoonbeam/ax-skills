@@ -1,3 +1,5 @@
+# Cache
+**/__pycache__/
 
 # Beads / Dolt files (added by bd init)
 .dolt/
@@ -11,3 +13,7 @@
 
 # ENV Vars
 .env
+
+# Installed example dependencies are local build resources, not skill content.
+/skills/ax-skills/examples/node_modules/
+/skills/ax-skills/examples/browser/dist/

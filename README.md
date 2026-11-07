@@ -6,13 +6,14 @@ One self-contained progressive-disclosure skill for designing and implementing T
 
 Before choosing APIs, define the task, input/output contracts, quality criteria, authority boundaries and operational constraints. Decide which work is structured generation, agent-directed tool use, explicit workflow orchestration or event-driven resumption. Assign ownership of context, state, side effects, persistence, retries, cancellation and evaluation. Distinguish within-run context management, retrieval, reusable knowledge and offline optimization; they solve different problems.
 
-The collection has three instruction layers:
+The collection has four disclosure layers:
 
 | Layer | Purpose | Loading |
 | --- | --- | --- |
 | [Master](skills/ax-skills/SKILL.md) | Capability orientation, safety/authorization policy, design-first routing and implementation routes | Always retained when this skill is active |
 | [Architecture guide](skills/ax-skills/references/architecture.md) | Cross-subsystem design decisions, trade-offs and handoff to implementation | On demand for architecture, planning or consequential design changes |
 | 18 implementation references | Source-derived API contracts, constraints, examples and specialist behavior | Only the guides needed for the task |
+| [36 executable modules](skills/ax-skills/examples/INDEX.md) | Runnable core contracts, selected mechanisms and five architectural compositions | Only the selected module/case after its owning guide |
 
 The architecture guide is authored, source-grounded synthesis, not an official API quotation or a promise of runtime guarantees. Implementation references preserve the official contracts and their caveats. Read the architecture guide with selected implementation guides when design depends on exact capabilities. Multiple guides are appropriate for overlapping tasks; loading the entire corpus is not the default.
 
@@ -31,6 +32,36 @@ When prompted, select **`ax-skills`** and the target agent host. This collection
 - Set `AX_SKIP_SKILL_INSTALL=1` during package installation to skip that run.
 - Run `npx @ax-llm/ax skills-auto-install off` from the project root to save `ax.skills.autoInstall: false` in `package.json`; merge that setting before the first installation if needed. `skills-auto-install on` restores future automatic setup. CI and the environment opt-out take precedence.
 - These preferences do not remove existing skills. Manual `npx @ax-llm/ax setup-claude` still works when automatic setup is disabled; `--all` registers specialists separately. Upstream documents `remove-claude` followed by `setup-claude` for migrating an older official full installation to its official single entrypoint. Do not run that migration merely to install this collection; review existing files before intentional removal or replacement.
+
+## Run the installed examples
+
+The [example index](skills/ax-skills/examples/INDEX.md) maps every module, links its guide and explains fixture/live modes, prerequisites, effects and cleanup. The master routes to that single index rather than eagerly linking every module. Choose architecture → narrow guide → selected example for design work; narrow implementation tasks need only their owning guide/example. CLI metadata discovery imports modules without running cases; do not preload their source into the agent context.
+
+The examples package travels with the skill collection and needs no original fixtures, full Ax checkout or repository tooling. Use Node >=22.18.0; use Node 24 and npm 12 for the native SQLite setup below. From this repository root:
+
+```sh
+npm --prefix skills/ax-skills/examples ci --ignore-scripts
+npm --prefix skills/ax-skills/examples install-scripts approve better-sqlite3
+npm --prefix skills/ax-skills/examples rebuild better-sqlite3 --foreground-scripts
+npm --prefix skills/ax-skills/examples run check
+npm --prefix skills/ax-skills/examples run list
+npm --prefix skills/ax-skills/examples run offline -- 01-signatures
+npm --prefix skills/ax-skills/examples run offline
+```
+
+For an installed skill, run the same commands from its `ax-skills` directory with `--prefix examples`. Package/lock pins are Ax, Ax Tools and the Ax Vercel provider 25.4.9; `ai` 7.0.2 with `@ai-sdk/provider` 4.0.0 and `@ai-sdk/provider-utils` 5.0.0 overrides; OpenTelemetry API 1.9.0 and trace SDK 2.0.1; Zod 4.1.11, TypeScript 5.9.3, tsx 4.20.6, esbuild 0.25.12 and Node types 22.18.6. The trace SDK release is npm-deprecated but tested compatible here. Script-free installation avoids automatic upstream skill setup; explicitly approve/rebuild only `better-sqlite3`, with a compatible native prebuild or build toolchain. The package records npm 12 approval for the pinned driver; older npm versions without `install-scripts` omit only that approval command, retaining the targeted rebuild. Do not rebuild all dependencies or enable Ax’s postinstall. Installation writes `node_modules`; cases own their local resources and temporary stores.
+
+Offline is the default: scripted model I/O drives actual SDK algorithms and local/injected protocols, not billed providers or real-provider quality evidence. Browser adapter fixtures and the browser entry do not qualify actual browser-model inference. Audio modules are offline protocol/media fixtures, not real speech or microphone acceptance. SQLite uses native `better-sqlite3`, not Node’s built-in SQLite API. Generic model credentials do not establish audio, image/Box, MCP or OAuth prerequisites.
+
+For separately authorized live work, set `AX_EXAMPLE_ENV_FILE` to an absolute private file path. This exact exported case declares live mode; inspect `list` before selecting another case:
+
+```sh
+npm --prefix skills/ax-skills/examples run live -- --env "$AX_EXAMPLE_ENV_FILE" 26-architecture/typed-invoice
+```
+
+Generation configuration names are `AI_PROVIDER`, `AI_MODEL`, `AI_API_KEY`; decisions use `AI_DECISIONS_PROVIDER`, `AI_DECISIONS_MODEL`, `AI_DECISIONS_API_KEY`. Optional endpoint/deployment names and operation-specific prerequisites are in the index. Never commit or print private values. Live mode requires named selection; it does not run an implicit sweep. Offline limits are 50 fetch requests and 50 loopback socket connections per case; the live fetch limit is 50 per invocation. Cases have 120 seconds and helper-generated output is capped at 512 tokens; these are not spending or production reliability guarantees. No live microphone or external business write belongs to this suite.
+
+Supported/exported modes are not exercised acceptance. Report actual typecheck, fixture, runtime and live-provider results separately; proposed commands and successful fixture responses do not certify live model quality. The integration owner runs all gates after module edits land.
 
 ## Official bundle and local mapping
 
@@ -112,11 +143,23 @@ The final **original-versus-new full semantic coverage review** must cover all 1
 
 Separately exercise pre-development design and implementation scenarios: select generation versus agents versus flows versus event resumption; assign context/state and side-effect ownership; choose retrieval versus compaction versus optimization; then implement cross-cutting tasks such as agent + MCP, provider + structured outputs, audio + generation, and event-driven agent/flow resumption using only the master and selected guides. Review architecture synthesis for source grounding, explicit assumptions and unsupported guarantees. Verify narrow tasks do not require unrelated guides and overlapping tasks can load several.
 
-[Coverage audit](skills/ax-skills/assets/coverage-audit.json) holds review evidence only for the source and destination hashes it identifies. Record actual methods, verdicts, resolutions, scenario results and exercised gates; do not relabel historical judgments or SDK runs as current. Source-publication checks establish fixture identity, not curated semantic coverage. The prior 25.4.1 audit, manifest and measurements remain historical Git objects, for example `4cd9d844:skills/ax-skills/assets/coverage-audit.json` and `4cd9d844:skills/ax-skills/README.md` (inspect with `git show`). They do not certify the current bundle or authored architecture guide.
+[Coverage audit](skills/ax-skills/assets/coverage-audit.json) records the final original-to-curated review. [Examples audit](skills/ax-skills/assets/examples-audit.json) records feature mappings, selected case spans, raw Jev verdicts/probabilities, parent resolutions and observed execution. Each applies only to its recorded hashes. Source-publication checks establish fixture identity, not semantic coverage. Earlier audits remain historical Git objects; the pre-example 25.4.9 audit is `d4f113f:skills/ax-skills/assets/coverage-audit.json`, and the 25.4.1 audit is `4cd9d844:skills/ax-skills/assets/coverage-audit.json`.
 
 Aggregate corpus compression is not task-level quality. A smaller complete collection can still omit a critical constraint, make a poor architectural choice or load irrelevant guides. Evaluate semantic completeness, design correctness and actual selected-guide disclosure separately. Report size/token measurements only with the measured snapshot, tokenizer and load composition; no density percentage or historical token count establishes current acceptance. Documentation checks do not certify live provider behavior, generated-language parity or application correctness.
 
-## 25.4.9 refresh results
+## Current executable-example acceptance
+
+The pinned collection contains **199 cases in 36 modules**, with one selectively loaded index. Strict TypeScript and the complete offline CLI suite pass. Offline cases exercise real SDK algorithms, native SQLite, owned protocol peers and provider adapters with declared synthetic I/O; they are not model-quality benchmarks.
+
+Fresh live acceptance covers configured generation, adapter decision evidence, native structured decisions, typed invoice extraction and the repository-investigator composition: **five scenarios, 16 actual HTTP requests**. The investigator exercises real recall, semantic subqueries and child delegation against synthetic application data. A benign fresh run succeeded after the earlier model-side safety interruption; no safeguard was bypassed.
+
+Browser build and actual page/refresh checks pass with the honest **unavailable on this device/profile** state and no console errors. No browser-model inference/download, live speech, microphone, image synthesis or external business write was qualified. Seven isolated runner checks exercise metadata-only listing, named-live enforcement, offline denial, per-case budget reset, invocation-wide live-mode cap, nested redaction and accelerated hard-stop behavior. The budget fixture uses owned loopback HTTP, not a provider; accelerated timing does not qualify a real 120-second endurance run.
+
+Execution corrected guide assumptions about raw-chat streaming defaults, hook timing/stop behavior, Zod enum conversion, recalled-memory worker visibility, agent bootstrap/restoration, partial chat logs, sink-redrive snapshots, ineffective bundled `promptLevel` templates, Vercel forwarding and verified webhook metadata binding. Version-specific limitations are explicit beside supported paths; no failing path is hidden behind a successful fallback. Final coverage review includes all **19 official files / 7,865 lines**, every current reference section, executable case and selected discovery route. Raw automated votes remain distinct from evidence-backed parent adjudications.
+
+## Historical 25.4.9 refresh results
+
+These results describe the earlier hash-pinned documentation refresh, before the executable-example/disclosure changes. They remain evidence for that recorded state only, not current acceptance of these edits or any live provider.
 
 The fresh full-source comparison covers all 7,865 official lines in 326 sections. Raw Jev labels were 303 covered, 14 organizational, eight gaps and one curated. Inspection resolved all 57 escalations: eight false-gap labels were supported by current canonical sections; five explicit curations remain bounded; official frontmatter is organizational. Accepted totals are 306 covered, 15 organizational and five curated, with no unresolved coverage defect. No prior verdict was relabeled as current.
 
@@ -126,9 +169,9 @@ Passed: exact published-source verification, 13 sync regressions, structural val
 
 SDK smokes made no live provider calls; signatures were opaque fixtures, not cryptographic validation. Actual package-manager installation, manual setup, Windows, audio and generated-language execution were not qualified. Local-leaf discovery does not prove bare-repository discovery isolation. Owned scratch was removed after evidence capture.
 
-## 25.4.9 measurements
+## Historical 25.4.9 measurements
 
-These counts use `cl100k_base` with `tiktoken` 0.14.0. Instruction totals include Markdown metadata; README, JSON assets and tooling are excluded.
+These pre-example/disclosure counts used `cl100k_base` with `tiktoken` 0.14.0. Instruction totals included Markdown metadata; README, JSON assets, executable code and tooling were excluded. They are not measurements of the current edited master or example disclosure.
 
 | Instruction load | Tokens |
 | --- | ---: |

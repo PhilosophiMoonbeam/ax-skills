@@ -5,11 +5,11 @@ description: Design, implement and review @ax-llm/ax TypeScript LLM systems. Use
 
 # Ax Skills
 
-Use one entrypoint and 19 selectively loaded references. All links are relative to this skill root; no separately installed Ax skill is required.
+Use one entrypoint, 19 selectively loaded references and 36 executable example modules. Links resolve from this skill root; no separately installed Ax skill is required.
 
 ## Working policy
 
-1. **Design, mechanism selection, or cross-language porting:** read [Architecture](references/architecture.md) first, even for a single subsystem such as retrieval, image localization or audio routing. Then load only the selected specialist sections. **Narrow coding or debugging:** go directly to the owning row below. Do not preload every guide.
+1. **Design, mechanism selection, or cross-language porting:** read [Architecture](references/architecture.md) first, even for a single subsystem such as retrieval, image localization or audio routing. Then load only the selected specialist sections and relevant example. **Narrow coding or debugging:** go directly to the owning row below. Do not preload every guide or the example corpus.
 2. Prefer `ai()`, `ax()`, `agent()`, `flow()`, `optimize()`, `s()`, `f()` and `fn()` where supported; use specialized classes when required.
 3. This collection preserves official `@ax-llm/ax` **25.4.9** snapshots plus an authored design synthesis, not a promise about future releases or every generated language. Check the installed package version and declarations before applying examples; retain provider limitations and source disagreements.
 4. Keep credentials in application environment/secret storage, never examples or logs. Before verification inspect scripts and obtain task-required authorization. Prefer local type checks and focused tests; never silently run billed model calls, external services, live audio or state-changing operations. Report only checks actually exercised.
@@ -46,3 +46,7 @@ Use Architecture to turn these alternatives into a justified design and implemen
 | `bestOfN()`, `refine()`, rewards, thresholds, native samples, serial attempts, advice/diagnostics | [Refine and best-of-N](references/refine.md) | Complete-output selection within a call, not streaming or persistent learning. |
 | `AxMCPClient`, native `mcp`, transports, catalogs, tools/prompts/resources, tasks/subscriptions, sampling/elicitation/roots, OAuth, Apps, recording/replay | [Native MCP](references/mcp.md) | Protocol ownership and trust; add Event runtime for persisted wake/resume. |
 | Typesafe Jev, boolean/class/rubric score decisions, evidence/probabilities/provenance, `trueThreshold`, native Noul/Choice/Score/Box, structured criteria, PNG/JPEG, hybrid generation | [Typesafe Jev](references/typesafe.md) | Separate decisions from generation. Images/Box are experimental; OpenAI Decisions rejects Box; generated-language source claims conflict. |
+
+## Working examples
+
+[Examples index](examples/INDEX.md) maps focused cases to their guides, setup, modes and cleanup. For design, choose an architecture pattern before its composition; for implementation, choose one guide and one case. Read that case's `run(ctx)`, imports and referenced helpers, not the corpus. Offline fixtures exercise SDK behavior, not model quality; live execution requires explicit selection.

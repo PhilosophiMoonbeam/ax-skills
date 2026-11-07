@@ -5,6 +5,9 @@ Run: python3 scripts/validate_ax_skills.py [--repo PATH] [--collection PATH]
 Collection paths are relative to --repo unless absolute. Local Markdown links
 are relative to the collection root, including links inside references. This
 standard-library maintainer tool never rewrites files or stamps audit results.
+Discovery prunes dependency, generated-output, and conventional environment/cache
+directories; collection-owned source files, including hidden source, remain checked.
+Non-pruned source directory symlinks are rejected, including internal aliases.
 Frontmatter supports ordinary YAML scalars, block scalars and string mappings;
 advanced YAML features (tags, anchors and aliases) are rejected explicitly.
 Semantic coverage is reviewed separately by the orchestrator's judge_batch.
@@ -14,10 +17,35 @@ import argparse
 import hashlib
 import html
 import json
+import os
 import re
 import sys
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
+
+
+GENERATED_DIRECTORIES = frozenset({
+    'node_modules', '.git', '.venv', 'venv', '__pycache__', '.pytest_cache',
+    '.mypy_cache', '.ruff_cache', '.cache', '.tox', '.nox', 'dist', 'build',
+})
+
+
+def collection_files(root, directory_symlink=None):
+    """Yield source files, pruning artifacts and reporting directory aliases."""
+    for directory, directories, filenames in os.walk(root, followlinks=False):
+        source_directories = []
+        for name in sorted(directories):
+            if name in GENERATED_DIRECTORIES:
+                continue
+            path = Path(directory) / name
+            if path.is_symlink():
+                if directory_symlink is not None:
+                    directory_symlink(path)
+            else:
+                source_directories.append(name)
+        directories[:] = source_directories
+        for name in sorted(filenames):
+            yield Path(directory) / name
 
 
 TOPICS = (
@@ -504,7 +532,7 @@ class Validator:
                 self.error(f"original source inventory: unsupported file type {relative}")
         self.compare_sets('original source inventory', set(EXPECTED), actual_sources)
         references = self.collection / 'references'
-        actual_references = {p.relative_to(self.collection).as_posix() for p in references.rglob('*') if p.is_file()}
+        actual_references = {p.relative_to(self.collection).as_posix() for p in collection_files(references) if p.is_file()}
         expected_references = {target for targets in EXPECTED.values() for target in targets if target != 'SKILL.md'} | AUTHORED_REFERENCES
         self.compare_sets('reference inventory', expected_references, actual_references)
         for destination in AUTHORED_REFERENCES:
@@ -520,7 +548,7 @@ class Validator:
             self.error(f"{label}: unexpected {extra}")
 
     def load_documents(self):
-        for path in sorted(self.collection.rglob('*.md')):
+        for path in sorted(path for path in collection_files(self.collection) if path.suffix == '.md'):
             label = path.relative_to(self.collection).as_posix()
             if not path.resolve().is_relative_to(self.collection):
                 self.error(f"{label}: Markdown symlink escapes collection")
@@ -620,7 +648,13 @@ class Validator:
         if not self.collection.is_dir():
             self.error(f"collection directory does not exist: {self.collection}")
             return 1
-        skills = {p.relative_to(self.collection).as_posix() for p in self.collection.rglob('SKILL.md') if p.is_file()}
+        def reject_directory_symlink(path):
+            label = path.relative_to(self.collection).as_posix()
+            self.error(f"{label}: source directory symlink is not allowed")
+
+        skills = {p.relative_to(self.collection).as_posix()
+                  for p in collection_files(self.collection, reject_directory_symlink)
+                  if p.name == 'SKILL.md' and p.is_file()}
         self.compare_sets('collection entrypoints', {'SKILL.md'}, skills)
         destinations = self.manifest()
         self.load_documents()
