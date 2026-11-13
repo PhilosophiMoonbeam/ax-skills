@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Collection discovery regressions with isolated, complete structural fixtures."""
+"""Collection validation regressions with isolated, complete structural fixtures."""
 
 import contextlib
 import hashlib
@@ -54,6 +54,116 @@ class CollectionDiscoveryTests(unittest.TestCase):
             result = validator.run()
         return result, validator
 
+    def test_root_master_direct_links_and_manifest_paths_remain_valid(self):
+        result, validator = self.run_validator()
+        self.assertEqual(result, 0, validator.errors)
+
+    def test_root_master_must_still_link_each_manifest_destination_directly(self):
+        destination = sorted(validate.AUTHORED_REFERENCES)[0]
+        master = (self.collection / 'SKILL.md').read_text(encoding='utf-8')
+        self.write('SKILL.md', master.replace(f'[{destination}]({destination})\n', ''))
+        result, validator = self.run_validator()
+        self.assertEqual(result, 1)
+        self.assertIn(f'SKILL.md: manifest destination is not directly linked: {destination}',
+                      validator.errors)
+
+    def test_nested_sibling_links_and_same_file_fragments(self):
+        self.write('examples/right/target.md', '# Deep Topic\n')
+        self.write('examples/left/guide.md',
+                   '# Local Heading\n'
+                   '[Sibling](../right/target.md#deep-topic)\n'
+                   '[Local](#local-heading)\n'
+                   '[Encoded local](#local%2Dheading)\n')
+        result, validator = self.run_validator()
+        self.assertEqual(result, 0, validator.errors)
+
+    def test_reference_links_to_examples_from_its_parent(self):
+        self.write('examples/demo.ts', 'export const example = true;\n')
+        self.write('references/architecture.md', '[Example](../examples/demo.ts)\n')
+        result, validator = self.run_validator()
+        self.assertEqual(result, 0, validator.errors)
+
+    def test_example_index_links_back_to_reference_anchors(self):
+        self.write('examples/index.md', '[Reference](../references/architecture.md#reference)\n')
+        result, validator = self.run_validator()
+        self.assertEqual(result, 0, validator.errors)
+
+    def test_former_collection_relative_reference_link_has_no_root_fallback(self):
+        self.write('references/guide.md', '[Reference](references/architecture.md)\n')
+        result, validator = self.run_validator()
+        self.assertEqual(result, 1)
+        self.assertTrue(any('references/guide.md:1:' in error
+                            and 'references/architecture.md' in error
+                            and 'local target does not exist' in error
+                            for error in validator.errors), validator.errors)
+
+    def test_missing_fragments_fail_for_sibling_and_same_file_links(self):
+        self.write('references/right/target.md', '# Present\n')
+        for href in ('../right/target.md#missing', '#missing'):
+            with self.subTest(href=href):
+                self.write('references/left/guide.md', f'# Local\n[Missing]({href})\n')
+                result, validator = self.run_validator()
+                self.assertEqual(result, 1)
+                self.assertTrue(any('references/left/guide.md:2:' in error
+                                    and "unresolved fragment 'missing'" in error
+                                    for error in validator.errors), validator.errors)
+
+    def test_absolute_paths_are_rejected_even_when_target_is_inside_collection(self):
+        target = self.write('references/target.md', '# Target\n').as_posix()
+        for href in (target, target.replace('/', '%2F')):
+            with self.subTest(href=href):
+                self.write('references/guide.md', f'[Absolute]({href})\n')
+                result, validator = self.run_validator()
+                self.assertEqual(result, 1)
+                self.assertTrue(any('references/guide.md:1:' in error
+                                    and 'absolute path is not allowed' in error
+                                    for error in validator.errors), validator.errors)
+
+    def test_decoded_traversal_cannot_escape_collection(self):
+        outside = self.collection.parent / 'outside.md'
+        outside.write_text('# Outside\n', encoding='utf-8')
+        self.write('references/nested/guide.md',
+                   '[Escape](%2e%2e/%2e%2e/%2e%2e/outside.md)\n')
+        result, validator = self.run_validator()
+        self.assertEqual(result, 1)
+        self.assertTrue(any('references/nested/guide.md:1:' in error
+                            and 'path escapes allowed root' in error
+                            for error in validator.errors), validator.errors)
+
+    def test_raw_and_decoded_backslashes_are_not_local_paths(self):
+        self.write('examples/demo.ts', 'export const example = true;\n')
+        for href in ('..\\examples\\demo.ts', '..%5Cexamples%5Cdemo.ts'):
+            with self.subTest(href=href):
+                self.write('references/guide.md', f'[Backslash](<{href}>)\n')
+                result, validator = self.run_validator()
+                self.assertEqual(result, 1)
+                self.assertTrue(any('references/guide.md:1:' in error
+                                    and 'expected a nonempty POSIX relative path' in error
+                                    for error in validator.errors), validator.errors)
+
+    def test_link_to_non_markdown_symlink_cannot_escape_collection(self):
+        outside = self.repo / 'outside.ts'
+        outside.write_text('export const outside = true;\n', encoding='utf-8')
+        (self.collection / 'references/escape.ts').symlink_to(outside)
+        self.write('references/guide.md', '[Escape](escape.ts)\n')
+        result, validator = self.run_validator()
+        self.assertEqual(result, 1)
+        self.assertTrue(any('references/guide.md:1:' in error
+                            and 'path escapes allowed root' in error
+                            for error in validator.errors), validator.errors)
+
+    def test_multiline_inline_code_preserves_link_diagnostic_line_numbers(self):
+        self.write('references/architecture.md',
+                   '# Header\n'
+                   '`[Ignored](also-missing.md)\n'
+                   'continued`\n'
+                   '[Missing](missing.md)\n')
+        result, validator = self.run_validator()
+        self.assertEqual(result, 1)
+        self.assertEqual(validator.errors, [
+            "references/architecture.md:4: link 'missing.md': local target does not exist or is not a file",
+        ])
+
     def test_dependency_entrypoints_and_broken_docs_are_not_collection_sources(self):
         self.write('examples/node_modules/vendor/SKILL.md', '# Third-party skill\n')
         self.write('examples/node_modules/vendor/README.md', '[Missing](missing.md)\n')
@@ -70,7 +180,7 @@ class CollectionDiscoveryTests(unittest.TestCase):
 
     def test_real_reference_error_still_fails_with_dependencies_installed(self):
         self.write('examples/node_modules/vendor/SKILL.md', '# Dependency\n')
-        self.write('references/architecture.md', '# Architecture\n[Missing](references/missing.md)\n')
+        self.write('references/architecture.md', '# Architecture\n[Missing](missing.md)\n')
         result, validator = self.run_validator()
         self.assertEqual(result, 1)
         self.assertTrue(any('references/architecture.md:2:' in error and 'local target does not exist' in error
@@ -79,7 +189,7 @@ class CollectionDiscoveryTests(unittest.TestCase):
     def test_hidden_source_and_examples_are_not_ignored(self):
         for relative in ('.source/guide.md', 'examples/guide.md'):
             with self.subTest(relative=relative):
-                path = self.write(relative, '[Missing example](examples/missing.ts)\n')
+                path = self.write(relative, '[Missing example](missing.ts)\n')
                 result, validator = self.run_validator()
                 self.assertEqual(result, 1)
                 self.assertTrue(any(relative + ':1:' in error and 'local target does not exist' in error
@@ -91,7 +201,7 @@ class CollectionDiscoveryTests(unittest.TestCase):
         outside = self.repo / 'outside.md'
         outside.write_text('# Outside\n', encoding='utf-8')
         (self.collection / 'examples/escape.md').symlink_to(outside)
-        self.write('examples/guide.md', '[Escape](../outside.md)\n')
+        self.write('examples/guide.md', '[Escape](../../../outside.md)\n')
         result, validator = self.run_validator()
         self.assertEqual(result, 1)
         self.assertTrue(any('collection entrypoints: unexpected examples/source/SKILL.md' in error
@@ -104,7 +214,7 @@ class CollectionDiscoveryTests(unittest.TestCase):
         outside.mkdir()
         (outside / 'SKILL.md').write_text('# Hidden entrypoint\n', encoding='utf-8')
         (outside / 'broken.md').write_text('[Missing](missing.md)\n', encoding='utf-8')
-        self.write('examples/guide.md', '[Missing](examples/missing.md)\n')
+        self.write('examples/guide.md', '[Missing](missing.md)\n')
         (self.collection / 'examples/external').symlink_to(outside, target_is_directory=True)
         result, validator = self.run_validator()
         self.assertEqual(result, 1)

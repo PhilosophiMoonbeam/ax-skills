@@ -1,6 +1,6 @@
 # AxAgent Optimization and Evaluation
 
-Use for `agent.optimize(...)`, task datasets, judge options, optimization targets, evaluation semantics, delegation tuning, and saved `optimizedProgram` artifacts in `@ax-llm/ax`. Source API snapshot: 25.4.10. Configure a runnable agent first; see [agent authoring](references/agent.md). Generic `ax(...)`/`flow(...)` tuning with top-level `optimize(program, train, metric, options)` belongs in [GEPA](references/gepa.md), not this agent workflow. Keep examples short and copyable; repeat general agent guidance only when needed.
+Use for `agent.optimize(...)`, task datasets, judge options, optimization targets, evaluation semantics, delegation tuning, and saved `optimizedProgram` artifacts in `@ax-llm/ax`. Source API snapshot: 25.4.10. Configure a runnable agent first; see [agent authoring](agent.md). Generic `ax(...)`/`flow(...)` tuning with top-level `optimize(program, train, metric, options)` belongs in [GEPA](gepa.md), not this agent workflow. Keep examples short and copyable; repeat general agent guidance only when needed.
 
 ## Defaults and target selection
 
@@ -11,7 +11,7 @@ Use for `agent.optimize(...)`, task datasets, judge options, optimization target
 - GEPA-backed optimization tunes generic components exposed by selected target programs: `'actor'` only actor components, `'responder'` only responder components, `'all'` a broader component set.
 - Cost, tool use, and delegation improvements require tasks that expose those tradeoffs. Delegation tasks must cover child calls, ordinary tool calls, and direct answers, including realistic call/no-call cases.
 - Reusable improvements require artifact save/load. Before/after comparison requires a held-out task, saving/loading, and replay.
-- Repair recurring failures without eroding working behavior via `agent.playbook().evolve(dataset)` in TypeScript: mine failures into verified playbook bullets under a held-out gate. Python, Java, C++, Go, and Rust expose the loop with native casing; see [playbooks](references/playbook.md). Optimization maximizes a metric through instructions/demos; evolution grows durable rules.
+- Repair recurring failures without eroding working behavior via `agent.playbook().evolve(dataset)` in TypeScript: mine failures into verified playbook bullets under a held-out gate. Python, Java, C++, Go, and Rust expose the loop with native casing; see [playbooks](playbook.md). Optimization maximizes a metric through instructions/demos; evolution grows durable rules.
 
 ## Make tasks and agents optimizable
 
@@ -31,7 +31,7 @@ Use eval-safe tools or in-memory mocks because tasks replay many times, especial
 
 Use deterministic `metric` for directly measurable `prediction`/`example` success: known extraction/classification answers, exact expected/forbidden calls, business scoring, explicit costs, tool/child-call counts, or turn counts. This gives repeatable low-variance optimization.
 
-Novel F1 measures lexical novelty overlap, not factual correctness or confidence calibration. Use it only when that overlap matches the task objective; it does not replace holistic judging or explicit expected/forbidden-action invariants. See [Novel F1 evaluation](references/gen.md#novel-f1-evaluation) for the TypeScript API, native helper names, normalization, repeated-word counts, recall mode, and finite empty-input semantics.
+Novel F1 measures lexical novelty overlap, not factual correctness or confidence calibration. Use it only when that overlap matches the task objective; it does not replace holistic judging or explicit expected/forbidden-action invariants. See [Novel F1 evaluation](gen.md#novel-f1-evaluation) for the TypeScript API, native helper names, normalization, repeated-word counts, recall mode, and finite empty-input semantics.
 
 Use the built-in agent judge for practical assistant quality without a trusted metric: open-ended synthesis, nuanced clarifications, tool choices/errors, final-answer quality, and holistic completion. It reviews the full run: completion type, clarification payload, final output, action log, normalized function calls, tool errors, and turn count.
 
@@ -128,7 +128,7 @@ const result = await assistant.optimize(tasks, { bootstrap: false });
 assistant.applyOptimization(result.optimizedProgram!);
 ```
 
-`target` defaults to actor; `metric` defaults to the built-in LLM judge. These 25.4.9 recipes explicitly disable pipeline bootstrap rather than treating an empty demo artifact as successful demonstration training. The separate generic `BootstrapFewShot` path is supported; see [GEPA and demonstration training](references/gepa.md) and [`23-optimize`](examples/23-optimize.ts).
+`target` defaults to actor; `metric` defaults to the built-in LLM judge. These 25.4.9 recipes explicitly disable pipeline bootstrap rather than treating an empty demo artifact as successful demonstration training. The separate generic `BootstrapFewShot` path is supported; see [GEPA and demonstration training](gepa.md) and [`23-optimize`](../examples/23-optimize.ts).
 
 ## Deterministic metric pattern
 
@@ -175,7 +175,7 @@ const result = await assistant.optimize(tasks, {
 
 ## Plain AxGen judge outside agent optimization
 
-Use only for direct AxGen/flow/other-program optimization, LLM judging without the agent wrapper, or inspecting judge results directly rather than only numeric scores. See [generation](references/gen.md) and [GEPA](references/gepa.md) for those program surfaces.
+Use only for direct AxGen/flow/other-program optimization, LLM judging without the agent wrapper, or inspecting judge results directly rather than only numeric scores. See [generation](gen.md) and [GEPA](gepa.md) for those program surfaces.
 
 ```typescript
 import { AxGen, s } from '@ax-llm/ax';
@@ -210,8 +210,8 @@ const result = await optimizer.compile(program, train, metric, {
 ## Evaluation semantics
 
 - MCP/UCP defaults to replay/sandbox evaluation. Live clients are rejected unless `mcpEvaluation: 'live'` is explicit.
-- Capture one real session with `AxMCPRecordingTransport`; use `AxMCPReplayTransport` for deterministic optimization/evaluation. See [MCP](references/mcp.md) for transport setup and side-effect policy.
-- Replay normalized MCP notifications and task transitions through `AxEventRuntime`; leave no live subscription active in default optimization. See [event runtime](references/event-runtime.md).
+- Capture one real session with `AxMCPRecordingTransport`; use `AxMCPReplayTransport` for deterministic optimization/evaluation. See [MCP](mcp.md) for transport setup and side-effect policy.
+- Replay normalized MCP notifications and task transitions through `AxEventRuntime`; leave no live subscription active in default optimization. See [event runtime](event-runtime.md).
 - Action traces expose qualified MCP/UCP operations, approvals, task transitions, raw protocol errors, and business outcomes to judges/custom metrics.
 - Each rollout starts from clean continuation state; saved `getState()`/`setState(...)` runtime state is not used.
 - During optimize/eval, `askClarification(...)` is a scored outcome, not routed through the responder. Custom metrics receive `prediction.completionType === 'askClarification'`, populated `prediction.clarification`, and absent `prediction.output`.
@@ -230,7 +230,7 @@ Tell the actor child-input fields and local-only tasks. For synthesis, state the
 - Serialize with `axSerializeOptimizedProgram(result.optimizedProgram!)`; deserialize with `axDeserializeOptimizedProgram(saved)` and apply with `agent.applyOptimization(...)`. The working agent example explicitly uses a component-only artifact, not a claimed bootstrapped-demo artifact; see the version-specific boundaries below.
 - `result.optimizedProgram.componentMap` is the canonical saved agent-GEPA artifact and reapplies learned strings. Depending on selected targets, it may contain actor instructions, descriptions, tool descriptions/names, templates, or runtime primitives. Preserve the full program, not just selected strings.
 - Bootstrap's implementation saves eligible successful fresh traces in `result.optimizedProgram.demos`, with a metric budget separate from regular evaluation. In this pipeline version, the trace filtering and context-demo routing defects below prevent a working end-to-end training recipe for this shape. Raw failed traces are not saved.
-- Auto-promoted undeclared inputs made runtime-only by `autoUpgrade` appear in captured traces/demos as truncated preview strings, not full values, just like declared truncate-style `contextFields`. This is expected, not corrupted saved demos; see [context handling](references/agent-context.md).
+- Auto-promoted undeclared inputs made runtime-only by `autoUpgrade` appear in captured traces/demos as truncated preview strings, not full values, just like declared truncate-style `contextFields`. This is expected, not corrupted saved demos; see [context handling](agent-context.md).
 - Serialized JSON can be stored in localStorage, IndexedDB, or a backend for browser-safe persistence.
 - Use fresh eval-safe tool state separately for baseline, optimize, and restored replay to prevent side-effect leakage. To demonstrate improvement, run a held-out task before tuning and replay it on a freshly restored optimized agent.
 
@@ -252,7 +252,7 @@ the reported execution rejects `stock-context.actor`, listing only
 `stock-task` and `stock-task.actor` as valid task-side IDs. Adding a routing
 prefix after optimization cannot repair a compile that already threw.
 
-The offline [`24-agent-optimize/bootstrap-boundaries`](examples/24-agent-optimize.ts)
+The offline [`24-agent-optimize/bootstrap-boundaries`](../examples/24-agent-optimize.ts)
 case asserts both boundaries: a successfully scored training rollout produces
 no demos with the default target; explicitly selecting all descriptors with
 distinct actor IDs rejects the real context trace during demo installation.
@@ -263,7 +263,7 @@ Use `bootstrap: false` for the working agent component-artifact path, whose
 round-trip retains real GEPA components and replays a held-out task with fresh
 tool state. For actual algorithm-generated demonstrations and restoration, use
 the public generator `BootstrapFewShot` training path exercised by
-[`23-optimize`](examples/23-optimize.ts), rather than manufacturing an agent
+[`23-optimize`](../examples/23-optimize.ts), rather than manufacturing an agent
 artifact or representing an empty demo list as successful bootstrap.
 
 ### TypeScript 25.4.9 component-and-demo restoration limitation
@@ -282,7 +282,7 @@ the task side, which rejects unknown IDs.
 This restoration omission is a source finding, not a completed rendered-prompt
 probe: the real pipeline bootstrap fails before a valid saved demonstration
 artifact is available in the distinct-stage shape. The working
-[`24-agent-optimize/action-metric-artifact`](examples/24-agent-optimize.ts)
+[`24-agent-optimize/action-metric-artifact`](../examples/24-agent-optimize.ts)
 round-trips and replays actual components with `bootstrap: false`; it does not
 claim demo exposure, demo restoration, or demonstrated quality improvement.
 The generic training example is the separate real-demonstration path.

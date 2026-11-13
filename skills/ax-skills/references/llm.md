@@ -2,7 +2,7 @@
 
 Ax (`@ax-llm/ax`) is a TypeScript library for type-safe LLM signatures, streaming, and multiple providers. Use this overview for `ax()`, `ai()`, `f()`, `s()`, `agent()`, `flow()`, `AxGen`, `AxAgent`, and `AxFlow`; use the focused companion references for detailed contracts. Source API snapshot: 25.4.10.
 
-Companion guidance: [AI providers](references/ai.md) covers providers, routing, and adaptive balancing; [Typesafe/Jev](references/typesafe.md) covers decisions, criteria, and native scoring; [signatures](references/signature.md) covers signatures and types; [generators](references/gen.md) covers generator behavior. For agents, select [core agents/tools](references/agent.md), [runtime/RLM/delegation](references/agent-rlm.md), [callbacks/logs/usage](references/agent-observability.md), [recall/dynamic skills](references/agent-memory-skills.md), or [tuning/evaluation](references/agent-optimize.md). See [flows](references/flow.md) for workflows and [GEPA](references/gepa.md) for top-level `optimize(...)`, BootstrapFewShot-to-GEPA migration, and Pareto optimization.
+Companion guidance: [AI providers](ai.md) covers providers, routing, and adaptive balancing; [Typesafe/Jev](typesafe.md) covers decisions, criteria, and native scoring; [signatures](signature.md) covers signatures and types; [generators](gen.md) covers generator behavior. For agents, select [core agents/tools](agent.md), [runtime/RLM/delegation](agent-rlm.md), [callbacks/logs/usage](agent-observability.md), [recall/dynamic skills](agent-memory-skills.md), or [tuning/evaluation](agent-optimize.md). See [flows](flow.md) for workflows and [GEPA](gepa.md) for top-level `optimize(...)`, BootstrapFewShot-to-GEPA migration, and Pareto optimization.
 
 ## Imports and Factories
 
@@ -63,7 +63,7 @@ const zodTool = fn('calculateTax')
   .build();
 ```
 
-The tax region is an input, so it uses a string validator: `z.enum(...)` maps to output-only Ax `class`, as shown by the tool's status result. On outputs, Zod enums advertise and validate allowed labels and preserve literal-union types, including enum arrays and optional arrays. See [Standard Schema: Zod](references/signature.md#standard-schema-zod) for synchronous conversion, original-validator semantics, and vendor boundaries.
+The tax region is an input, so it uses a string validator: `z.enum(...)` maps to output-only Ax `class`, as shown by the tool's status result. On outputs, Zod enums advertise and validate allowed labels and preserve literal-union types, including enum arrays and optional arrays. See [Standard Schema: Zod](signature.md#standard-schema-zod) for synchronous conversion, original-validator semantics, and vendor boundaries.
 
 ## Running and Forward Types
 
@@ -85,13 +85,13 @@ Programs use `forward(ai, values, options?)` and `streamingForward(ai, values, o
 
 `forward()` returns `Promise<OUT>`; `streamingForward()` returns `AxGenStreamingOut<OUT>` with `{ version, index, delta }` chunks. Agent inputs can include a per-run `memories` array. `AxAgentOptions<IN>` constructs an agent; it is not a forward-call option type.
 
-- `AxGen` exposes `setExamples(...)`, `addAssert(...)`, `addStreamingAssert(...)`, `addFieldProcessor(...)`, `addStreamingFieldProcessor(...)`, and `stop()`. See [generator callback contracts](references/gen.md).
-- `AxAgent.getFunction()` exposes a child-agent tool and requires `agentIdentity` at construction. See [agents](references/agent.md).
-- `AxFlow` defines nodes with `.node(...)`, runs them with `.execute(...)`, and selects outputs with `.returns(...)`. See [flows](references/flow.md).
+- `AxGen` exposes `setExamples(...)`, `addAssert(...)`, `addStreamingAssert(...)`, `addFieldProcessor(...)`, `addStreamingFieldProcessor(...)`, and `stop()`. See [generator callback contracts](gen.md).
+- `AxAgent.getFunction()` exposes a child-agent tool and requires `agentIdentity` at construction. See [agents](agent.md).
+- `AxFlow` defines nodes with `.node(...)`, runs them with `.execute(...)`, and selects outputs with `.returns(...)`. See [flows](flow.md).
 
 ## Forward Options
 
-Provider capabilities determine applicable outputs and options. Typesafe/Jev and OpenAI Decisions support required boolean/class/rubric score signatures. Jev additionally supports PNG/JPEG image inputs with native Box localization outputs; OpenAI Decisions supports image inputs but not Box outputs, so provider capabilities are not uniform. Use `(evidence)` or `.withEvidence()` for probabilities, scores, and native confidence through AxGen; provenance distinguishes native from elicited evidence. Use native clients for advanced request shapes and generative providers for prose or tools. Read [Typesafe/Jev](references/typesafe.md) before applying these general generation options to Jev.
+Provider capabilities determine applicable outputs and options. Typesafe/Jev and OpenAI Decisions support required boolean/class/rubric score signatures. Jev additionally supports PNG/JPEG image inputs with native Box localization outputs; OpenAI Decisions supports image inputs but not Box outputs, so provider capabilities are not uniform. Use `(evidence)` or `.withEvidence()` for probabilities, scores, and native confidence through AxGen; provenance distinguishes native from elicited evidence. Use native clients for advanced request shapes and generative providers for prose or tools. Read [Typesafe/Jev](typesafe.md) before applying these general generation options to Jev.
 
 | Goal | Option | Example |
 | --- | --- | --- |
@@ -150,7 +150,7 @@ classifier.setExamples([
 ]);
 ```
 
-Runnable scope: [`02-generation/memory-few-shot`](examples/02-generation.ts) demonstrates shared conversation memory and few-shot examples with scripted model I/O, not provider-quality acceptance.
+Runnable scope: [`02-generation/memory-few-shot`](../examples/02-generation.ts) demonstrates shared conversation memory and few-shot examples with scripted model I/O, not provider-quality acceptance.
 
 ## Common Patterns
 
@@ -166,7 +166,7 @@ const classifier = ax(
 );
 ```
 
-The [generative classification example](examples/02-generation.ts) validates class membership and corrects out-of-range confidence. This numeric field is elicited text, not a calibrated probability; use [native decision evidence](references/typesafe.md) when the application needs provider-produced probabilities.
+The [generative classification example](../examples/02-generation.ts) validates class membership and corrects out-of-range confidence. This numeric field is elicited text, not a calibrated probability; use [native decision evidence](typesafe.md) when the application needs provider-produced probabilities.
 
 ### Extraction
 
@@ -210,7 +210,7 @@ const research = await researcher.forward(llm, { topic: 'AGI' });
 const draft = await writer.forward(llm, { research: research.research, keyFacts: research.keyFacts });
 ```
 
-See [`02-generation/direct-generator-chain`](examples/02-generation.ts) for explicit output-to-input composition without a Flow graph.
+See [`02-generation/direct-generator-chain`](../examples/02-generation.ts) for explicit output-to-input composition without a Flow graph.
 
 ## Errors and Debugging
 
@@ -247,7 +247,7 @@ axGlobals.meter = openTelemetryMeter;
 
 ## MCP Integration
 
-See [MCP](references/mcp.md) for native clients, transports, authentication, catalogs, tasks, subscriptions, events, and replay.
+See [MCP](mcp.md) for native clients, transports, authentication, catalogs, tasks, subscriptions, events, and replay.
 
 ```typescript
 import { AxMCPClient, agent } from '@ax-llm/ax';
@@ -311,7 +311,7 @@ const mcpClient = new AxMCPClient(transport, {
 
 ## Event-Driven Programs
 
-Use `eventRuntime()` for notifications, webhooks, timers, or remote tasks that wake/resume an Ax program. Sources publish to an inbox; explicit routes select `observe`, `invalidate`, `wake`, or `resume`. Event payloads are never inserted automatically as user messages. See [event runtime](references/event-runtime.md).
+Use `eventRuntime()` for notifications, webhooks, timers, or remote tasks that wake/resume an Ax program. Sources publish to an inbox; explicit routes select `observe`, `invalidate`, `wake`, or `resume`. Event payloads are never inserted automatically as user messages. See [event runtime](event-runtime.md).
 
 ## Resources
 
@@ -321,4 +321,4 @@ Fetch full working examples as needed:
 - [Chat Log](https://raw.githubusercontent.com/ax-llm/ax/refs/heads/main/src/examples/chat-log.ts): conversation history and multi-step tool calls.
 - [Marketing](https://raw.githubusercontent.com/ax-llm/ax/refs/heads/main/src/examples/marketing.ts): product use case.
 - [MCP Integration](https://raw.githubusercontent.com/ax-llm/ax/refs/heads/main/src/examples/mcp-client-memory.ts): MCP integration.
-- [Original Typesafe/Jev guidance](https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-typesafe.md): upstream resource; local guidance is [Typesafe/Jev](references/typesafe.md).
+- [Original Typesafe/Jev guidance](https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-typesafe.md): upstream resource; local guidance is [Typesafe/Jev](typesafe.md).

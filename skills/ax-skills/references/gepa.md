@@ -1,6 +1,6 @@
 # GEPA and Pareto optimization
 
-Source API snapshot: `@ax-llm/ax` 25.4.10. Use for `AxGEPA`, global `optimize(...)`, reflective prompt evolution, multi-objective/Pareto tuning, `validationExamples`, `maxMetricCalls`, and generator/flow/agent-tree optimization. Prefer global `optimize(...)`; use direct `AxGEPA` or `AxBootstrapFewShot` only for low-level control. Agent wrapper tuning belongs in [agent optimization](references/agent-optimize.md); inference-time `bestOfN`/`refine` belongs in [refinement](references/refine.md); evolving context knowledge belongs in [playbooks](references/playbook.md).
+Source API snapshot: `@ax-llm/ax` 25.4.10. Use for `AxGEPA`, global `optimize(...)`, reflective prompt evolution, multi-objective/Pareto tuning, `validationExamples`, `maxMetricCalls`, and generator/flow/agent-tree optimization. Prefer global `optimize(...)`; use direct `AxGEPA` or `AxBootstrapFewShot` only for low-level control. Agent wrapper tuning belongs in [agent optimization](agent-optimize.md); inference-time `bestOfN`/`refine` belongs in [refinement](refine.md); evolving context knowledge belongs in [playbooks](playbook.md).
 
 ## Execution and selection contract
 
@@ -27,9 +27,9 @@ Bootstrap collects only fresh traces from the current training run. A conditiona
 
 A metric returns `number` for one objective or `Record<string, number>` for Pareto optimization. Return plain numbers/object literals, keep objective names stable, and prefer normalized `0..1` scores. Every example must produce numeric scores.
 
-Prefer cheap deterministic scoring when correctness follows from `prediction`/`example`, or when measuring cost, latency, recursion depth, or tool count. Avoid extra metric LLM calls unless explicitly requested. For qualitative non-agent tasks, use a plain typed `AxGen` evaluator rather than a custom judge abstraction; see [generators](references/gen.md).
+Prefer cheap deterministic scoring when correctness follows from `prediction`/`example`, or when measuring cost, latency, recursion depth, or tool count. Avoid extra metric LLM calls unless explicitly requested. For qualitative non-agent tasks, use a plain typed `AxGen` evaluator rather than a custom judge abstraction; see [generators](gen.md).
 
-For `agent.optimize(...)`, use a custom `metric` for crisp scoring; otherwise prefer its built-in judge. Normal agent users generally need neither `target` nor `metric`. Add `judgeAI` and `judgeOptions` only for a stronger/separate judge. If targeting is too broad, select `'actor'`, `'responder'`, `'all'`, or explicit program IDs; the wrapper filters GEPA components accordingly. See [agent optimization](references/agent-optimize.md).
+For `agent.optimize(...)`, use a custom `metric` for crisp scoring; otherwise prefer its built-in judge. Normal agent users generally need neither `target` nor `metric`. Add `judgeAI` and `judgeOptions` only for a stronger/separate judge. If targeting is too broad, select `'actor'`, `'responder'`, `'all'`, or explicit program IDs; the wrapper filters GEPA components accordingly. See [agent optimization](agent-optimize.md).
 
 ```typescript
 // Scalar objective
@@ -98,7 +98,7 @@ console.log({
 
 ## Pareto flow example
 
-This independent example optimizes accuracy and rationale brevity across both flow nodes; see [flows](references/flow.md).
+This independent example optimizes accuracy and rationale brevity across both flow nodes; see [flows](flow.md).
 
 ```typescript
 import { ai, flow, optimize, AxAIOpenAIModel } from '@ax-llm/ax';

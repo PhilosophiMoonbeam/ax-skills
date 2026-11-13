@@ -3,8 +3,8 @@
 
 Run: python3 scripts/validate_ax_skills.py [--repo PATH] [--collection PATH]
 Collection paths are relative to --repo unless absolute. Local Markdown links
-are relative to the collection root, including links inside references. This
-standard-library maintainer tool never rewrites files or stamps audit results.
+are relative to the containing file, with the collection root as their containment
+boundary. This standard-library maintainer tool never rewrites files or stamps audit results.
 Discovery prunes dependency, generated-output, and conventional environment/cache
 directories; collection-owned source files, including hidden source, remain checked.
 Non-pruned source directory symlinks are rejected, including internal aliases.
@@ -313,7 +313,10 @@ def destination_at(text, start):
 
 def markdown_links(lines, label, errors):
     """Read inline, reference-style, autolink and HTML links outside code."""
-    text = INLINE_CODE.sub(lambda m: ' ' * len(m[0]), '\n'.join(lines))
+    text = INLINE_CODE.sub(
+        lambda m: ''.join('\n' if char == '\n' else ' ' for char in m[0]),
+        '\n'.join(lines),
+    )
     definitions, links = {}, []
     normalize = lambda value: ' '.join(value.split()).casefold()
     for number, line in enumerate(text.splitlines(), 1):
@@ -385,16 +388,16 @@ class Validator:
     def error(self, message):
         self.errors.append(message)
 
-    def inside(self, base, relative, label):
+    def inside(self, root, relative, label, *, base=None):
         if not isinstance(relative, str) or not relative or '\\' in relative:
             self.error(f"{label}: expected a nonempty POSIX relative path")
             return None
         path = PurePosixPath(relative)
         if path.is_absolute():
-            self.error(f"{label}: absolute path is not collection-root-relative: {relative}")
+            self.error(f"{label}: absolute path is not allowed: {relative}")
             return None
-        candidate = (base / relative).resolve()
-        if not candidate.is_relative_to(base):
+        candidate = ((root if base is None else base) / relative).resolve()
+        if not candidate.is_relative_to(root):
             self.error(f"{label}: path escapes allowed root: {relative}")
             return None
         return candidate
@@ -627,7 +630,7 @@ class Validator:
                     self.error(f"{context}: stale original installed-skill link")
                     continue
                 relative = unquote(parts.path)
-                resolved = self.inside(self.collection, relative, context) if relative else path
+                resolved = self.inside(self.collection, relative, context, base=path.parent) if relative else path
                 if resolved is None:
                     continue
                 if not resolved.is_file():

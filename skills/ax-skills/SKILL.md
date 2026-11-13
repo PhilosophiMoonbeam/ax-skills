@@ -5,7 +5,7 @@ description: Design, implement and review @ax-llm/ax TypeScript LLM systems. Use
 
 # Ax Skills
 
-Use one entrypoint, 19 selectively loaded references and 36 executable example modules. Links resolve from this skill root; no separately installed Ax skill is required.
+Use one entrypoint, 19 selectively loaded references and 36 executable example modules. Markdown links resolve relative to their containing file; no separately installed Ax skill is required.
 
 ## Working policy
 

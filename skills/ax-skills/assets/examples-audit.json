@@ -1,13 +1,13 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "format": "versioned-amendment",
   "snapshot_version": "25.4.10",
   "amendment_date": "2026-11-13",
-  "objective": "Record authoritative206-case inventory and actual25.4.10 execution, separate synthetic/live proof limits, and avoid nested historical payloads.",
+  "objective": "Retain the authoritative 206-case inventory for byte-identical execution inputs and separate fresh Markdown validation from historical runtime results.",
   "historical_baseline": {
-    "git_object": "bdebc2093126d782972933197050052ee600b5e9:skills/ax-skills/assets/examples-audit.json",
-    "sha256": "769bb8f606ffae863d7afd3f76110a4196c94bf513140e41ffd08e071d5b990f",
-    "status": "Immutable historical review; not embedded or relabeled as current."
+    "git_object": "058f2aecae10bdfb53b746325c03c9352460db10:skills/ax-skills/assets/examples-audit.json",
+    "sha256": "cb4b430fa9b7422323059cd28a1db4ce2c64761be832fa7b275dbc4c3f444231",
+    "status": "Historical exact-byte semantic/runtime evidence; not a new model or runtime run."
   },
   "current": {
     "source_snapshot": {
@@ -20,7 +20,7 @@
     },
     "coverage_audit": {
       "path": "assets/coverage-audit.json",
-      "sha256": "0a753f55a353fb24d2329b9bf345d5fbbaddb13ad1efc97e69593cf7147555dd"
+      "sha256": "66f686f6e7259c2145b62053f9e84c1154a89c295a707752726ba2ee101d0e4d"
     },
     "file_hashes_location": "assets/coverage-audit.json#/current/file_hashes",
     "current_case_inventory": [
@@ -6707,56 +6707,25 @@
         }
       }
     ],
+    "case_observation_origin": {
+      "git_object": "058f2aecae10bdfb53b746325c03c9352460db10:skills/ax-skills/assets/examples-audit.json",
+      "json_pointer": "/current/current_case_inventory",
+      "status": "Recorded offline observations apply to unchanged case bodies and execution inputs; not fresh runs."
+    },
+    "execution_input_identity_location": "assets/coverage-audit.json#/current/retained_runtime_acceptance/byte_identical_execution_inputs",
     "accounting": {
       "cases": 206,
       "modules": 36,
-      "offline_cases_passed": 206,
-      "actual_model_http_requests": 0,
-      "loopback_fetch_requests": 197,
-      "loopback_connections": 53,
-      "new_google_cases": 3,
-      "new_mcp_case": 1,
-      "ticket_scenarios": 33,
-      "legacy_sse_fault_scenarios": 6
+      "execution_inputs_byte_identical": 43,
+      "fresh_example_runtime_runs": 0,
+      "fresh_python_tests": 34,
+      "local_markdown_links_validated": 424,
+      "repaired_href_occurrences": 350
     },
     "verification": {
       "commands": [
         {
-          "label": "strict TypeScript",
-          "command": [
-            "npm",
-            "run",
-            "check"
-          ],
-          "cwd": "skills/ax-skills/examples",
-          "exit": 0,
-          "elapsed_seconds": 2.944
-        },
-        {
-          "label": "complete offline CLI suite",
-          "command": [
-            "node",
-            "--import",
-            "tsx",
-            "run.ts"
-          ],
-          "cwd": "skills/ax-skills/examples",
-          "exit": 0,
-          "elapsed_seconds": 4.811
-        },
-        {
-          "label": "published source identity",
-          "command": [
-            "python3",
-            "scripts/sync_ax_sources.py",
-            "--check"
-          ],
-          "cwd": ".",
-          "exit": 0,
-          "elapsed_seconds": 1.914
-        },
-        {
-          "label": "Python sync and structural regressions",
+          "label": "Python regressions",
           "command": [
             "python3",
             "-m",
@@ -6767,643 +6736,71 @@
             "-p",
             "test_*.py"
           ],
-          "cwd": ".",
           "exit": 0,
-          "elapsed_seconds": 1.781
+          "elapsed_seconds": 2.163,
+          "output": "..................................\n----------------------------------------------------------------------\nRan 34 tests in 2.021s\n\nOK"
         },
         {
-          "label": "structural skill validation",
+          "label": "Standard Markdown structure",
           "command": [
             "python3",
             "scripts/validate_ax_skills.py"
           ],
-          "cwd": ".",
           "exit": 0,
-          "elapsed_seconds": 0.178
+          "elapsed_seconds": 0.351,
+          "output": "Structural validation passed: 19 preserved sources, 19 references, 19 directly linked references, 21 Markdown files, 505 links, 52 master lines.\nOriginal inventory: 381729 bytes, 7944 lines (bytes.splitlines counts).\nSemantic coverage is not tested; it requires the separate orchestrator judge_batch audit."
         },
         {
-          "label": "skill format validation",
+          "label": "Immutable publication identity",
+          "command": [
+            "python3",
+            "scripts/sync_ax_sources.py",
+            "--check"
+          ],
+          "exit": 0,
+          "elapsed_seconds": 1.255,
+          "output": "Source check passed: 19 exact members; @ax-llm/ax 25.4.10, revision bbacc3b7220a60f02225375a074f6ce334046472; archive SHA-256 and member bytes match the manifest.\nThis read-only check does not validate curated implementation, architecture, or semantic audit freshness."
+        },
+        {
+          "label": "Skill format",
           "command": [
             "skills-ref",
             "validate",
             "skills/ax-skills"
           ],
-          "cwd": ".",
           "exit": 0,
-          "elapsed_seconds": 0.07
+          "elapsed_seconds": 0.257,
+          "output": "Valid skill: skills/ax-skills"
         },
         {
-          "label": "skill disclosure prompt",
+          "label": "Progressive disclosure",
           "command": [
             "skills-ref",
             "to-prompt",
             "skills/ax-skills"
           ],
-          "cwd": ".",
           "exit": 0,
-          "elapsed_seconds": 0.066
+          "elapsed_seconds": 0.135,
+          "output": "<available_skills>\n<skill>\n<name>\nax-skills\n</name>\n<description>\nDesign, implement and review @ax-llm/ax TypeScript LLM systems. Use for holistic architecture before development, execution topology and trust/state boundaries; ai() providers, routing, balancing and embeddings; s()/f() signatures; ax()/AxGen generation, streaming and validation; agent()/AxAgent tools, child delegation, clarification and resume; contextMap, contextPolicy, memories and runtime skills; RLM/AxJSRuntime; usage, tracing and cost ownership; flow()/AxFlow DAGs; AxEventRuntime events and persistence; agent.optimize(), optimize()/AxGEPA, playbook()/ACE and bestOfN/refine; AxMCPClient transports, catalogs and OAuth; audio/multimodal applications; and native Jev, OpenAI and Gemini decisions, evidence, media and Box localization.\n</description>\n<location>\n/home/bbferko/repos/ax-skills/skills/ax-skills/SKILL.md\n</location>\n</skill>\n</available_skills>"
         },
         {
-          "label": "metadata-only CLI discovery",
+          "label": "Context graph refresh",
           "command": [
-            "node",
-            "--import",
-            "tsx",
-            "run.ts",
-            "--list"
+            "graft",
+            "build"
           ],
-          "cwd": "skills/ax-skills/examples",
           "exit": 0,
-          "elapsed_seconds": 0.753
+          "elapsed_seconds": 0.939
         }
       ],
-      "typescript": "passed",
-      "offline_cases": 206,
-      "offline_modules": 36,
-      "python_regressions": 22,
-      "published_source": "Source check passed: 19 exact members; @ax-llm/ax 25.4.10, revision bbacc3b7220a60f02225375a074f6ce334046472; archive SHA-256 and member bytes match the manifest.\nThis read-only check does not validate curated implementation, architecture, or semantic audit freshness.",
-      "structural": "Structural validation passed: 19 preserved sources, 19 references, 19 directly linked references, 21 Markdown files, 505 links, 52 master lines.\nOriginal inventory: 381729 bytes, 7944 lines (bytes.splitlines counts).\nSemantic coverage is not tested; it requires the separate orchestrator judge_batch audit.",
-      "skills_ref": "Valid skill: skills/ax-skills",
-      "disclosure": {
-        "name_present": true,
-        "characters": 934
-      },
-      "cli_google_profile_smoke": {
-        "passed": true,
-        "real_provider_calls": 0,
-        "synthetic_fetch_requests": 1,
-        "boundary": "Actual named live-mode CLI branch with synthetic fetch preload; not liveprovider acceptance."
-      },
-      "runner_guards": {
-        "named_live_selection_required": true,
-        "native_accessor_jev_only": true,
-        "listing_ignores_env": true,
-        "metadata_cases": 206
-      },
-      "graph": {
-        "command": "graft build",
-        "exit": 0,
-        "parsed_files": 43
-      },
-      "live_example_inference": "notrun",
-      "browser_audio_generated_language_execution": "notqualifiedbythisrelease"
+      "scope": "Markdown links, validator, and provenance; no fresh runtime or model inference claims.",
+      "all_exit_zero": true
     },
-    "changed_case_acceptance": {
-      "01-signatures/standard-schema": {
-        "result": {
-          "contactEmail": "ada@example.com",
-          "accountCode": "AC-42",
-          "validatedCode": "verified:ac-42",
-          "normalizedLabel": "abc"
-        },
-        "triage": {
-          "priority": "high",
-          "priorityList": [
-            "low",
-            "high"
-          ],
-          "optionalPriorities": [
-            "low"
-          ],
-          "tags": [
-            "invoice"
-          ],
-          "optionalTags": [
-            "review"
-          ],
-          "counts": [
-            1,
-            2
-          ],
-          "flags": [
-            true,
-            false
-          ],
-          "summary": "Review the invoice"
-        },
-        "omitted": {
-          "priority": "low",
-          "priorityList": [
-            "low"
-          ],
-          "tags": [
-            "invoice"
-          ],
-          "counts": [],
-          "flags": [],
-          "summary": "Review invoice"
-        },
-        "inferredContracts": [
-          true,
-          true,
-          true,
-          true,
-          true,
-          true,
-          true,
-          true,
-          true,
-          true
-        ],
-        "correctionRequests": 3,
-        "proof": "Deterministic Ax forwards exercise Zod enum/array contracts, regex flags, transformation order and refinement corrections; no live quality or generated-language validator claim"
-      },
-      "06-decisions/applicability-gate": {
-        "outcomes": [
-          {
-            "fixture": "no",
-            "answers": {
-              "applicable": {
-                "type": "noul",
-                "noul": 0.02
-              },
-              "category": {
-                "type": "choice",
-                "choice": "refund",
-                "probabilities": {
-                  "refund": 0.96,
-                  "duplicate": 0.040000000000000036
-                },
-                "confidence": 0.9199999999999999
-              }
-            },
-            "route": "general",
-            "batches": 1
-          },
-          {
-            "fixture": "yes",
-            "answers": {
-              "applicable": {
-                "type": "noul",
-                "noul": 0.98
-              },
-              "category": {
-                "type": "choice",
-                "choice": "refund",
-                "probabilities": {
-                  "refund": 0.96,
-                  "duplicate": 0.040000000000000036
-                },
-                "confidence": 0.9199999999999999
-              }
-            },
-            "route": "refund",
-            "batches": 1
-          },
-          {
-            "fixture": "uncertain",
-            "answers": {
-              "applicable": {
-                "type": "noul",
-                "noul": 0.5
-              },
-              "category": {
-                "type": "choice",
-                "choice": "refund",
-                "probabilities": {
-                  "refund": 0.96,
-                  "duplicate": 0.040000000000000036
-                },
-                "confidence": 0.9199999999999999
-              }
-            },
-            "route": "review",
-            "batches": 1
-          },
-          {
-            "fixture": "applicable-but-ambiguous",
-            "answers": {
-              "applicable": {
-                "type": "noul",
-                "noul": 0.98
-              },
-              "category": {
-                "type": "choice",
-                "choice": "refund",
-                "probabilities": {
-                  "refund": 0.55,
-                  "duplicate": 0.44999999999999996
-                },
-                "confidence": 0.10000000000000009
-              }
-            },
-            "route": "review",
-            "batches": 1
-          }
-        ],
-        "proof": "Four finite injected HTTP fixtures; real SDK native decoding and separate host applicability/selected-label thresholds, not inference or calibration. Questions have no sibling-answer dependencies."
-      },
-      "06-decisions/google-gemini-decisions-evidence": {
-        "result": {
-          "scalar": false,
-          "boundary": true,
-          "defaultEvidence": {
-            "value": true,
-            "probability": 0.6,
-            "threshold": 0.5,
-            "provenance": {
-              "source": "native",
-              "provider": "Google Gemini Decisions",
-              "model": "gemini-decision-1"
-            },
-            "confidence": 0.6
-          },
-          "explicitEvidence": {
-            "value": false,
-            "probability": 0.6,
-            "threshold": 0.9,
-            "provenance": {
-              "source": "native",
-              "provider": "Google Gemini Decisions",
-              "model": "gemini-decision-1"
-            },
-            "confidence": 0.6
-          },
-          "owner": "engineering",
-          "ownerEvidence": {
-            "value": "engineering",
-            "probabilities": {
-              "support": 0.1,
-              "engineering": 0.9
-            },
-            "provenance": {
-              "source": "native",
-              "provider": "Google Gemini Decisions",
-              "model": "gemini-decision-1"
-            },
-            "confidence": 0.9
-          },
-          "impact": 1.4,
-          "impactEvidence": {
-            "value": 1.4,
-            "levels": [
-              "Minor inconvenience",
-              "Feature impaired",
-              "Core task blocked"
-            ],
-            "probabilities": [
-              0.1,
-              0.4,
-              0.5
-            ],
-            "provenance": {
-              "source": "native",
-              "provider": "Google Gemini Decisions",
-              "model": "gemini-decision-1"
-            },
-            "confidence": 0.5
-          }
-        },
-        "calls": 1,
-        "proof": "Injected HTTP answers exercise actual SDK scalar/evidence decoding, confidence and requested-model provenance. No live inference, accuracy or calibration claim."
-      },
-      "06-decisions/google-gemini-native-multimodal": {
-        "answers": {
-          "attachment-present": {
-            "type": "noul",
-            "noul": 0.99,
-            "confidence": 0.99
-          },
-          "owner": {
-            "type": "choice",
-            "choice": "engineering",
-            "probabilities": {
-              "support": 0.1,
-              "engineering": 0.9
-            },
-            "confidence": 0.9
-          },
-          "impact": {
-            "type": "score",
-            "score": 10,
-            "probabilities": {
-              "0": 0,
-              "1": 0,
-              "2": 0,
-              "3": 0,
-              "4": 0,
-              "5": 0,
-              "6": 0,
-              "7": 0,
-              "8": 0,
-              "9": 0,
-              "10": 1
-            },
-            "legend": {
-              "0": "Level 0",
-              "1": "Level 1",
-              "2": "Level 2",
-              "3": "Level 3",
-              "4": "Level 4",
-              "5": "Level 5",
-              "6": "Level 6",
-              "7": "Level 7",
-              "8": "Level 8",
-              "9": "Level 9",
-              "10": "Level 10"
-            },
-            "confidence": 1
-          }
-        },
-        "usage": {
-          "total_input_tokens": 42,
-          "total_output_tokens": 0,
-          "total_tokens": 42,
-          "input_tokens_by_modality": [
-            {
-              "modality": "text",
-              "tokens": 12
-            },
-            {
-              "modality": "image",
-              "tokens": 20
-            },
-            {
-              "modality": "audio",
-              "tokens": 10
-            }
-          ]
-        },
-        "calls": 1,
-        "proof": "Actual SDK native validation/decoding with synthetic HTTP answers. Media bytes and references are preserved, never fetched by this fixture; no recognition, inference quality or provider-equivalence claim."
-      },
-      "06-decisions/google-gemini-native-validation": {
-        "rejected": [
-          "missing-confidence",
-          "noul-outside-provider-range",
-          "invalid-distribution",
-          "mismatched-legend",
-          "nonzero-output-usage"
-        ],
-        "calls": 5,
-        "proof": "Malformed synthetic responses fail actual SDK decoding after one injected fetch each. No inferred probabilities, confidence or usable decisions replace invalid provider data."
-      },
-      "26-architecture/evidence-aware-ticket": {
-        "scenarios": 33,
-        "outcomes": [
-          {
-            "scenarioId": "fraud-overlap",
-            "outcome": "fraud-review",
-            "winningRule": "R1-fraud"
-          },
-          {
-            "scenarioId": "human-or-unknown-legal",
-            "outcome": "human-legal-handoff",
-            "winningRule": "R2-human-legal"
-          },
-          {
-            "scenarioId": "legal-or-unknown-human",
-            "outcome": "human-legal-handoff",
-            "winningRule": "R2-human-legal"
-          },
-          {
-            "scenarioId": "refund-2500-over-retention",
-            "outcome": "refund-proposal",
-            "winningRule": "R3-refund"
-          },
-          {
-            "scenarioId": "refund-2501",
-            "outcome": "refund-team-review",
-            "winningRule": "R3-refund"
-          },
-          {
-            "scenarioId": "refund-ineligible",
-            "outcome": "answer",
-            "winningRule": "R5-answer"
-          },
-          {
-            "scenarioId": "already-paid-unknown-refund-retention",
-            "outcome": "retention-proposal",
-            "winningRule": "R4-retention"
-          },
-          {
-            "scenarioId": "unknown-fraud-high-edge",
-            "outcome": "uncertainty-review",
-            "winningRule": "R1-fraud"
-          },
-          {
-            "scenarioId": "unknown-handoff",
-            "outcome": "uncertainty-review",
-            "winningRule": "R2-human-legal"
-          },
-          {
-            "scenarioId": "unknown-refund",
-            "outcome": "uncertainty-review",
-            "winningRule": "R3-refund"
-          },
-          {
-            "scenarioId": "retention",
-            "outcome": "retention-proposal",
-            "winningRule": "R4-retention"
-          },
-          {
-            "scenarioId": "inactive-irrelevant-unknowns",
-            "outcome": "answer",
-            "winningRule": "R5-answer"
-          },
-          {
-            "scenarioId": "no-cancel-unknown-offer",
-            "outcome": "answer",
-            "winningRule": "R5-answer"
-          },
-          {
-            "scenarioId": "unknown-cancel-no-offer",
-            "outcome": "answer",
-            "winningRule": "R5-answer"
-          },
-          {
-            "scenarioId": "uncertain-retention",
-            "outcome": "uncertainty-review",
-            "winningRule": "R4-retention"
-          },
-          {
-            "scenarioId": "all-negative",
-            "outcome": "answer",
-            "winningRule": "R5-answer"
-          },
-          {
-            "scenarioId": "inclusive-thresholds",
-            "outcome": "retention-proposal",
-            "winningRule": "R4-retention"
-          },
-          {
-            "scenarioId": "unknown-fraud-low-edge",
-            "outcome": "uncertainty-review",
-            "winningRule": "R1-fraud"
-          },
-          {
-            "scenarioId": "unavailable-eligibility",
-            "outcome": "uncertainty-review",
-            "winningRule": "R3-refund"
-          },
-          {
-            "scenarioId": "stale-eligibility",
-            "outcome": "uncertainty-review",
-            "winningRule": "R3-refund"
-          },
-          {
-            "scenarioId": "unavailable-paid-state",
-            "outcome": "uncertainty-review",
-            "winningRule": "R3-refund"
-          },
-          {
-            "scenarioId": "stale-paid-state",
-            "outcome": "uncertainty-review",
-            "winningRule": "R3-refund"
-          },
-          {
-            "scenarioId": "unavailable-amount",
-            "outcome": "uncertainty-review",
-            "winningRule": "R3-refund"
-          },
-          {
-            "scenarioId": "stale-amount",
-            "outcome": "uncertainty-review",
-            "winningRule": "R3-refund"
-          },
-          {
-            "scenarioId": "unavailable-subscription",
-            "outcome": "uncertainty-review",
-            "winningRule": "R4-retention"
-          },
-          {
-            "scenarioId": "stale-subscription",
-            "outcome": "uncertainty-review",
-            "winningRule": "R4-retention"
-          },
-          {
-            "scenarioId": "ineligible-unknown-paid-state-and-amount",
-            "outcome": "retention-proposal",
-            "winningRule": "R4-retention"
-          },
-          {
-            "scenarioId": "already-paid-unknown-eligibility-and-amount",
-            "outcome": "retention-proposal",
-            "winningRule": "R4-retention"
-          },
-          {
-            "scenarioId": "no-refund-no-cancel-unavailable-facts",
-            "outcome": "answer",
-            "winningRule": "R5-answer"
-          },
-          {
-            "scenarioId": "no-offer-stale-subscription",
-            "outcome": "answer",
-            "winningRule": "R5-answer"
-          },
-          {
-            "scenarioId": "fraud-unavailable-facts",
-            "outcome": "fraud-review",
-            "winningRule": "R1-fraud"
-          },
-          {
-            "scenarioId": "human-stale-facts",
-            "outcome": "human-legal-handoff",
-            "winningRule": "R2-human-legal"
-          },
-          {
-            "scenarioId": "refund-unavailable-subscription",
-            "outcome": "refund-proposal",
-            "winningRule": "R3-refund"
-          }
-        ],
-        "dispatchedActions": 0,
-        "trace": {
-          "ticketId": "T-104",
-          "model": "jev-latest",
-          "provenance": {
-            "source": "native",
-            "provider": "typesafe",
-            "model": "jev-latest"
-          },
-          "thresholds": {
-            "id": "ticket-thresholds-v1",
-            "falseAtMost": 0.3,
-            "trueAtLeast": 0.7
-          },
-          "questionSetVersion": "ticket-signals-v1",
-          "policyVersion": "ticket-policy-v2",
-          "judgments": [
-            {
-              "questionId": "reportsUnauthorized",
-              "probability": 0.7,
-              "judgment": true
-            },
-            {
-              "questionId": "requestsHuman",
-              "probability": 0.9,
-              "judgment": true
-            },
-            {
-              "questionId": "threatensLegal",
-              "probability": 0.9,
-              "judgment": true
-            },
-            {
-              "questionId": "wantsRefund",
-              "probability": 0.9,
-              "judgment": true
-            },
-            {
-              "questionId": "wantsCancel",
-              "probability": 0.9,
-              "judgment": true
-            },
-            {
-              "questionId": "openToOffer",
-              "probability": 0.9,
-              "judgment": true
-            }
-          ],
-          "facts": {
-            "eligible": {
-              "status": "known",
-              "value": true
-            },
-            "alreadyRefunded": {
-              "status": "known",
-              "value": false
-            },
-            "amountCents": {
-              "status": "known",
-              "value": 2500
-            },
-            "activeSubscription": {
-              "status": "known",
-              "value": true
-            }
-          },
-          "factsProvenance": "host fixture: eligibility policy, refund ledger, integer-cent billing record, subscription record",
-          "evaluatedRules": [
-            {
-              "ruleId": "R1-fraud",
-              "match": true
-            }
-          ],
-          "winningRule": "R1-fraud",
-          "outcome": "fraud-review"
-        },
-        "design": "One six-Noul request per conversation; explicit host policy owns ordered routing, authoritative fact availability/freshness and approval. A separate generative provider acknowledges only the typed host outcome, without receiving its evidence. Raw native responses stay in internal records; only one bounded trace is returned.",
-        "proofBoundary": "Offline scenarios prove scripted transport, policy including relevant unavailable/stale fact review, typed handoff and zero unapproved dispatch effects—not judgment quality, calibration or prose truth. Field assertions preserve ticket ID and outcome, not factual rationale. Thresholds are illustrative; live runs one scenario and asserts contracts, not fixture probabilities. No payment or subscription executor is connected."
-      },
-      "29-mcp-oauth/legacy-sse-error-ownership": {
-        "checked": [
-          "success-listener-error",
-          "success-unrelated-listener-abort",
-          "success-listener-undefined",
-          "primary-error-listener-error",
-          "primary-undefined-listener-error",
-          "expected-host-close-abort"
-        ],
-        "proof": "The production lifecycle helper owns a real authenticated legacy connection. Response-body fault injection verifies error identity and late listener precedence; every real HTTP reader, client and fixture closes."
-      }
-    },
+    "link_repair_evidence_location": "assets/coverage-audit.json#/current/link_repair",
     "article_principle_mapping_location": "assets/coverage-audit.json#/current/article_principle_mapping",
     "limits": [
-      "Offline scripted model I/O and owned protocol peers; no Google/OpenAI/Jev application inference or model-quality qualification. Bulk Jev audit calls are separate.",
-      "No fresh live application-model, browser-model, real speech/microphone, image synthesis, external business writes or generated-language execution.",
-      "ASTcase_body_sha256 fingerprints cover exact objectliteral spans. Fullmodule/helpers/package/runner hashes are in coverage audit; no fixture response is presented as live-provider quality.",
-      "Prior199/202case feature reviews, live scenarios and browser observations are historical Gitobjects only."
+      "No Ax API source, example implementation, dependency pin or runtime contract changed. This repair does not rerun or relabel prior TypeScript, offline, live or browser evidence.",
+      "Paths recorded as JSON identities remain collection-relative where documented; Markdown hyperlinks now use standard containing-file-relative resolution."
     ]
   }
 }

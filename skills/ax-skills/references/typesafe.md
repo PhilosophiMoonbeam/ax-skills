@@ -82,9 +82,9 @@ const decision = await triage.forward(model, {
 
 Field names/descriptions become question instructions. Boolean value descriptions map to `criteria.true`/`criteria.false`; class descriptions use exact label keys. Partial descriptions are allowed; undescribed class labels map to `null`. Duplicate/unknown keys and empty descriptions fail validation. Quote labels containing spaces/punctuation. Fluent equivalents: `f.boolean(...).describeValues({ true: '...', false: '...' })` and `f.class([...], ...).describeValues({ label: '...' })`.
 
-Conventional providers render base descriptions plus `value: description` lines in prompt/JSON schema. Annotations survive serialization without changing inferred types/allowed values. Complete local syntax: [signatures](references/signature.md); original [signature resource](https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-signature.md). Use `score` for ordered label rubrics. Structured JSON criteria/custom numeric rubric entries belong in native requests, not JSON encoded into quoted descriptions.
+Conventional providers render base descriptions plus `value: description` lines in prompt/JSON schema. Annotations survive serialization without changing inferred types/allowed values. Complete local syntax: [signatures](signature.md); original [signature resource](https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-signature.md). Use `score` for ordered label rubrics. Structured JSON criteria/custom numeric rubric entries belong in native requests, not JSON encoded into quoted descriptions.
 
-The adapter sends the normal Ax prompt as native state and batches outputs into one request. It supports required boolean/class/rubric score/box outputs; optional, array, nested, ordinary numeric, and freeform outputs fail before network access. PNG/JPEG image inputs are supported; audio, files, tools, multiple completion samples, and controls such as `temperature`/`maxTokens` are unsupported. No token streaming exists; `streamingForward()` can deliver a completed result. Program behavior: [Gen](references/gen.md); provider configuration: [AI](references/ai.md).
+The adapter sends the normal Ax prompt as native state and batches outputs into one request. It supports required boolean/class/rubric score/box outputs; optional, array, nested, ordinary numeric, and freeform outputs fail before network access. PNG/JPEG image inputs are supported; audio, files, tools, multiple completion samples, and controls such as `temperature`/`maxTokens` are unsupported. No token streaming exists; `streamingForward()` can deliver a completed result. Program behavior: [Gen](gen.md); provider configuration: [AI](ai.md).
 
 ## Image inputs and Box outputs
 
@@ -116,7 +116,7 @@ Native assets use `assets: { [reference]: { type: 'image', format: 'png' | 'jpg'
 
 Generative vision providers use the same Box signature with validated JSON schema; evidence has `provenance.source: 'elicited'` and no invented confidence. Jev supplies native provenance and confidence when supplied. OpenAI Decisions supports inline images for boolean/class/score questions, but has no documented native Box primitive: Ax rejects Box outputs before transport. Use a generative OpenAI vision model for Box.
 
-**Generated-language source disagreement (25.4.10):** the Typesafe source says Image/Box signatures are available in TypeScript, Python, Java, C++, Go, and Rust, with runnable localization examples in each `src/examples/<language>/generation/` directory. The signature source instead says generated-language Box support remains in the AxIR backlog. Preserve these as conflicting claims, not universal support or universal lack of support; this tutorial establishes the TypeScript contract only. See [signature scope note](references/signature.md#bounding-boxes) and upstream [Images](https://docs.typesafe.ai/images) / [Box](https://docs.typesafe.ai/primitives/box) contracts.
+**Generated-language source disagreement (25.4.10):** the Typesafe source says Image/Box signatures are available in TypeScript, Python, Java, C++, Go, and Rust, with runnable localization examples in each `src/examples/<language>/generation/` directory. The signature source instead says generated-language Box support remains in the AxIR backlog. Preserve these as conflicting claims, not universal support or universal lack of support; this tutorial establishes the TypeScript contract only. See [signature scope note](signature.md#bounding-boxes) and upstream [Images](https://docs.typesafe.ai/images) / [Box](https://docs.typesafe.ai/primitives/box) contracts.
 
 ## Native questions and application decisions
 
@@ -193,7 +193,7 @@ Jev supplies semantic judgments; code owns authoritative facts/calculations, ord
 
 Read [Don’t Call It a Decision Model](https://typesafe.ai/blog/dont-call-it-a-decision-model), [how to build with System One](https://docs.typesafe.ai/concepts/how-to-build-with-system-one), [confidence](https://docs.typesafe.ai/confidence), and TypeSafe [patterns](https://docs.typesafe.ai/patterns) for [probability routing](https://docs.typesafe.ai/patterns/probability-routing), [speculative fan-out](https://docs.typesafe.ai/patterns/fan-out) and [composite scoring](https://docs.typesafe.ai/patterns/composite-scoring). Treat thresholds as workload-specific policies, not portable error-rate guarantees.
 
-Selected examples: [26 architecture](examples/26-architecture.ts), `26-architecture/evidence-aware-ticket`; [06 decisions](examples/06-decisions.ts), `06-decisions/threshold-ownership` and `06-decisions/applicability-gate`. Read the architecture case for ordered host policy, then the decision cases for threshold ownership and applicability.
+Selected examples: [26 architecture](../examples/26-architecture.ts), `26-architecture/evidence-aware-ticket`; [06 decisions](../examples/06-decisions.ts), `06-decisions/threshold-ownership` and `06-decisions/applicability-gate`. Read the architecture case for ordered host policy, then the decision cases for threshold ownership and applicability.
 
 ## Models, transport, and diagnostics
 
@@ -215,7 +215,7 @@ Adapter diagnostics use `program.getUsage()`/`program.getChatLog()`. Logs retain
 
 Typesafe-only balancers preserve schema-required generation for scalar signatures. Mixed pools retain normal prompting; Typesafe is eligible only if the actual request already contains a supported output schema. Incompatible requests are excluded from selection/fallbacks even with degradation enabled. Bare chat without a supported schema fails.
 
-For prose, call a second `ax()` with a generative provider and pass explicit inputs. Ax does not automatically split `urgent:boolean, reply:string`. The architecture case passes only ticket ID and selected outcome: its prose is an outcome acknowledgement, not a guaranteed factual rationale. An evidence-based explanation would need an explicit evidence/facts handoff and separate evaluation. Agents requiring tools/code generation use a generative actor and a separate decision step; see [Agent](references/agent.md).
+For prose, call a second `ax()` with a generative provider and pass explicit inputs. Ax does not automatically split `urgent:boolean, reply:string`. The architecture case passes only ticket ID and selected outcome: its prose is an outcome acknowledgement, not a guaranteed factual rationale. An evidence-based explanation would need an explicit evidence/facts handoff and separate evaluation. Agents requiring tools/code generation use a generative actor and a separate decision step; see [Agent](agent.md).
 
 ## Runnable examples and live checks
 
@@ -241,7 +241,7 @@ Shared evidence shapes do not equate native APIs, probability semantics, calibra
 | Evidence / refusal | Native answers; Noul has no confidence; no declared refusal variant | Native answers and per-question refusal union | Native answers with required confidence, including Noul; safety blocks are HTTP errors |
 | Media | Experimental PNG/JPEG and Box under limits above | Ax 25.4.10 client: inline images; no Box/audio/files | Image/audio plus PDF/image/audio/video files; no Box |
 | Usage / limits | Input/output tokens; native Choice 1–255, Score 2–10 | Full usage; Choice 2–255, Score 2–10 | Per-modality input usage, zero output tokens; native Choice/Score 2–255, signature Score 2–10 |
-| Execution limits | No prose/tools/token stream; see adapter restrictions | No prose/tools/token stream; [OpenAI contract](references/ai.md#openai-decisions) | Developer API only; no Vertex, prose/tools/token stream/cache/thinking/Flex/Priority |
+| Execution limits | No prose/tools/token stream; see adapter restrictions | No prose/tools/token stream; [OpenAI contract](ai.md#openai-decisions) | Developer API only; no Vertex, prose/tools/token stream/cache/thinking/Flex/Priority |
 
 ## Google Gemini Decisions
 

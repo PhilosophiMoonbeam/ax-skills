@@ -118,7 +118,7 @@ MCP tools use `mcp.<namespace>.tools.<tool>`; UCP operations use `ucp.<namespace
 
 `mcpInheritance` accepts `'all'`, `'none'`, or a namespace allowlist. Empty lists inherit nothing; unknown/repeated namespaces error. Restricting a child leaves parent clients available; `'none'` removes inherited context from child options. Live context propagates through Agent stages, `llmQuery`, RLM, and child programs. Large catalogs participate in discovery; do not copy tools into inline `functions`.
 
-Flow defaults or forward options accept `mcp`. Nested nodes inherit context unless restricted; parallel nodes share clients while honoring concurrency limits and abort signals. `axMCPChat(ai, request, { mcp })` provides a high-level non-streaming native tool loop; do not add an ad-hoc dispatcher around `ai.chat()`. Program details: [Gen](references/gen.md), [Agent](references/agent.md), [RLM](references/agent-rlm.md), [Flow](references/flow.md).
+Flow defaults or forward options accept `mcp`. Nested nodes inherit context unless restricted; parallel nodes share clients while honoring concurrency limits and abort signals. `axMCPChat(ai, request, { mcp })` provides a high-level non-streaming native tool loop; do not add an ad-hoc dispatcher around `ai.chat()`. Program details: [Gen](gen.md), [Agent](agent.md), [RLM](agent-rlm.md), [Flow](flow.md).
 
 ## Catalogs and raw operations
 
@@ -211,7 +211,7 @@ Legacy listening maintains `resources/subscribe` and optionally resumes GET/SSE 
 
 Own the listener's `done` promise immediately. During cleanup, collect unexpected listener failures and rethrow them only after a successful operation; never replace the primary operation failure from `finally`. Track failure separately from its `unknown` value because a rejection may be `undefined`. Exclude cancellation only when its rejection is the exact reason from the host-owned close signal; cleanup timing and an `AbortError` name do not establish cause. Always close the owned client and fixture.
 
-Generated transports supervise legacy long-lived GET/SSE and resume where supported. Generated runtimes are host-driven: use `nextDueAt()` and `runDue()` for delayed work. Rust hosts also call `AxMCPEventSource.poll()` to drain callbacks on the host thread. Close source/runtime before caller-owned client so unsubscribe/cancellation can still be sent. For inbox, continuations, stores, and sinks see [event runtime](references/event-runtime.md). Lifecycle/troubleshooting: Ax repository `docs/MCP_SUBSCRIPTIONS.md` and checked-in six-language MCP examples.
+Generated transports supervise legacy long-lived GET/SSE and resume where supported. Generated runtimes are host-driven: use `nextDueAt()` and `runDue()` for delayed work. Rust hosts also call `AxMCPEventSource.poll()` to drain callbacks on the host thread. Close source/runtime before caller-owned client so unsubscribe/cancellation can still be sent. For inbox, continuations, stores, and sinks see [event runtime](event-runtime.md). Lifecycle/troubleshooting: Ax repository `docs/MCP_SUBSCRIPTIONS.md` and checked-in six-language MCP examples.
 
 In generated Rust and C++ packages, 25.4.5 closes reconnect-delay waits when the client closes, rather than waiting for the retry delay to expire. Generated synchronous ping calls do not create JavaScript deadline timers or abort listeners; do not apply the TypeScript cleanup mechanism literally to those runtimes. This bounded parity scope follows [PR #862](https://github.com/ax-llm/ax/pull/862), not a guarantee of unrelated session or transport parity.
 

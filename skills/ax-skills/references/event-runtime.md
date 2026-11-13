@@ -1,6 +1,6 @@
 # Ax event ingestion, continuations, and safe output routing
 
-Use `AxEventRuntime` to react to notifications, webhooks, timers, queues, task completion, and application events: explicitly wake or resume AxGen, AxAgent, or AxFlow, restore/persist state and results, and safely route output. Program construction belongs in [Generators](references/gen.md), [Agents](references/agent.md), and [Flows](references/flow.md); MCP transport/authentication belongs in [MCP](references/mcp.md). Sources and subscriptions alone must not invoke programs.
+Use `AxEventRuntime` to react to notifications, webhooks, timers, queues, task completion, and application events: explicitly wake or resume AxGen, AxAgent, or AxFlow, restore/persist state and results, and safely route output. Program construction belongs in [Generators](gen.md), [Agents](agent.md), and [Flows](flow.md); MCP transport/authentication belongs in [MCP](mcp.md). Sources and subscriptions alone must not invoke programs.
 
 ## Mental Model
 
@@ -85,7 +85,7 @@ a succeeded run alone does not establish successful sink delivery.
 
 See the pinned [`runtime.ts` sink-redrive branch](https://github.com/ax-llm/ax/blob/25.4.9/src/ax/event/runtime.ts#L301-L343)
 and the wake → pause → resume → sink-redrive composition in
-[`26-architecture.ts`](examples/26-architecture.ts). This does not add durability
+[`26-architecture.ts`](../examples/26-architecture.ts). This does not add durability
 to the in-memory store or guarantee cross-system exactly-once effects.
 
 ## Continuation Pattern
@@ -102,7 +102,7 @@ cancelled task events to `resume` when the owning program must run again.
 
 ## MCP Adapter
 
-Use [MCP](references/mcp.md) for client construction, transports, authentication, catalogs, subscriptions, tasks, and protocol-specific security policy. This reference owns generic inbox, routing, continuation, store, and sink behavior.
+Use [MCP](mcp.md) for client construction, transports, authentication, catalogs, subscriptions, tasks, and protocol-specific security policy. This reference owns generic inbox, routing, continuation, store, and sink behavior.
 
 Use `client.inspectCatalog()` to discover server-owned tools, prompts, concrete
 resources, and URI templates from only the endpoint. Then use
@@ -131,9 +131,9 @@ Bind them to the signed `request-id` and `created` before ingestion, and require
 the signed signer-profile header. Parse exactly one verified signature member
 with unique parameters; bind metadata to that member, not a separately selected
 or ambiguous `Signature-Input` entry. The
-[`35-ucp/webhook-freshness-member-binding`](examples/35-ucp.ts) case includes a
+[`35-ucp/webhook-freshness-member-binding`](../examples/35-ucp.ts) case includes a
 fresh `created`-last control and rejects old or ambiguous metadata before enqueue.
-The [verified webhook example](examples/35-ucp.ts) also covers real client
+The [verified webhook example](../examples/35-ucp.ts) also covers real client
 verification, key rotation, tamper/replay rejection and host-bound tenant routing.
 Its volatile replay state is not restart durability; production hosts need
 durable replay/idempotency policy. Source:

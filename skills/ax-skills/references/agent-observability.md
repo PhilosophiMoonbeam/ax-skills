@@ -1,6 +1,6 @@
 # AxAgent Observability
 
-Use for AxAgent runtime visibility, progress, callbacks, telemetry, centralized or multi-tenant usage accounting, chat logs, and traces in `@ax-llm/ax`. Source API snapshot: 25.4.10. For setup see [agent authoring](references/agent.md); for runtime policy see [RLM](references/agent-rlm.md); for memories and dynamic skills see [memory and skills](references/agent-memory-skills.md). This is not general application logging.
+Use for AxAgent runtime visibility, progress, callbacks, telemetry, centralized or multi-tenant usage accounting, chat logs, and traces in `@ax-llm/ax`. Source API snapshot: 25.4.10. For setup see [agent authoring](agent.md); for runtime policy see [RLM](agent-rlm.md); for memories and dynamic skills see [memory and skills](agent-memory-skills.md). This is not general application logging.
 
 ## Choose the smallest hook
 
@@ -65,7 +65,7 @@ await supportAgent.forward(
 ```
 
 - One immutable normalized event is emitted per completed chat or embedding call reporting provider usage. Fully consumed streams emit once; unconsumed/cancelled streams may not emit.
-- Events include `operation`, `ai`, `model`, normalized `tokens`, `streaming`, optional `context`, and available session/remote request IDs. See [AI services](references/ai.md) for direct calls and the complete event shape.
+- Events include `operation`, `ai`, `model`, normalized `tokens`, `streaming`, optional `context`, and available session/remote request IDs. See [AI services](ai.md) for direct calls and the complete event shape.
 - Put stable application/environment attribution in service-level `usageContext`; tenant, user, request, run, and feature attribution belongs in per-call/per-forward context. Per-call context overrides service defaults; `attributes` shallow-merge.
 - Ax does not await the best-effort observer and ignores its failures. Enqueue synchronously; persist/aggregate out of band. Never perform database or network work inline.
 - Registration is process-wide; reassignment replaces the observer. Set `axGlobals.onUsage = undefined` during teardown/shutdown when appropriate.
@@ -136,7 +136,7 @@ const supportAgent = agent('query:string -> answer:string', {
 
 Measure advisory-hint usefulness by joining each forward's `relevance_ranking.shortlist` IDs to subsequent loads: modules use internal `discover` calls (`onFunctionCall`, `kind: 'internal'`, `name: 'discover'`, `args.request`) plus module parts of external `qualifiedName`s; skills use `onLoadedSkills` / `used(id)`; memories use `onLoadedMemories` / `used(id)`.
 
-Prompt `contextPressure` is intentionally only `ok`, `watch`, or `critical` plus one short instruction. Character-based metrics are provider-neutral and exposed through the callback; do not scrape actor prompts. Callback errors are swallowed so telemetry cannot break the run. See [context policy](references/agent-context.md) for behavior configuration.
+Prompt `contextPressure` is intentionally only `ok`, `watch`, or `critical` plus one short instruction. Character-based metrics are provider-neutral and exposed through the callback; do not scrape actor prompts. Callback errors are swallowed so telemetry cannot break the run. See [context policy](agent-context.md) for behavior configuration.
 
 ```typescript
 const supportAgent = agent('query:string -> answer:string', {
@@ -209,7 +209,7 @@ In pinned SDK 25.4.9, this returns a flat `AxChatLogEntry[]` instance view, not 
 
 Each available entry represents a normalized model round trip and can contain sensitive prompts and responses. Optional `name` identifies its producing program; `stage`, when present, distinguishes `ctx` from `task`. Correlate `remoteRequestId` and `remoteId` with actual completed provider requests, then explicitly report requests missing from this view. A normal run can omit completed requests, including distiller requests; do not infer all-stage coverage from a nonempty log or require a fixed entry count. There is no public `getStagedChatLog()` in this SDK.
 
-The [observability example](examples/15-observability.ts), `accounting-and-runtime-events`, checks actual request ownership for global usage events, compares staged token totals, and exports visible versus omitted log request IDs without exporting log payloads. This fixture demonstrates correlation, not a durable accounting guarantee. `excludeContentFromTrace` does not redact chat logs: the example verifies that a real private marker reaches the provider prompt but is absent from normalized usage events, and checks the marker in the distiller log only when that request is visible.
+The [observability example](../examples/15-observability.ts), `accounting-and-runtime-events`, checks actual request ownership for global usage events, compares staged token totals, and exports visible versus omitted log request IDs without exporting log payloads. This fixture demonstrates correlation, not a durable accounting guarantee. `excludeContentFromTrace` does not redact chat logs: the example verifies that a real private marker reaches the provider prompt but is absent from normalized usage events, and checks the marker in the distiller log only when that request is visible.
 
 ```typescript
 const log = myAgent.getChatLog();

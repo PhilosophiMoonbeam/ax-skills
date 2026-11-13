@@ -1,6 +1,6 @@
 # Ax signatures and field contracts
 
-Use for `s()`, `f()`, signature strings, field types, validation, and type-safe inputs/outputs. Source snapshot: Ax 25.4.10. Generator execution belongs in [generator reference](references/gen.md); native decision criteria belong in [Typesafe reference](references/typesafe.md).
+Use for `s()`, `f()`, signature strings, field types, validation, and type-safe inputs/outputs. Source snapshot: Ax 25.4.10. Generator execution belongs in [generator reference](gen.md); native decision criteria belong in [Typesafe reference](typesafe.md).
 
 ## String syntax and field types
 
@@ -38,7 +38,7 @@ Put optional `?` on the name, not the type. Internal `!` fields are output-only 
 
 - Image/file fields are top-level inputs only. Audio supports top-level inputs or a single top-level output. No nested media fields.
 - Media arrays are input-only; output `audio[]` is unsupported.
-- Audio outputs are scripted speech: the model returns plain text, then Ax synthesizes `AxChatAudioOutput`. See [audio reference](references/audio.md).
+- Audio outputs are scripted speech: the model returns plain text, then Ax synthesizes `AxChatAudioOutput`. See [audio reference](audio.md).
 - Use `f.image()`, `f.audio()`, and `f.file()` for media; zod has no equivalent.
 - Only optional keys declared by the chat part reach the provider/router; other keys stay behind:
   - Image: `details` (`'high'`, `'low'`, `'auto'`; OpenAI image `detail`), `cache`, `optimize`, `altText`.
@@ -76,7 +76,7 @@ The string grammar expresses every fluent construct except Standard Schema field
 - Inside objects, reject internal `!`, media types, `cache`, and `item`; these apply only at the top level.
 - Inapplicable string modifiers are parse errors (for example `min` on boolean); fluent modifiers silently ignore inapplicable constraints.
 - Double backslashes in quoted values: regex `\d` becomes `pattern "\\d+"`.
-- `AxSignature.toString()` losslessly renders every construct for round-trips, including flow-node serialization into mermaid `%%ax` directives; see [flow reference](references/flow.md).
+- `AxSignature.toString()` losslessly renders every construct for round-trips, including flow-node serialization into mermaid `%%ax` directives; see [flow reference](flow.md).
 - Signature-level descriptions preserve quotes and backslashes through `toString()` and reparsing. Fluent `.description(...)` accepts ordinary text; string signatures escape embedded quotes and backslashes inside their quoted description.
 
 ## Boolean/class value descriptions and evidence
@@ -109,9 +109,9 @@ Boolean descriptions use the modifier bag; class descriptions follow the allowed
 
 Conventional providers, including OpenAI, receive the question plus `value: description` lines in prompts and JSON schema descriptions when used. Typesafe receives separate Noul/Choice criteria. Annotations remain separate in the signature and survive `toString()`; rendering neither mutates the signature nor duplicates descriptions. Types, allowed values, and optional/array behavior remain unchanged. Descriptions guide generation, not additional output validation. Number bounds remain validation constraints; use an explicit `score` field for an ordered rubric. Python, Java, C++, Go, and Rust generate the same description, validation, serialization, schema, and prompt semantics.
 
-For Jev boolean/class criteria, use value descriptions; add `.withEvidence()` to retain AxGen probabilities and `f.score(levels)` for ordered rubrics. Full structured criteria require the separate native client. The adapter's `trueThreshold` converts scalar booleans provider-wide; boolean evidence instead uses its field threshold, default `0.5`, independently of the provider setting. Native Noul remains unthresholded. See [Typesafe reference](references/typesafe.md) and [Atomic judgments and host policy](references/typesafe.md#atomic-judgments-and-host-policy); original resource: [ax-typesafe](https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-typesafe.md).
+For Jev boolean/class criteria, use value descriptions; add `.withEvidence()` to retain AxGen probabilities and `f.score(levels)` for ordered rubrics. Full structured criteria require the separate native client. The adapter's `trueThreshold` converts scalar booleans provider-wide; boolean evidence instead uses its field threshold, default `0.5`, independently of the provider setting. Native Noul remains unthresholded. See [Typesafe reference](typesafe.md) and [Atomic judgments and host policy](typesafe.md#atomic-judgments-and-host-policy); original resource: [ax-typesafe](https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-typesafe.md).
 
-Boolean/class evidence opt-in is `.withEvidence()` or `(evidence)`. `score "Low, Medium, High"` returns a continuous zero-based index; `(evidence)` retains ordered probabilities and provenance. Boolean `threshold 0.7` applies locally only to evidence fields. `refusal return` adds a tagged answered/refused union. See [decision evidence](references/typesafe.md#evidence-provenance-and-reranking).
+Boolean/class evidence opt-in is `.withEvidence()` or `(evidence)`. `score "Low, Medium, High"` returns a continuous zero-based index; `(evidence)` retains ordered probabilities and provenance. Boolean `threshold 0.7` applies locally only to evidence fields. `refusal return` adds a tagged answered/refused union. See [decision evidence](typesafe.md#evidence-provenance-and-reranking).
 
 ## Bounding boxes
 
@@ -119,7 +119,7 @@ Boolean/class evidence opt-in is `.withEvidence()` or `(evidence)`. `score "Low,
 
 `target:box(evidence)` returns `AxBoxEvidence`: `{ value: AxBox, confidence?: number, provenance }`. Fluent forms are `f.box(description)` (or `f.box()`) and `f.box(description).withEvidence()`. Generative providers support arrays, optional/nested boxes, and box inputs. Native Jev box outputs must be flat, required, single boxes.
 
-Jev 1.14 supports native PNG/JPEG localization with the required experimental header supplied by Ax. Box always returns a region, not a presence judgment: pair it with a boolean if the target may be absent and consume the box only when present. Generative vision providers use validated structured output with `elicited` provenance and no invented native confidence. OpenAI Decisions and Gemini Decisions support images but reject Box outputs before transport; use a generative vision model instead. This exclusion concerns decision APIs, not those providers' generative vision paths. See [Typesafe image/Box transport and preparation](references/typesafe.md#image-inputs-and-box-outputs).
+Jev 1.14 supports native PNG/JPEG localization with the required experimental header supplied by Ax. Box always returns a region, not a presence judgment: pair it with a boolean if the target may be absent and consume the box only when present. Generative vision providers use validated structured output with `elicited` provenance and no invented native confidence. OpenAI Decisions and Gemini Decisions support images but reject Box outputs before transport; use a generative vision model instead. This exclusion concerns decision APIs, not those providers' generative vision paths. See [Typesafe image/Box transport and preparation](typesafe.md#image-inputs-and-box-outputs).
 
 **Source scope disagreement (25.4.10):** the signature source says generated-language Box support remains in the AxIR backlog, while the Typesafe source says Image/Box signatures are available in TypeScript, Python, Java, C++, Go, and Rust, with per-language examples. These statements disagree; this reference documents the TypeScript contract and does not establish universal generated-language Box availability.
 

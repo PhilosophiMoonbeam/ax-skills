@@ -1,6 +1,6 @@
 # AI providers, models, and runtime configuration
 
-Use for `ai()`, deployment profiles, model catalogs/presets, routing and balancing, embeddings, thinking, service tiers, caching, cancellation, and provider-specific request contracts. Prefer short copyable code, not tutorial prose unless requested. Source API snapshot: 25.4.10. Audio task-specific detail belongs in [audio](references/audio.md); signature design in [signatures](references/signature.md); agent/runtime design is outside this reference.
+Use for `ai()`, deployment profiles, model catalogs/presets, routing and balancing, embeddings, thinking, service tiers, caching, cancellation, and provider-specific request contracts. Prefer short copyable code, not tutorial prose unless requested. Source API snapshot: 25.4.10. Audio task-specific detail belongs in [audio](audio.md); signature design in [signatures](signature.md); agent/runtime design is outside this reference.
 
 ## Factory and deployment profiles
 
@@ -36,22 +36,22 @@ Use `ai()` for standard providers, never `new AxAIOpenAI(...)` or hardcoded bran
 
 ## Typesafe / Jev (TypeScript)
 
-For Jev question design, rich criteria, native scoring, transport settings, and hybrid examples, see [Typesafe/Jev](references/typesafe.md). Original resource: https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-typesafe.md. Choose the interface by output contract:
+For Jev question design, rich criteria, native scoring, transport settings, and hybrid examples, see [Typesafe/Jev](typesafe.md). Original resource: https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-typesafe.md. Choose the interface by output contract:
 
 | Need | Interface |
 |---|---|
 | Required boolean/class/rubric score outputs through Ax signatures | `ai({ name: 'typesafe', apiKey, trueThreshold: 0.9 })` and `ax(...).forward()` |
 | Explicit provider request shapes or structured state/criteria | `typesafe({ apiKey }).systemOne({ state, questions })` |
 
-Use `.withEvidence()` on boolean/class fields or `f.score(levels).withEvidence()` to retain probabilities, native scores, and supplied confidence through normal AxGen outputs. String forms use `(evidence)`. See [decision evidence and reranking](references/typesafe.md#evidence-provenance-and-reranking) and the compact [provider differences](references/typesafe.md#provider-differences) matrix for Jev, OpenAI Decisions and Gemini Decisions; their native APIs and refusal/media contracts are not interchangeable.
+Use `.withEvidence()` on boolean/class fields or `f.score(levels).withEvidence()` to retain probabilities, native scores, and supplied confidence through normal AxGen outputs. String forms use `(evidence)`. See [decision evidence and reranking](typesafe.md#evidence-provenance-and-reranking) and the compact [provider differences](typesafe.md#provider-differences) matrix for Jev, OpenAI Decisions and Gemini Decisions; their native APIs and refusal/media contracts are not interchangeable.
 
 Both default to `jev-latest`. Set the adapter's model with `config.model`; set native defaults with `model`. Native `listModels()` retrieves the provider's catalog without changing configured Ax model aliases.
 
-Scalar boolean conversion uses `noul >= trueThreshold`; the default is `0.5`, and the finite threshold must be in `[0, 1]`. It applies to scalar booleans on that provider instance. Boolean evidence uses its field threshold, default `0.5`, independently of the provider threshold. Neither local policy is sent to the server; native Noul remains unthresholded. Choice preserves the selected label without an automatic confidence cutoff. For ordered rules and uncertainty handling, read [Atomic judgments and host policy](references/typesafe.md#atomic-judgments-and-host-policy).
+Scalar boolean conversion uses `noul >= trueThreshold`; the default is `0.5`, and the finite threshold must be in `[0, 1]`. It applies to scalar booleans on that provider instance. Boolean evidence uses its field threshold, default `0.5`, independently of the provider threshold. Neither local policy is sent to the server; native Noul remains unthresholded. Choice preserves the selected label without an automatic confidence cutoff. For ordered rules and uncertainty handling, read [Atomic judgments and host policy](typesafe.md#atomic-judgments-and-host-policy).
 
-Value descriptions from `boolean(true "...", false "...")` and `class "support, billing"(support "...", billing "...")` become native criteria. The same annotations render as readable descriptions for conventional providers. See [signatures](references/signature.md) for string and fluent `.describeValues(...)` forms. Original resource: https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-signature.md.
+Value descriptions from `boolean(true "...", false "...")` and `class "support, billing"(support "...", billing "...")` become native criteria. The same annotations render as readable descriptions for conventional providers. See [signatures](signature.md) for string and fluent `.describeValues(...)` forms. Original resource: https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-signature.md.
 
-Numeric outputs, including bounded numbers, are unsupported; scoring uses explicit `score` rubrics in signatures. Required single `box` outputs and PNG/JPEG image inputs are supported in TypeScript; see [Typesafe image and Box contracts](references/typesafe.md) for exact model, image, and localization requirements. Freeform text, optional/array/nested outputs, audio, files, tools, and sampling controls remain unsupported. Ax sends its normal prompt as state. Use a separate generative program for prose or tools.
+Numeric outputs, including bounded numbers, are unsupported; scoring uses explicit `score` rubrics in signatures. Required single `box` outputs and PNG/JPEG image inputs are supported in TypeScript; see [Typesafe image and Box contracts](typesafe.md) for exact model, image, and localization requirements. Freeform text, optional/array/nested outputs, audio, files, tools, and sampling controls remain unsupported. Ax sends its normal prompt as state. Use a separate generative program for prose or tools.
 
 The dedicated Typesafe contract and exact implementation support this narrow image/Box exception despite the official provider summary's stale blanket media exclusion.
 
@@ -114,7 +114,7 @@ const result = await program.forward(llm, { question: 'What is 2+2?' });
 
 The default uses Chrome's sampling settings. Chrome extensions can specify `temperature` and `topK` together; when only one is supplied, Ax obtains the other from `LanguageModel.params()`. An incomplete pair without defaults fails before session creation. Web pages do not support these legacy numeric settings. Streaming chunks contain successive text and are passed through unchanged. Ax releases each session on completion, cancellation, or failure. The adapter supports native JSON Schema output and text conversations, with no tools or embeddings. For a runnable browser demo, build Ax and open `src/examples/chrome-ai-chat.html` through a local web server.
 
-The local [browser entry](examples/browser/chrome-ai.html) uses the same public imports; [adapter fixtures](examples/33-browser-ai.ts) separately verify wire conversion and session cleanup. Build with `npm --prefix examples run build:browser`, serve the browser directory over localhost, and check Chrome's current desktop/hardware/model prerequisites. Fixture success is not local-model inference.
+The local [browser entry](../examples/browser/chrome-ai.html) uses the same public imports; [adapter fixtures](../examples/33-browser-ai.ts) separately verify wire conversion and session cleanup. Build with `npm --prefix examples run build:browser`, serve the browser directory over localhost, and check Chrome's current desktop/hardware/model prerequisites. Fixture success is not local-model inference.
 
 ## Model Presets
 
@@ -246,7 +246,7 @@ Rules:
 - Streaming can fail over before the first emitted chunk. A mid-stream transient failure is learned but cannot be replayed after partial output; caller cancellation is not recorded.
 - Adaptive selection applies to chat. Embedding, transcription, and speech keep existing balancer behavior.
 
-Do not infer batch `speak()` / `transcribe()` failover from chat routing. In the pinned [spoken-assistant control](examples/26-architecture.ts), primary batch failures propagate; the application explicitly selects an alternate. This is separate from conversational chat fallback before output starts.
+Do not infer batch `speak()` / `transcribe()` failover from chat routing. In the pinned [spoken-assistant control](../examples/26-architecture.ts), primary batch failures propagate; the application explicitly selects an alternate. This is separate from conversational chat fallback before output starts.
 
 See the [adaptive balancer example](https://raw.githubusercontent.com/ax-llm/ax/refs/heads/main/src/examples/typescript/generation/adaptive-balancer.ts) for complete provider setup.
 
@@ -269,7 +269,7 @@ if (!('results' in res)) throw new Error('Expected a non-streaming chat response
 console.log(res.results[0]?.content);
 ```
 
-Raw `chat()` streams by default; choose the response mode explicitly before consuming it. The [raw chat example](examples/04-providers.ts) drains the default stream and separately validates a completed response.
+Raw `chat()` streams by default; choose the response mode explicitly before consuming it. The [raw chat example](../examples/04-providers.ts) drains the default stream and separately validates a completed response.
 
 ## Meta Muse
 
@@ -295,7 +295,7 @@ All three Spark profiles support function-based structured output. When Ax selec
 
 Use `muse-image-1.0` through the same `chat()` method. Text and reference images belong in normal chat content, and generated images arrive in `result.results[0].images`. Muse Image rejects ordinary function tools. Use `transcribe()` for Muse Voice batch audio and streaming `chat()` with PCM16 for realtime transcription; Ax adds no Meta-specific service methods.
 
-The [generated-image case](examples/04-providers.ts) consumes `AxChatImageOutput` with `stream: false` and retains its opaque provider image ID for stateless replay. Its valid PNG is an explicit transport fixture, not live image synthesis or localization evidence.
+The [generated-image case](../examples/04-providers.ts) consumes `AxChatImageOutput` with `stream: false` and retains its opaque provider image ID for stateless replay. Its valid PNG is an explicit transport fixture, not live image synthesis or localization evidence.
 
 Muse Glimmer is self-hosted. Point Ax's `vllm`, `llama-cpp`, `ollama`, or `lm-studio` profile at the server you operate. Ax does not download, serve, or manage Glimmer weights.
 
@@ -331,7 +331,7 @@ const heard = await gemini.transcribe({
 });
 ```
 
-Providers without the requested audio endpoint throw `AxMediaNotSupportedError`. Use `speech` forward options for signature audio artifacts and `modelConfig.audio` for conversational chat audio. See [audio](references/audio.md) for task-specific signature, voice, format, and realtime contracts.
+Providers without the requested audio endpoint throw `AxMediaNotSupportedError`. Use `speech` forward options for signature audio artifacts and `modelConfig.audio` for conversational chat audio. See [audio](audio.md) for task-specific signature, voice, format, and realtime contracts.
 
 ## Common Options
 
@@ -599,7 +599,7 @@ const claude = ai({
 });
 ```
 
-The [custom thinking-level case](examples/04-providers.ts) contrasts a legacy numeric budget with an adaptive model using the same custom effort map. Adaptive thinking does not consume the numeric budget ladder; hidden display thoughts do not disable thinking.
+The [custom thinking-level case](../examples/04-providers.ts) contrasts a legacy numeric budget with an adaptive model using the same custom effort map. Adaptive thinking does not consume the numeric budget ladder; hidden display thoughts do not disable thinking.
 
 ## Embeddings
 
@@ -795,7 +795,7 @@ const result = await generateText({
 });
 ```
 
-The tested [integration cases](examples/34-vercel.ts) pin `@ax-llm/ax-ai-sdk-provider@25.4.9` with `ai@7.0.2` on Node ≥22.18. Keep their shared provider types coherent; the example package pins `@ai-sdk/provider@4.0.0` and `@ai-sdk/provider-utils@5.0.0` through overrides.
+The tested [integration cases](../examples/34-vercel.ts) pin `@ax-llm/ax-ai-sdk-provider@25.4.9` with `ai@7.0.2` on Node ≥22.18. Keep their shared provider types coherent; the example package pins `@ai-sdk/provider@4.0.0` and `@ai-sdk/provider-utils@5.0.0` through overrides.
 
 This adapter's `createChatRequest` drops `abortSignal`, `providerOptions` and `responseFormat`; sampling fields are not forwarded through Ax's `modelConfig`. Vercel typed-output validation is client-side, not native schema enforcement. Do not assume transport cancellation or provider-option forwarding from the higher-level call. See the [pinned adapter implementation](https://unpkg.com/@ax-llm/ax-ai-sdk-provider@25.4.9/index.js). The examples use actual adapter/SDK algorithms with explicitly scripted model I/O, not live cross-provider qualification.
 
@@ -812,7 +812,7 @@ const transport = axCreateMCPStdioTransport({
 const client = new AxMCPClient(transport);
 ```
 
-For MCP integration detail see [MCP](references/mcp.md); for wake/resume and signed ingestion see [event runtime](references/event-runtime.md). For server notifications, call `client.startListening({ signal, onError })` or attach the client through `AxMCPEventSource`. The event adapter is preferred for autonomous work because protocol callbacks only enqueue; explicit routes decide whether to observe, invalidate, resume, or wake.
+For MCP integration detail see [MCP](mcp.md); for wake/resume and signed ingestion see [event runtime](event-runtime.md). For server notifications, call `client.startListening({ signal, onError })` or attach the client through `AxMCPEventSource`. The event adapter is preferred for autonomous work because protocol callbacks only enqueue; explicit routes decide whether to observe, invalidate, resume, or wake.
 
 For signed UCP lifecycle requests, mount `AxUCPWebhookEventSource.ingest(request)` in application-owned HTTP hosting. Signature, profile, digest, freshness, and replay verification completes before the event runtime sees the request.
 
@@ -867,7 +867,7 @@ Provider routing preserves native file items when the selected provider and mode
 
 Use `ai({ name: 'google-gemini-decisions', apiKey })` for required flat boolean/class/rubric score signatures, defaulting to `gemini-decision-1`, or `googleGeminiDecisions({ apiKey }).create({ input, questions })` for native named questions and multimodal blocks. This separate Developer API profile posts to `/v1beta/decisions` with `x-goog-api-key`; it is not ordinary Gemini GenerateContent or Vertex AI.
 
-Evidence includes native probabilities and required confidence, including boolean confidence. Scalar booleans use provider `trueThreshold`; evidence uses its field threshold, both defaulting to `0.5`. Usage is input-only with zero output tokens. Safety blocks are HTTP errors, not per-question refusal unions. There is no token stream, Box, prose, tools, caching, thinking or Flex/Priority inference. Native Score supports 2–255 levels, but signature rubrics remain 2–10. Read [Gemini's exact input, key, threshold and evidence contracts](references/typesafe.md#google-gemini-decisions) before implementation; do not infer parity from the shared signature surface.
+Evidence includes native probabilities and required confidence, including boolean confidence. Scalar booleans use provider `trueThreshold`; evidence uses its field threshold, both defaulting to `0.5`. Usage is input-only with zero output tokens. Safety blocks are HTTP errors, not per-question refusal unions. There is no token stream, Box, prose, tools, caching, thinking or Flex/Priority inference. Native Score supports 2–255 levels, but signature rubrics remain 2–10. Read [Gemini's exact input, key, threshold and evidence contracts](typesafe.md#google-gemini-decisions) before implementation; do not infer parity from the shared signature surface.
 
 ## OpenAI Decisions
 
@@ -897,7 +897,7 @@ For custom native question/request shapes and provider-specific input, use `open
 
 The response preserves answer order, model, full usage, and per-question `{ type: 'refusal', name }` outcomes. Narrow refusals before accessing values. Predicates return `probability`; choices return `choice`, `confidence`, and `probabilities: [{ value, probability }]`; scores return `score`, `confidence`, and `probabilities: [{ value, label, probability }]`. Ax validates the response against the questions and preserves probabilities without normalization (an inclusive `0.01` sum tolerance accommodates rounding). Question dependencies require separate requests.
 
-The standalone [OpenAI Decisions wire case](examples/06-decisions.ts) uses the real adapter with synthetic HTTP answers. It preserves native selection, fractional score and ordered evidence; it does not measure inference quality or calibration.
+The standalone [OpenAI Decisions wire case](../examples/06-decisions.ts) uses the real adapter with synthetic HTTP answers. It preserves native selection, fractional score and ordered evidence; it does not measure inference quality or calibration.
 
 **Ax 25.4.10 client limitations:** native `input` is text or an array of user messages with text and inline image parts: `{ role: 'user', content: [{ type: 'input_text', text }, { type: 'input_image', image_url: 'data:image/png;base64,...', detail?: 'auto' }] }`. There are at most 128 images per request; hosted image URLs, file IDs, audio, non-user roles, and tool items are unsupported by this pinned client, not necessarily by the current upstream endpoint. The signature adapter preserves Ax's text prompt/history as role-labelled evidence in a user message and passes inline images through. It does not give those labels native role authority. Current [OpenAI endpoint documentation](https://developers.openai.com/api/docs/guides/decisions) describes a broader API; inspect the installed client before using those additions.
 

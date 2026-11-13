@@ -14,7 +14,7 @@ Keep reward scoring separate from hard invariants:
 | `bestOfN(...)` | Complete-candidate selection. |
 | `refine(...)` | Reward-scored retry rounds with generated feedback. |
 
-See [generators](references/gen.md) for assertion callback contracts.
+See [generators](gen.md) for assertion callback contracts.
 
 ## APIs and Diagnostics
 
@@ -72,4 +72,4 @@ After a below-threshold round, `refine(...)` generates advice. It temporarily ap
 
 ## Streaming Safety
 
-Do not use `refine(...)` for streaming. For partial-output safety, use `AxGen.addStreamingAssert(fieldName, fn, message?)`. A streaming assertion fails fast in the current attempt with `AxStreamingAssertionError`; when retries remain, generation retries with correction feedback. See [generator streaming assertions](references/gen.md).
+Do not use `refine(...)` for streaming. For partial-output safety, use `AxGen.addStreamingAssert(fieldName, fn, message?)`. A streaming assertion fails fast in the current attempt with `AxStreamingAssertionError`; when retries remain, generation retries with correction feedback. See [generator streaming assertions](gen.md).

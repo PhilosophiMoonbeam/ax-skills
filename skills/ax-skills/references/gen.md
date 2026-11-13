@@ -1,6 +1,6 @@
 # AxGen execution, streaming, and validation
 
-Use for `ax()`, `AxGen`, `forward()`, `streamingForward()`, structured outputs, assertions, processors, hooks, and self-tuning. Source snapshot: Ax 25.4.10. Prefer short, modern, copyable code; add tutorial prose only when requested. Use [signature reference](references/signature.md) for field contracts, [AI reference](references/ai.md) for providers, [refine reference](references/refine.md) for reward-scored selection, [MCP reference](references/mcp.md) for MCP construction/transports/prompts/resources/tools/tasks/subscriptions/authentication/events, and [event runtime reference](references/event-runtime.md) for wake/resume routing.
+Use for `ax()`, `AxGen`, `forward()`, `streamingForward()`, structured outputs, assertions, processors, hooks, and self-tuning. Source snapshot: Ax 25.4.10. Prefer short, modern, copyable code; add tutorial prose only when requested. Use [signature reference](signature.md) for field contracts, [AI reference](ai.md) for providers, [refine reference](refine.md) for reward-scored selection, [MCP reference](mcp.md) for MCP construction/transports/prompts/resources/tools/tasks/subscriptions/authentication/events, and [event runtime reference](event-runtime.md) for wake/resume routing.
 
 ## Construction and execution defaults
 
@@ -56,7 +56,7 @@ const gen = ax(f()
 
 Constraints (`.min()`, `.email()`, `.regex()`) and custom `.refine()`, `.transform()`, `.superRefine()` run in normal validation/retries at parse time on complete field values, including streaming field boundaries. Ax hints use companion options: `.input('ctx', z.string(), { cache: true })`, `.output('reasoning', z.string(), { internal: true })`.
 
-**Pinned Zod 4 enum-conversion defect (not a blanket Standard Schema limitation):** the bundled guide's whole-object `z.enum(...)` example fails during signature construction with Ax 25.4.9 and Zod 4.1.11. The [Ax converter](https://github.com/ax-llm/ax/blob/25.4.9/src/ax/dsp/standardSchema.ts#L228-L235) reads `def.values`, while [Zod 4.1.11](https://github.com/colinhacks/zod/blob/v4.1.11/packages/zod/src/v4/classic/schemas.ts#L1545-L1557) stores enum values in `def.entries`; the resulting empty class options are rejected. The refined string above preserves runtime membership validation but does not advertise an enum in the converted prompt/schema. For a native Ax enum contract use `.output('recommendation', f.class(['buy', 'wait', 'skip'] as const))`. The [standard-schema example](examples/01-signatures.ts) explicitly asserts the rejected original boundary, exercises corrected whole-object string/refinement validation and separately executes the native `f.class` alternative. It does not claim the original Zod enum path succeeds.
+**Pinned Zod 4 enum-conversion defect (not a blanket Standard Schema limitation):** the bundled guide's whole-object `z.enum(...)` example fails during signature construction with Ax 25.4.9 and Zod 4.1.11. The [Ax converter](https://github.com/ax-llm/ax/blob/25.4.9/src/ax/dsp/standardSchema.ts#L228-L235) reads `def.values`, while [Zod 4.1.11](https://github.com/colinhacks/zod/blob/v4.1.11/packages/zod/src/v4/classic/schemas.ts#L1545-L1557) stores enum values in `def.entries`; the resulting empty class options are rejected. The refined string above preserves runtime membership validation but does not advertise an enum in the converted prompt/schema. For a native Ax enum contract use `.output('recommendation', f.class(['buy', 'wait', 'skip'] as const))`. The [standard-schema example](../examples/01-signatures.ts) explicitly asserts the rejected original boundary, exercises corrected whole-object string/refinement validation and separately executes the native `f.class` alternative. It does not claim the original Zod enum path succeeds.
 
 `fn().arg()` / `.returns()` accept per-argument or whole-object schemas and infer handler argument types:
 
@@ -122,7 +122,7 @@ axGlobals.cachingFunction = async (key, value?) => {
 - Limiter failures propagate; tracer/meter failures are ignored. Telemetry contains metadata, not prompts, outputs, or tool payloads.
 - Global `abortSignal` merges with local forward signals. `customLabels` merge globals → AI service → forward options.
 - `cachingFunction` / `functionResultFormatter` fall back to current globals when local options are absent.
-- For agent-specific usage/callback telemetry, see [agent observability reference](references/agent-observability.md).
+- For agent-specific usage/callback telemetry, see [agent observability reference](agent-observability.md).
 
 ### Constructor defaults
 
@@ -148,7 +148,7 @@ for await (const chunk of stream) {
 - Versions never decrease. Validation/refusal retries and later steps replacing already-emitted output (such as processor feedback) start a new version; thought accumulated so far is re-emitted.
 - In TypeScript, partial JSON repair preserves string text such as `, t`, `, n`, trailing punctuation, and commas before brackets inside strings. Structural repair applies outside strings so these fragments do not change into literals or repeat in merged deltas. [PR #862](https://github.com/ax-llm/ax/pull/862) aligns partial-JSON string and escaped-quote repair across generated Python, C++, Rust, Go, and Java ports; this is a scoped repair-parity claim, not blanket streaming parity.
 - Streamed `code` drops fences regardless of chunk split. Incomplete possible fences and partial labels are held back so merged deltas equal non-streaming values.
-- Text labels are case-sensitive and signature-derived: `javascriptCode` is titled `Javascript Code`, not `JavaScript Code`. Match that label (or the exact field name) and its colon before testing code-fence stripping; otherwise singleton fallback can preserve the unmatched label as content. See the [code-and-json-deltas example](examples/03-tools-streaming.ts).
+- Text labels are case-sensitive and signature-derived: `javascriptCode` is titled `Javascript Code`, not `JavaScript Code`. Match that label (or the exact field name) and its colon before testing code-fence stripping; otherwise singleton fallback can preserve the unmatched label as content. See the [code-and-json-deltas example](../examples/03-tools-streaming.ts).
 - Deltas never end in half a surrogate pair: a trailing high surrogate waits for its low half.
 - Error/token-limit terminal results are rejected even if the final chunk is empty and earlier chunks already form valid output.
 
@@ -198,7 +198,7 @@ gen.addStreamingAssert(
 - Schemas retry with parser/constraint feedback.
 - `addAssert()` checks complete parsed output after validation/processors; failures retry with correction feedback. Assertions/processors run on answering steps, not tool-calling steps.
 - `bestOfN()` scores complete candidates; returns highest reward or first threshold hit.
-- `refine()` runs rounds and can inject reward-derived advice into instruction components between rounds; see [refine reference](references/refine.md).
+- `refine()` runs rounds and can inject reward-derived advice into instruction components between rounds; see [refine reference](refine.md).
 - `addStreamingAssert()` targets string/code output, receives partial text so far, and fails the current attempt with `AxStreamingAssertionError`; AxGen retries with correction feedback.
 
 ## Field processors
@@ -225,7 +225,7 @@ const result = await gen.forward(llm, { question: '...' }, {
 ```
 
 - `functionCallMode`: `'auto'` (default), `'native'`, `'prompt'` (prompt emulation).
-- **Pinned prompt-tool boundaries:** emit the exact wire keys requested by `<output_fields>`: the [prompt-tools example](examples/03-tools-streaming.ts) uses `lookup_price_product_name: Notebook` for the emulated call and `priceUsd: 12` for the answer, not their display titles. In TypeScript 25.4.9, [`forward()` response handling](https://github.com/ax-llm/ax/blob/25.4.9/src/ax/dsp/response/nonStreaming.ts#L77-L175) records parsed emulated calls in memory but executes only the original native `result.functionCalls`. The example validates the actual call name and semantic arguments (params can be an object or JSON string) before classifying missing execution. [`streamingForward()` finalization](https://github.com/ax-llm/ax/blob/25.4.9/src/ax/dsp/response/finalize.ts#L161-L211) executes the host handler, then appends the emulated assistant call after the function result; the generator's last-memory-role continuation check therefore ends without requesting the final answer. The example asserts real streamed execution and actual call-ID/result correlation separately from the missing continuation. For a complete host-tool/answer loop in this version, use a provider supporting native functions with `functionCallMode: 'native'`; the same example proves that control with the same handler and a grounded final price. These are version-bound prompt-emulation limitations, not universal lack of tool support.
+- **Pinned prompt-tool boundaries:** emit the exact wire keys requested by `<output_fields>`: the [prompt-tools example](../examples/03-tools-streaming.ts) uses `lookup_price_product_name: Notebook` for the emulated call and `priceUsd: 12` for the answer, not their display titles. In TypeScript 25.4.9, [`forward()` response handling](https://github.com/ax-llm/ax/blob/25.4.9/src/ax/dsp/response/nonStreaming.ts#L77-L175) records parsed emulated calls in memory but executes only the original native `result.functionCalls`. The example validates the actual call name and semantic arguments (params can be an object or JSON string) before classifying missing execution. [`streamingForward()` finalization](https://github.com/ax-llm/ax/blob/25.4.9/src/ax/dsp/response/finalize.ts#L161-L211) executes the host handler, then appends the emulated assistant call after the function result; the generator's last-memory-role continuation check therefore ends without requesting the final answer. The example asserts real streamed execution and actual call-ID/result correlation separately from the missing continuation. For a complete host-tool/answer loop in this version, use a provider supporting native functions with `functionCallMode: 'native'`; the same example proves that control with the same handler and a grounded final price. These are version-bound prompt-emulation limitations, not universal lack of tool support.
 - `functionCall`: `'auto'`, `'none'`, `'required'`, or `{ type: 'function', function: { name: 'search' } }` for a forced named call.
 - Forced `'required'` / named calls apply only on the first step. Subsequent steps remove the force and tools to allow an answer. In the `function` structured-output rung, the forced step omits `__axOutput` so forcing reaches a user tool.
 - `stopFunction` accepts string or string[]; matching calls halt multi-step without an answer. Output retains every step's thought, including the stop step, streamed or not.
@@ -279,7 +279,7 @@ console.log(result.thought);
 
 ## Structured outputs and provider capability rungs
 
-In TypeScript, providers advertising `requiresStructuredOutput` (for example Typesafe) automatically receive schemas even for scalar-only signatures. Ax renders JSON instructions/examples and parses objects without changing the signature. Typesafe/OpenAI Decisions support required boolean, class, and ordered rubric score outputs. Value descriptions become native criteria; conventional providers receive readable prompt/schema descriptions. See [Typesafe reference](references/typesafe.md) for native questions, thresholds, hybrid text generation; original resource: [ax-typesafe](https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-typesafe.md). Providers disabling native functions and `functionEmulation` reject tool-bearing programs before rendering prompts.
+In TypeScript, providers advertising `requiresStructuredOutput` (for example Typesafe) automatically receive schemas even for scalar-only signatures. Ax renders JSON instructions/examples and parses objects without changing the signature. Typesafe/OpenAI Decisions support required boolean, class, and ordered rubric score outputs. Value descriptions become native criteria; conventional providers receive readable prompt/schema descriptions. See [Typesafe reference](typesafe.md) for native questions, thresholds, hybrid text generation; original resource: [ax-typesafe](https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-typesafe.md). Providers disabling native functions and `functionEmulation` reject tool-bearing programs before rendering prompts.
 
 ```typescript
 const sig = f()
@@ -342,7 +342,7 @@ Mutations are queued. `beforeStep` runs once per generation step, before its ini
 
 **Pinned source/guide disagreement:** the bundled official guide says all hook mutations apply at the next step boundary. The actual [25.4.9 generator source](https://github.com/ax-llm/ax/blob/25.4.9/src/ax/dsp/generate.ts#L2399-L2457) consumes prior mutations near the loop start, and calls `applyStepContextMutations()` immediately after `await stepHooks.beforeStep(stepContext)`. The [25.4.9 context type](https://github.com/ax-llm/ax/blob/25.4.9/src/ax/dsp/types.ts) declares `removeFunctions(...names: string[])`. These TypeScript source contracts take precedence over the guide's blanket timing statement and array-like pseudocode. The offline `28-advanced-generation/hook-timing` case captures actual provider requests to make both boundaries observable; it does not establish generated-language parity.
 
-**Pinned hook-stop limitation:** [`AxStepContext.stop(resultValues)`](https://github.com/ax-llm/ax/blob/25.4.9/src/ax/dsp/stepContext.ts#L107-L110) stores stop values and exposes `_stopValues`, but the 25.4.9 generator never consumes those values. A `beforeStep` stop [breaks the outer loop](https://github.com/ax-llm/ax/blob/25.4.9/src/ax/dsp/generate.ts#L2450-L2457), reaching its [unconditional max-steps error](https://github.com/ax-llm/ax/blob/25.4.9/src/ax/dsp/generate.ts#L3147-L3164) without a provider call. An `afterStep` stop can prevent subsequent work and retain already-emitted output, but cannot replace it with supplied stop values. The [cancellation example](examples/28-advanced-generation.ts) keeps the early-stop error explicit, demonstrates the ignored override on an emitted answer, and independently covers actual `gen.stop()` cancellation, pre-aborted run control and successful non-aborted completion. These bounded hook defects do not make ordinary aborts or all hook mutations unsupported.
+**Pinned hook-stop limitation:** [`AxStepContext.stop(resultValues)`](https://github.com/ax-llm/ax/blob/25.4.9/src/ax/dsp/stepContext.ts#L107-L110) stores stop values and exposes `_stopValues`, but the 25.4.9 generator never consumes those values. A `beforeStep` stop [breaks the outer loop](https://github.com/ax-llm/ax/blob/25.4.9/src/ax/dsp/generate.ts#L2450-L2457), reaching its [unconditional max-steps error](https://github.com/ax-llm/ax/blob/25.4.9/src/ax/dsp/generate.ts#L3147-L3164) without a provider call. An `afterStep` stop can prevent subsequent work and retain already-emitted output, but cannot replace it with supplied stop values. The [cancellation example](../examples/28-advanced-generation.ts) keeps the early-stop error explicit, demonstrates the ignored override on an emitted answer, and independently covers actual `gen.stop()` cancellation, pre-aborted run control and successful non-aborted completion. These bounded hook defects do not make ordinary aborts or all hook mutations unsupported.
 
 ## Self-tuning
 
@@ -357,7 +357,7 @@ const granularResult = await gen.forward(llm, values, {
 });
 ```
 
-`true` injects `adjustGeneration` with model and thinking-budget controls; it does not optimize invisibly or prove improved quality. Model selection, including the default for `true`, requires an AI `models` list with **at least two chat entries** (`model`, not `embedModel`), checked by the [25.4.9 generator](https://github.com/ax-llm/ax/blob/25.4.9/src/ax/dsp/generate.ts#L1983-L2008). Pass a configured entry's **key** to the tool's `model` argument; the [self-tuning tool](https://github.com/ax-llm/ax/blob/25.4.9/src/ax/dsp/selfTuning.ts#L32-L53) builds its enum from those keys. Granular configuration tunes aspects independently; `selfTuning.functions` supplies a pool the tuner may add/remove per step. The [self-tuning example](examples/28-advanced-generation.ts) configures two actual fixture chat entries and captures a model-key switch in both modes, without provider calls; it does not disable model selection to bypass the requirement.
+`true` injects `adjustGeneration` with model and thinking-budget controls; it does not optimize invisibly or prove improved quality. Model selection, including the default for `true`, requires an AI `models` list with **at least two chat entries** (`model`, not `embedModel`), checked by the [25.4.9 generator](https://github.com/ax-llm/ax/blob/25.4.9/src/ax/dsp/generate.ts#L1983-L2008). Pass a configured entry's **key** to the tool's `model` argument; the [self-tuning tool](https://github.com/ax-llm/ax/blob/25.4.9/src/ax/dsp/selfTuning.ts#L32-L53) builds its enum from those keys. Granular configuration tunes aspects independently; `selfTuning.functions` supplies a pool the tuner may add/remove per step. The [self-tuning example](../examples/28-advanced-generation.ts) configures two actual fixture chat entries and captures a model-key switch in both modes, without provider calls; it does not disable model selection to bypass the requirement.
 
 ## Errors and strict labels
 
@@ -421,11 +421,11 @@ console.log(usage[0]?.tokens?.promptTokens);
 gen.resetUsage();
 ```
 
-`AxAgent` / `AxFlow` also return flat `AxChatLogEntry[]`; composite programs set `entry.name` for node/stage filtering. See [agent reference](references/agent.md) and [flow reference](references/flow.md).
+`AxAgent` / `AxFlow` also return flat `AxChatLogEntry[]`; composite programs set `entry.name` for node/stage filtering. See [agent reference](agent.md) and [flow reference](flow.md).
 
 ## Native MCP/UCP attachment
 
-Use [MCP reference](references/mcp.md) for client construction, transports, authentication, catalogs/tasks, subscriptions, event routing, recording/replay. AxGen accepts live clients in constructor/forward options:
+Use [MCP reference](mcp.md) for client construction, transports, authentication, catalogs/tasks, subscriptions, event routing, recording/replay. AxGen accepts live clients in constructor/forward options:
 
 ```typescript
 const gen = ax('question:string -> answer:string', { mcp: [docs, search] });
@@ -446,7 +446,7 @@ Under event targets, required task-backed tools automatically register owning `n
 
 Wrap with `eventTarget('id').program(gen).ai(ai).input(...).build()` for explicit wake/resume routes. Use segment-safe `eventPath` selectors; projection/explicit fields are validated against the generator signature before invocation. `.wakeInput()` and `.resumeInput()` separate action contracts. Streaming targets persist each chunk before optional chunk sinks and final results before final sinks.
 
-Use reusable `eventInput().project(...).field(...)` for callback-free mapping. Callback `mapInput` results are cloned, stripped to declared generator inputs, and signature-validated before the first model call; mapper exceptions cause non-retryable `event_input_invalid` deliveries. See [event runtime reference](references/event-runtime.md).
+Use reusable `eventInput().project(...).field(...)` for callback-free mapping. Callback `mapInput` results are cloned, stripped to declared generator inputs, and signature-validated before the first model call; mapper exceptions cause non-retryable `event_input_invalid` deliveries. See [event runtime reference](event-runtime.md).
 
 ## Automatic sessions in TypeScript
 
@@ -460,7 +460,7 @@ Generated-language status: C++ session tools using raw JSON schemas validate req
 
 ## Decision model outputs
 
-Boolean/class `.withEvidence()` and `f.score(levels).withEvidence()` retain probabilities/native confidence through `forward()`. String forms: `boolean(evidence)`, `score "Low, Medium, High"(evidence)`. These are normal outputs: processors, assertions, result selection, traces, caches receive decoded evidence. See [decision evidence](references/typesafe.md#evidence-provenance-and-reranking) for shapes, provenance, refusal policy, reranking.
+Boolean/class `.withEvidence()` and `f.score(levels).withEvidence()` retain probabilities/native confidence through `forward()`. String forms: `boolean(evidence)`, `score "Low, Medium, High"(evidence)`. These are normal outputs: processors, assertions, result selection, traces, caches receive decoded evidence. See [decision evidence](typesafe.md#evidence-provenance-and-reranking) for shapes, provenance, refusal policy, reranking.
 
 ## Novel F1 evaluation
 
@@ -470,7 +470,7 @@ The default returns F1; passing `true` as `returnRecall` returns recall. Two emp
 
 Generated Python, C++, and Rust expose `novel_f1_score`; Go exposes `NovelF1Score`; Java exposes `Ax.novelF1Score`. They share the same Core metric, including Unicode normalization, stopword/history exclusion, multiset overlap, F1/recall selection, and finite empty-input scores. [PR #862](https://github.com/ax-llm/ax/pull/862) preserves TypeScript punctuation and literal-backslash behavior in this cross-port metric work; do not infer a new TypeScript normalization contract.
 
-The official optimization examples score a rationale returned by a real provider. That is a source observation, not evidence of local provider execution. Novel F1 measures lexical novelty overlap, not factual correctness or confidence calibration. It does not replace holistic judging or explicit action invariants; see [metric versus judge](references/agent-optimize.md#metric-versus-judge) for agent optimization.
+The official optimization examples score a rationale returned by a real provider. That is a source observation, not evidence of local provider execution. Novel F1 measures lexical novelty overlap, not factual correctness or confidence calibration. It does not replace holistic judging or explicit action invariants; see [metric versus judge](agent-optimize.md#metric-versus-judge) for agent optimization.
 
 ## Working examples
 

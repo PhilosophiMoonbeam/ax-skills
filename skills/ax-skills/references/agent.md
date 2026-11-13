@@ -10,13 +10,13 @@ Use for `agent(...)`, ordinary tool-using assistants, identity, child delegation
 | Delegate distinct specialist responsibilities | Child agents in `functions: [...]`; set each child's `agentIdentity.namespace` for call sites such as `team.writer(...)` |
 | Discover unstable callable names or schemas | Enable discovery; generate discovery-first actor code |
 | Let selected fatal errors escape the loop | `bubbleErrors` with Error classes; propagation covers function handlers, actor code, and `llmQuery(...)` sub-queries |
-| Inspect large context with code, long-running execution, RLM, or `llmQuery(...)` | [RLM](references/agent-rlm.md); do not write a full multi-step RLM actor program in one turn |
-| Callbacks, debugging, logs, traces, progress, tool/chat logs, or usage | [Agent observability](references/agent-observability.md) |
-| Recall, dynamic memory/skill guides, `discover({ skills })`, loaded/used tracking | [Memory and runtime skills](references/agent-memory-skills.md) |
-| `agent.optimize(...)`, tuning, evaluation, judge setup, datasets, saved artifacts | [Agent optimization](references/agent-optimize.md) |
-| MCP clients, native modules, transports, authentication, catalogs, subscriptions, tasks, Apps, server handlers, recording/replay, or event-driven wake/resume | [MCP](references/mcp.md); [event runtime](references/event-runtime.md) covers wake/resume orchestration |
+| Inspect large context with code, long-running execution, RLM, or `llmQuery(...)` | [RLM](agent-rlm.md); do not write a full multi-step RLM actor program in one turn |
+| Callbacks, debugging, logs, traces, progress, tool/chat logs, or usage | [Agent observability](agent-observability.md) |
+| Recall, dynamic memory/skill guides, `discover({ skills })`, loaded/used tracking | [Memory and runtime skills](agent-memory-skills.md) |
+| `agent.optimize(...)`, tuning, evaluation, judge setup, datasets, saved artifacts | [Agent optimization](agent-optimize.md) |
+| MCP clients, native modules, transports, authentication, catalogs, subscriptions, tasks, Apps, server handlers, recording/replay, or event-driven wake/resume | [MCP](mcp.md); [event runtime](event-runtime.md) covers wake/resume orchestration |
 
-For Typesafe/Jev decisions, keep a generative model for the actor's tools, code, and prose; invoke Typesafe as a separate decision step. Jev cannot supply a general tool-using actor's output contract. See [Typesafe](references/typesafe.md) for supported signatures/native questions. Original remote guidance remains at [ax-typesafe.md](https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-typesafe.md); local guidance is the companion reference, not a separately required skill.
+For Typesafe/Jev decisions, keep a generative model for the actor's tools, code, and prose; invoke Typesafe as a separate decision step. Jev cannot supply a general tool-using actor's output contract. See [Typesafe](typesafe.md) for supported signatures/native questions. Original remote guidance remains at [ax-typesafe.md](https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-typesafe.md); local guidance is the companion reference, not a separately required skill.
 
 ## Defaults and Execution Constraints
 
@@ -83,7 +83,7 @@ console.log(result.summary);
 console.log(result.speech.data);
 ```
 
-Use direct `ax(...)` or `.chat()` for native model audio instead of the transcript-first agent pipeline. See [audio](references/audio.md) for speech details and [generators](references/gen.md) for direct `ax(...)` use.
+Use direct `ax(...)` or `.chat()` for native model audio instead of the transcript-first agent pipeline. See [audio](audio.md) for speech details and [generators](gen.md) for direct `ax(...)` use.
 
 ## Child Agents, Identity, and Namespaces
 
@@ -116,7 +116,7 @@ Without the child's namespace override:
 const result = await utils.writer({ draft: '...' });
 ```
 
-`onFunctionCall` observers report `kind: 'internal'` for agent-derived calls and `kind: 'external'` for user-registered tools; see [observability](references/agent-observability.md).
+`onFunctionCall` observers report `kind: 'internal'` for agent-derived calls and `kind: 'external'` for user-registered tools; see [observability](agent-observability.md).
 
 ### Reserved namespace names
 
@@ -230,11 +230,11 @@ const parent = agent('query:string -> answer:string', {
 - `alwaysInclude: true` keeps the group's full callable definitions inline even with discovery enabled.
 - Keep `functions` entirely flat or entirely grouped; runtime validation rejects mixed plain entries and groups.
 - Flat lists accept `fn(...)` tools and child agents directly. Groups contain callable entries; expose a child using `childAgent.getFunction()`.
-- `relevanceRanking` is on by default; set `false` to opt out. A deterministic local ranker adds an advisory `### Likely Relevant` shortlist to the executor turn as a dynamic, non-cached field, leaving cached prompts byte-stable. The default passed its A/B gate on small and frontier models; generated-language ports implement it through AxIR Core. See [memory and skills](references/agent-memory-skills.md) for details and [observability](references/agent-observability.md) for the `relevance_ranking` context event.
+- `relevanceRanking` is on by default; set `false` to opt out. A deterministic local ranker adds an advisory `### Likely Relevant` shortlist to the executor turn as a dynamic, non-cached field, leaving cached prompts byte-stable. The default passed its A/B gate on small and frontier models; generated-language ports implement it through AxIR Core. See [memory and skills](agent-memory-skills.md) for details and [observability](agent-observability.md) for the `relevance_ranking` context event.
 
 ## Native MCP/UCP Attachment and Inheritance
 
-Attach clients through the native execution context, not `functions`. Ax initializes them once, exposes `mcp.<namespace>` / `ucp.<namespace>` modules, and propagates them through actor stages, `llmQuery`, RLM, and children. Native `mcp` attachment preserves tasks, resources, subscriptions, elicitation, sampling, authorization, cancellation, and protocol metadata. Use [MCP](references/mcp.md) for client construction, transport/authentication, server handlers, subscription policies, task continuations, and recording/replay.
+Attach clients through the native execution context, not `functions`. Ax initializes them once, exposes `mcp.<namespace>` / `ucp.<namespace>` modules, and propagates them through actor stages, `llmQuery`, RLM, and children. Native `mcp` attachment preserves tasks, resources, subscriptions, elicitation, sampling, authorization, cancellation, and protocol metadata. Use [MCP](mcp.md) for client construction, transport/authentication, server handlers, subscription policies, task continuations, and recording/replay.
 
 ```typescript
 const parent = agent('query:string -> answer:string', {
@@ -256,7 +256,7 @@ await parent.forward(llm, { query }, { mcpInheritance: ['memory'] });
 - Multiple matching routes wake multiple Agents with independent state, authorization, retries, and runs.
 - UCP lifecycle webhooks use `AxUCPWebhookEventSource`. Verify the request, then map verified profile/account state to Ax tenant identity; never derive tenant identity from the order payload.
 
-See [event runtime](references/event-runtime.md) for routing and continuations.
+See [event runtime](event-runtime.md) for routing and continuations.
 
 ## Host-Side Completion and Unified Final Signal
 
@@ -468,7 +468,7 @@ Each `contextFields` entry is a plain field name or an inline-policy object for 
 - `{ field, promptMaxChars: N }`: inline only if the serialized value is at most `N` characters; otherwise omit it and retain it runtime-only. Use when partial data is worse than none.
 - `{ field, keepInPromptChars: N, reverseTruncate?: boolean }`: always inline a truncated string excerpt. `reverseTruncate: true` keeps the last `N` characters; otherwise a prefix. Use when a prefix/suffix is useful.
 
-`promptMaxChars` and `keepInPromptChars` are mutually exclusive on one field. For choosing context tools, use [context selection](references/agent-context.md); for runtime/context-map implementation, use [RLM](references/agent-rlm.md).
+`promptMaxChars` and `keepInPromptChars` are mutually exclusive on one field. For choosing context tools, use [context selection](agent-context.md); for runtime/context-map implementation, use [RLM](agent-rlm.md).
 
 ### Auto-upgrade defaults and precedence
 
@@ -486,7 +486,7 @@ autoUpgrade?: boolean | {
 - Explicitly declared `contextFields` retain their declared configuration.
 - Required non-string fields (arrays, objects, numbers, media) are never auto-promoted; explicitly declare them as context fields when potentially large.
 - Set `autoUpgrade: false`, or disable one side, for manual behavior.
-- Each promotion emits `field_auto_promoted` through `onContextEvent`, with field name, original size, and preview size; see [observability](references/agent-observability.md).
+- Each promotion emits `field_auto_promoted` through `onContextEvent`, with field name, original size, and preview size; see [observability](agent-observability.md).
 
 ### Learning and citations
 
@@ -499,7 +499,7 @@ Construction-time `playbook` and `citations` both default off and are portable a
 - Persist via `onUpdate`; read the live handle via `getPlaybook()` or its language-shaped equivalent.
 - Gate with `learn: { minSignals, dedupe }`; disable with `learn: false`.
 - Reflection/curation uses `teacherAI`, defaulting first to the agent's `judgeAI`, then its `ai`. An `isExpensive` teacher also requires `teacherOptions: { useExpensiveModel: 'yes' }`; otherwise updates curate nothing.
-- Evolve the same playbook from a task set with a held-out verification gate using the agent-bound evolve method; see [playbooks](references/playbook.md).
+- Evolve the same playbook from a task set with a held-out verification gate using the agent-bound evolve method; see [playbooks](playbook.md).
 
 **`citations`** adds an optional `evidenceCitations: string[]` responder output naming used evidence: top-level curated-evidence keys and memory IDs. In-pipeline validation prevents citations to uncollected evidence; it checks existence, not entailment. Pass `true` or `{ field?, surface?: 'output' | 'hidden', includeMemoryIds?, onCitations? }`.
 
@@ -525,7 +525,7 @@ assistant.executor.setInstruction(executorRule); // reassert application policy
 
 **Rebuild boundary:** this release keeps the executor actor object during pipeline `setSignature`; its stage-owned instruction and addenda survive that object's inner-program rebuild. Instructions placed on recreated inner programs are a different boundary and can disappear. The recipe above does not depend on an empty instruction being correct or claim automatic retention across replacing the agent or restoring `AxAgentState`: addenda are process-local, not serialized state. On a fresh agent, replay the application-owned replacement and each standing rule once. Do **not** append the same rule again on the existing executor after `setSignature`; that duplicates it.
 
-Inspect `assistant.executor.getInstruction()` and that stage's `getOptimizableComponents()`, not the first matching instruction key in the pipeline aggregate: default IDs can collide across stages. The executable [stage-instructions case](examples/09-agents.ts) changes the actual schema, records the pre-reapplication boundary, explicitly reapplies the canonical rule, and checks before/after system prompts, single-copy append, absent prior replacement, stage isolation, real stock reads, and typed proposals. Its deterministic replies prove wiring and arithmetic, not model reasoning quality.
+Inspect `assistant.executor.getInstruction()` and that stage's `getOptimizableComponents()`, not the first matching instruction key in the pipeline aggregate: default IDs can collide across stages. The executable [stage-instructions case](../examples/09-agents.ts) changes the actual schema, records the pre-reapplication boundary, explicitly reapplies the canonical rule, and checks before/after system prompts, single-copy append, absent prior replacement, stage isolation, real stock reads, and typed proposals. Its deterministic replies prove wiring and arithmetic, not model reasoning quality.
 
 Pinned implementation: [25.4.9 source map](https://unpkg.com/@ax-llm/ax@25.4.9/index.js.map), `agent/AxAgent.ts` (`setInstruction`, `setSignature`, local instruction component), `agent/agentInternal/coordinator.ts` (pipeline signature routing, aggregate components, additive instruction), and `agent/agentInternal/signatureBuilders.ts` (prompt composition); [25.4.9 public types](https://unpkg.com/@ax-llm/ax@25.4.9/index.d.ts). Generated-language names below follow their own APIs; they do not imply a TypeScript pipeline setter or identical retention boundaries.
 
@@ -544,23 +544,23 @@ C++/Rust use `set_playbook_observer(...)` for construction-time learning updates
 | Area | Methods/options | Details |
 | --- | --- | --- |
 | Running | `forward(ai, values, options?)`, `streamingForward(ai, values, options?)` | Prefer `forward`; stream only when the caller needs streamed responder output |
-| Forward-time retrieval | `skills`, `onUsedMemories`, `onUsedSkills` | [Memory and runtime skills](references/agent-memory-skills.md) |
+| Forward-time retrieval | `skills`, `onUsedMemories`, `onUsedSkills` | [Memory and runtime skills](agent-memory-skills.md) |
 | State/control | `getState()`, `setState(state?)`, `getContextMap()`, `setContextMap(map?)`, `stop()`, `getSignature()`, `setSignature(signature)`, `getFunction()`, `getId()`, `setId(id)` | Context-map evolve policy is on `AxAgentContextMap`: `infiniteEvolve`, `evolveSteps`, `maxChars`, not agent config |
-| Observability | `getChatLog()`, `getUsage()`, `getStagedUsage()`, `resetUsage()`, `getTraces()` | [Agent observability](references/agent-observability.md) |
-| Demos/tuning | `setDemos(...)`, `namedPrograms()`, `namedProgramInstances()`, `optimize(...)`, `applyOptimization(...)`, `getOptimizableComponents()`, `applyOptimizedComponents(...)` | [Agent optimization](references/agent-optimize.md) |
-| Learning | `playbook()`, `getPlaybook()` | `playbook()` returns an agent-aware handle with `update(...)`, `render()`, state/load methods, and verified dataset evolution; `getPlaybook()` reads the live handle. Generated packages use language-shaped names; see [playbooks](references/playbook.md) |
+| Observability | `getChatLog()`, `getUsage()`, `getStagedUsage()`, `resetUsage()`, `getTraces()` | [Agent observability](agent-observability.md) |
+| Demos/tuning | `setDemos(...)`, `namedPrograms()`, `namedProgramInstances()`, `optimize(...)`, `applyOptimization(...)`, `getOptimizableComponents()`, `applyOptimizedComponents(...)` | [Agent optimization](agent-optimize.md) |
+| Learning | `playbook()`, `getPlaybook()` | `playbook()` returns an agent-aware handle with `update(...)`, `render()`, state/load methods, and verified dataset evolution; `getPlaybook()` reads the live handle. Generated packages use language-shaped names; see [playbooks](playbook.md) |
 
 - `getFunction()` requires `agentIdentity` for child-tool metadata.
 - `setSignature(...)` must retain configured `contextFields`; a missing configured field throws.
 - Low-level component methods are advanced hooks; normal tuning examples use `agent.optimize(...)` / `agent.applyOptimization(...)`.
-- For tuning, use eval-safe tools; treat `judgeOptions` as optimize configuration; use an objective `metric` for mechanical scoring and the built-in judge for qualitative run review. Runtime authoring stays here; tuning belongs in [agent optimization](references/agent-optimize.md).
+- For tuning, use eval-safe tools; treat `judgeOptions` as optimize configuration; use an objective `metric` for mechanical scoring and the built-in judge for qualitative run review. Runtime authoring stays here; tuning belongs in [agent optimization](agent-optimize.md).
 - [rlm-context-map-live.ts](https://raw.githubusercontent.com/ax-llm/ax/refs/heads/main/src/examples/rlm-context-map-live.ts) demonstrates provider-backed persistence and finite evolution.
 
 ## Event-Driven Agents
 
 `AxEventRuntime` wakes or resumes Agents while retaining logical state. Use `createProgram(instance)` for multi-tenant Agents; do not run one mutable Agent object concurrently for multiple instance keys. Clarification and remote task completion are owned continuations, not synthetic user turns.
 
-Declare the signature with `eventTarget('id').createProgram(signature, factory)` and map values using `eventPath`. Before invocation, the runtime verifies each created Agent against that signature. Fan out with multiple matching routes so each Agent has its own authorization, instance serialization, retry policy, and run record. See [event runtime](references/event-runtime.md).
+Declare the signature with `eventTarget('id').createProgram(signature, factory)` and map values using `eventPath`. Before invocation, the runtime verifies each created Agent against that signature. Fan out with multiple matching routes so each Agent has its own authorization, instance serialization, retry policy, and run record. See [event runtime](event-runtime.md).
 
 ## Automatic Sessions (TypeScript)
 
@@ -584,4 +584,4 @@ Fetch full working examples as needed:
 - [Smart Defaults Agent](https://raw.githubusercontent.com/ax-llm/ax/refs/heads/main/src/examples/typescript/long-agents/smart-defaults-agent.ts): automatic context promotion, relevance hints, and runtime tools.
 - [Portable Playbook Evolve](https://raw.githubusercontent.com/ax-llm/ax/refs/heads/main/src/examples/python/optimization/agent-playbook-evolve.py): Python construction-time learning, validated citations, stage guidance, and verified task-set evolution; parallel Java/C++/Go/Rust examples are alongside it.
 
-Additional RLM examples are in [RLM](references/agent-rlm.md); memory/skill examples are in [memory and runtime skills](references/agent-memory-skills.md).
+Additional RLM examples are in [RLM](agent-rlm.md); memory/skill examples are in [memory and runtime skills](agent-memory-skills.md).

@@ -1,6 +1,6 @@
 # AxFlow workflows, DAGs, and execution contracts
 
-Use `flow()` and `AxFlow` for workflows, DAG orchestration, multi-node AI pipelines, conditional routing, parallel execution, and array/map-reduce processing. This reference preserves the source API snapshot **25.4.10**. Prefer short, copyable patterns; provide tutorial prose only when requested. Provider setup belongs in [AI services](references/ai.md); generic generation in [Generators](references/gen.md); event ingestion, persistence, and safe routing in [Event runtime](references/event-runtime.md).
+Use `flow()` and `AxFlow` for workflows, DAG orchestration, multi-node AI pipelines, conditional routing, parallel execution, and array/map-reduce processing. This reference preserves the source API snapshot **25.4.10**. Prefer short, copyable patterns; provide tutorial prose only when requested. Provider setup belongs in [AI services](ai.md); generic generation in [Generators](gen.md); event ingestion, persistence, and safe routing in [Event runtime](event-runtime.md).
 
 ## Builder rules and boundaries
 
@@ -63,8 +63,8 @@ For a Typesafe/Jev judgment node, use required boolean/class outputs or explicit
 is needed. The direct `typesafe(...).systemOne(...)` client is needed only for
 advanced request shapes such as structured criteria. Keep authoritative facts,
 ordered policy and effects in host code; preserve uncertain higher-priority
-rules before lower-priority branches. See [Atomic judgments and host policy](references/typesafe.md#atomic-judgments-and-host-policy)
-and [Typesafe/Jev integration](references/typesafe.md) for TypeScript contracts
+rules before lower-priority branches. See [Atomic judgments and host policy](typesafe.md#atomic-judgments-and-host-policy)
+and [Typesafe/Jev integration](typesafe.md) for TypeScript contracts
 and the two-program hybrid pattern. Original upstream resource: [Typesafe](https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-typesafe.md).
 
 ```typescript
@@ -83,7 +83,7 @@ wf.n('processorAlias', 'sourceText:string -> processedText:string');
 
 ### Rich Node Contracts (String Grammar)
 
-Node signatures accept the full extended string grammar — constraint bags, class decisions, optional fields, and nested objects (full modifier table: [Signatures](references/signature.md)):
+Node signatures accept the full extended string grammar — constraint bags, class decisions, optional fields, and nested objects (full modifier table: [Signatures](signature.md)):
 
 ```typescript
 wf
@@ -153,7 +153,7 @@ wf.map([
 ], { parallel: true });
 ```
 
-The [`16-flow/async-parallel-map`](examples/16-flow.ts) case exercises async transforms and explicit parallel map composition; this is separate from automatic execute/derive scheduling below.
+The [`16-flow/async-parallel-map`](../examples/16-flow.ts) case exercises async transforms and explicit parallel map composition; this is separate from automatic execute/derive scheduling below.
 
 ## Returns (Final Output)
 
@@ -380,7 +380,7 @@ Rules:
 - Limiter failures propagate; tracing and metric failures are fail-open. External meter output is separate from balancer `getMetrics()` state.
 - `axGlobals.abortSignal` is merged with flow-level abort signals.
 
-For a real tracer provider, exporter and shutdown lifecycle, select [`16-flow/opentelemetry-lifecycle`](examples/16-flow.ts). It uses `@opentelemetry/api` 1.9.0 and `@opentelemetry/sdk-trace-base` 2.0.1; that SDK release is npm-deprecated but tested compatible with this pinned collection.
+For a real tracer provider, exporter and shutdown lifecycle, select [`16-flow/opentelemetry-lifecycle`](../examples/16-flow.ts). It uses `@opentelemetry/api` 1.9.0 and `@opentelemetry/sdk-trace-base` 2.0.1; that SDK release is npm-deprecated but tested compatible with this pinned collection.
 
 ## Program IDs and Demos
 
@@ -400,7 +400,7 @@ wf.setDemos([{ programId: 'root.summarizer', traces: [] }]);
 wf.applyOptimization(optimizedProgram);
 ```
 
-For tuning a flow, use top-level `optimize(wf, train, metric, options)` as covered in [GEPA optimization](references/gepa.md). There is no separate `flow.optimize(...)` helper.
+For tuning a flow, use top-level `optimize(wf, train, metric, options)` as covered in [GEPA optimization](gepa.md). There is no separate `flow.optimize(...)` helper.
 
 ## Chat Logs
 
@@ -454,7 +454,7 @@ Common errors:
 
 ## Native MCP/UCP
 
-Use [MCP](references/mcp.md) for client construction, transport/authentication policy, subscriptions, tasks, event routing, and replay. This section covers how Flow
+Use [MCP](mcp.md) for client construction, transport/authentication policy, subscriptions, tasks, event routing, and replay. This section covers how Flow
 inherits and coordinates the resulting live execution context.
 
 Set `mcp`/`ucp` on the flow or a node. Sequential nodes reuse sessions; parallel nodes multiplex through each client's concurrency policy. Branch cancellation and flow aborts propagate to outstanding requests and newly created remote tasks. Structured protocol values stay structured in flow state.
@@ -696,7 +696,7 @@ expiry.
 
 Pass `{ control: runControl() }` to `forward()`. Each node receives its own `root/<nodeName>` scope and conversation. Target that path to restrict an update; root updates also apply to future nodes. Completed nodes are not rerun and controller-attached runs bypass result caching.
 
-The standalone [automatic-session control case](examples/16-flow.ts) verifies node-targeted versus root updates, separate conversations, completed-node preservation, cache bypass and session cleanup. Its provider-session events are explicit fixtures, not live transport or model-compliance qualification.
+The standalone [automatic-session control case](../examples/16-flow.ts) verifies node-targeted versus root updates, separate conversations, completed-node preservation, cache bypass and session cleanup. Its provider-session events are explicit fixtures, not live transport or model-compliance qualification.
 
 
 Runnable TypeScript examples under `src/examples/typescript/flows/`:

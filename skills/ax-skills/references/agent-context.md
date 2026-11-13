@@ -6,11 +6,11 @@ Use this decision guide when choosing a context feature, distinguishing `context
 
 | Need | Context object | Scope | API | Implementation reference |
 | --- | --- | --- | --- | --- |
-| Many tasks over one large repository, document set, or dataset | Context map | Recurring corpus; persists across runs | `contextMap` | [RLM and context maps](references/agent-rlm.md) |
-| One long run whose own history needs compaction | Trajectory compaction | This run only | `contextPolicy: { preset, budget }` | [RLM context policies](references/agent-rlm.md) |
-| Evolve task strategy from examples or live feedback | Context playbook | A stage; offline evolution and online update | `agent.playbook(...)` | [Agent optimization](references/agent-optimize.md) and [playbooks](references/playbook.md) |
-| Tune prompts, instructions, or demonstrations offline | Instruction text | A program; offline | `agent.optimize(...)` (GEPA) | [Agent optimization](references/agent-optimize.md) |
-| Retrieve task-relevant facts or guides | Retrieval | One turn | `recall(...)` / skills | [Memory and runtime skills](references/agent-memory-skills.md) |
+| Many tasks over one large repository, document set, or dataset | Context map | Recurring corpus; persists across runs | `contextMap` | [RLM and context maps](agent-rlm.md) |
+| One long run whose own history needs compaction | Trajectory compaction | This run only | `contextPolicy: { preset, budget }` | [RLM context policies](agent-rlm.md) |
+| Evolve task strategy from examples or live feedback | Context playbook | A stage; offline evolution and online update | `agent.playbook(...)` | [Agent optimization](agent-optimize.md) and [playbooks](playbook.md) |
+| Tune prompts, instructions, or demonstrations offline | Instruction text | A program; offline | `agent.optimize(...)` (GEPA) | [Agent optimization](agent-optimize.md) |
+| Retrieve task-relevant facts or guides | Retrieval | One turn | `recall(...)` / skills | [Memory and runtime skills](agent-memory-skills.md) |
 
 ## Defaults
 
@@ -19,7 +19,7 @@ Use this decision guide when choosing a context feature, distinguishing `context
 - Evolving strategy: `agent.playbook(...)`, offline from examples or online from live feedback.
 - Offline instruction/demo tuning: `agent.optimize(...)` (GEPA).
 - On-demand facts: `recall(...)` for memories; `discover({ skills })` for runtime skill guides.
-- One oversized input, such as a pasted document or large JSON value: normally do nothing. `autoUpgrade` is on by default and keeps the full value runtime-only with a prompt preview. Use `contextFields` for a specific inline policy or a large required non-string field; see [RLM input policies](references/agent-rlm.md).
+- One oversized input, such as a pasted document or large JSON value: normally do nothing. `autoUpgrade` is on by default and keeps the full value runtime-only with a prompt preview. Use `contextFields` for a specific inline policy or a large required non-string field; see [RLM input policies](agent-rlm.md).
 
 ## Boundaries and Anti-Patterns
 
@@ -31,7 +31,7 @@ Use this decision guide when choosing a context feature, distinguishing `context
 
 ## Companion References
 
-- [RLM](references/agent-rlm.md): `contextPolicy` presets, context maps, and runtime sessions.
-- [Memory and runtime skills](references/agent-memory-skills.md): recall, memories, and dynamic guide loading.
-- [Agent optimization](references/agent-optimize.md): GEPA via `agent.optimize(...)` and optimization hand-off for `agent.playbook(...)`; [playbooks](references/playbook.md) supplies the dedicated evolution/update contract.
-- [Core agents](references/agent.md): agent construction and final/clarification protocols.
+- [RLM](agent-rlm.md): `contextPolicy` presets, context maps, and runtime sessions.
+- [Memory and runtime skills](agent-memory-skills.md): recall, memories, and dynamic guide loading.
+- [Agent optimization](agent-optimize.md): GEPA via `agent.optimize(...)` and optimization hand-off for `agent.playbook(...)`; [playbooks](playbook.md) supplies the dedicated evolution/update contract.
+- [Core agents](agent.md): agent construction and final/clarification protocols.
