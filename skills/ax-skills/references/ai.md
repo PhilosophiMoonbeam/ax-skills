@@ -1,6 +1,6 @@
 # AI providers, models, and runtime configuration
 
-Use for `ai()`, deployment profiles, model catalogs/presets, routing and balancing, embeddings, thinking, service tiers, caching, cancellation, and provider-specific request contracts. Prefer short copyable code, not tutorial prose unless requested. Source API snapshot: 25.4.9. Audio task-specific detail belongs in [audio](references/audio.md); signature design in [signatures](references/signature.md); agent/runtime design is outside this reference.
+Use for `ai()`, deployment profiles, model catalogs/presets, routing and balancing, embeddings, thinking, service tiers, caching, cancellation, and provider-specific request contracts. Prefer short copyable code, not tutorial prose unless requested. Source API snapshot: 25.4.10. Audio task-specific detail belongs in [audio](references/audio.md); signature design in [signatures](references/signature.md); agent/runtime design is outside this reference.
 
 ## Factory and deployment profiles
 
@@ -43,7 +43,7 @@ For Jev question design, rich criteria, native scoring, transport settings, and 
 | Required boolean/class/rubric score outputs through Ax signatures | `ai({ name: 'typesafe', apiKey, trueThreshold: 0.9 })` and `ax(...).forward()` |
 | Explicit provider request shapes or structured state/criteria | `typesafe({ apiKey }).systemOne({ state, questions })` |
 
-Use `.withEvidence()` on boolean/class fields or `f.score(levels).withEvidence()` to retain probabilities, native scores, and confidence through normal AxGen outputs. The string forms use `(evidence)`. See the [decision evidence and reranking](references/typesafe.md) for result shapes, provenance, and reranking with both Jev and OpenAI Decisions.
+Use `.withEvidence()` on boolean/class fields or `f.score(levels).withEvidence()` to retain probabilities, native scores, and supplied confidence through normal AxGen outputs. String forms use `(evidence)`. See [decision evidence and reranking](references/typesafe.md#evidence-provenance-and-reranking) and the compact [provider differences](references/typesafe.md#provider-differences) matrix for Jev, OpenAI Decisions and Gemini Decisions; their native APIs and refusal/media contracts are not interchangeable.
 
 Both default to `jev-latest`. Set the adapter's model with `config.model`; set native defaults with `model`. Native `listModels()` retrieves the provider's catalog without changing configured Ax model aliases.
 
@@ -53,7 +53,7 @@ Value descriptions from `boolean(true "...", false "...")` and `class "support, 
 
 Numeric outputs, including bounded numbers, are unsupported; scoring uses explicit `score` rubrics in signatures. Required single `box` outputs and PNG/JPEG image inputs are supported in TypeScript; see [Typesafe image and Box contracts](references/typesafe.md) for exact model, image, and localization requirements. Freeform text, optional/array/nested outputs, audio, files, tools, and sampling controls remain unsupported. Ax sends its normal prompt as state. Use a separate generative program for prose or tools.
 
-The image/Box exception follows the updated `ax-typesafe` source contract; its provider-summary counterpart still contains an older blanket media exclusion.
+The dedicated Typesafe contract and exact implementation support this narrow image/Box exception despite the official provider summary's stale blanket media exclusion.
 
 Typesafe-only balancers retain schema-required generation. Mixed pools select Typesafe only when the actual request already contains a supported schema. Incompatible requests are excluded from fallbacks even with degradation enabled. Usage and raw adapter answers remain in the existing usage and chat-log APIs. Python, Java, C++, Go, and Rust also implement these interfaces. Use each generated package's native API syntax.
 
@@ -863,6 +863,12 @@ Runnable examples: `typescript/generation/astra.ts`, `astra-async-tools.ts`, `as
 
 Provider routing preserves native file items when the selected provider and model support files, including filename, MIME type, cache flags, and extraction metadata. Supplying extracted text does not replace a file that the provider can consume natively. For unsupported providers, extracted text or a configured file-to-text callback supplies text; fallback policy can degrade, skip, or reject the file. The original conversation retains the file for later turns. Generated Python, Go, Java, C++, and Rust routers apply this policy in shared Core after selection.
 
+## Google Gemini Decisions
+
+Use `ai({ name: 'google-gemini-decisions', apiKey })` for required flat boolean/class/rubric score signatures, defaulting to `gemini-decision-1`, or `googleGeminiDecisions({ apiKey }).create({ input, questions })` for native named questions and multimodal blocks. This separate Developer API profile posts to `/v1beta/decisions` with `x-goog-api-key`; it is not ordinary Gemini GenerateContent or Vertex AI.
+
+Evidence includes native probabilities and required confidence, including boolean confidence. Scalar booleans use provider `trueThreshold`; evidence uses its field threshold, both defaulting to `0.5`. Usage is input-only with zero output tokens. Safety blocks are HTTP errors, not per-question refusal unions. There is no token stream, Box, prose, tools, caching, thinking or Flex/Priority inference. Native Score supports 2–255 levels, but signature rubrics remain 2–10. Read [Gemini's exact input, key, threshold and evidence contracts](references/typesafe.md#google-gemini-decisions) before implementation; do not infer parity from the shared signature surface.
+
 ## OpenAI Decisions
 
 Use `ai({ name: 'openai-decisions', apiKey })` for required boolean, class, and rubric score outputs through the dedicated `/v1/decisions` endpoint. The default model is `gpt-6-luna`. This is a separate provider profile from OpenAI Chat and Responses.
@@ -893,7 +899,7 @@ The response preserves answer order, model, full usage, and per-question `{ type
 
 The standalone [OpenAI Decisions wire case](examples/06-decisions.ts) uses the real adapter with synthetic HTTP answers. It preserves native selection, fractional score and ordered evidence; it does not measure inference quality or calibration.
 
-Native `input` is text or an array of user messages with text and inline image parts: `{ role: 'user', content: [{ type: 'input_text', text }, { type: 'input_image', image_url: 'data:image/png;base64,...', detail?: 'auto' }] }`. There are at most 128 images per request; hosted image URLs, file IDs, audio, non-user roles, and tool items are unsupported. The signature adapter preserves Ax's text prompt/history as role-labelled evidence in a user message and passes inline images through. It does not give those labels native role authority.
+**Ax 25.4.10 client limitations:** native `input` is text or an array of user messages with text and inline image parts: `{ role: 'user', content: [{ type: 'input_text', text }, { type: 'input_image', image_url: 'data:image/png;base64,...', detail?: 'auto' }] }`. There are at most 128 images per request; hosted image URLs, file IDs, audio, non-user roles, and tool items are unsupported by this pinned client, not necessarily by the current upstream endpoint. The signature adapter preserves Ax's text prompt/history as role-labelled evidence in a user message and passes inline images through. It does not give those labels native role authority. Current [OpenAI endpoint documentation](https://developers.openai.com/api/docs/guides/decisions) describes a broader API; inspect the installed client before using those additions.
 
 Both interfaces accept `apiURL` including `/v1` (default `https://api.openai.com/v1`) and renewable credentials. Native and adapter transport options support fetch, timeout, retry, and cancellation. Both instance and per-call cancellation apply to native requests. Credential-provider headers override static credentials and native custom headers regardless of header-name capitalization. Native requests can include `safety_identifier`; adapter instances accept `safetyIdentifier`. Unsupported requests are excluded from router/balancer selection and fallbacks.
 

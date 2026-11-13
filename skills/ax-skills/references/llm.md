@@ -1,12 +1,12 @@
 # Ax Library Quick Reference
 
-Ax (`@ax-llm/ax`) is a TypeScript library for type-safe LLM signatures, streaming, and multiple providers. Use this overview for `ax()`, `ai()`, `f()`, `s()`, `agent()`, `flow()`, `AxGen`, `AxAgent`, and `AxFlow`; use the focused companion references for detailed contracts. Source API snapshot: 25.4.9.
+Ax (`@ax-llm/ax`) is a TypeScript library for type-safe LLM signatures, streaming, and multiple providers. Use this overview for `ax()`, `ai()`, `f()`, `s()`, `agent()`, `flow()`, `AxGen`, `AxAgent`, and `AxFlow`; use the focused companion references for detailed contracts. Source API snapshot: 25.4.10.
 
 Companion guidance: [AI providers](references/ai.md) covers providers, routing, and adaptive balancing; [Typesafe/Jev](references/typesafe.md) covers decisions, criteria, and native scoring; [signatures](references/signature.md) covers signatures and types; [generators](references/gen.md) covers generator behavior. For agents, select [core agents/tools](references/agent.md), [runtime/RLM/delegation](references/agent-rlm.md), [callbacks/logs/usage](references/agent-observability.md), [recall/dynamic skills](references/agent-memory-skills.md), or [tuning/evaluation](references/agent-optimize.md). See [flows](references/flow.md) for workflows and [GEPA](references/gepa.md) for top-level `optimize(...)`, BootstrapFewShot-to-GEPA migration, and Pareto optimization.
 
 ## Imports and Factories
 
-Prefer `ax()`, `ai()`, `agent()`, and `flow()` over class constructors. Standard Schema v1 integrations support zod, valibot, and arktype; zod is optional.
+Prefer `ax()`, `ai()`, `agent()`, and `flow()` over class constructors. The Ax 25.4.10 Standard Schema v1 converter supports Zod only, with synchronous validators; Zod is optional when using native signature fields.
 
 ```typescript
 import { ax, ai, f, s, fn, agent, flow, AxMemory, AxMCPClient } from '@ax-llm/ax';
@@ -52,14 +52,18 @@ const zodTool = fn('calculateTax')
   .description('Calculate tax for an amount')
   .arg(z.object({
     amount: z.number().positive().describe('Pre-tax amount in USD'),
-    region: z.string().refine((value) => ['US', 'EU', 'UK'].includes(value), 'Use US, EU or UK').describe('Tax region'),
+    region: z.string().regex(/^(US|EU|UK)$/).describe('Tax region: US, EU or UK'),
   }))
-  .returns(z.object({ tax: z.number(), total: z.number() }))
-  .handler(async ({ amount }) => ({ tax: amount * 0.1, total: amount * 1.1 }))
+  .returns(z.object({
+    tax: z.number(), total: z.number(), status: z.enum(['estimated', 'final']),
+  }))
+  .handler(async ({ amount }) => ({
+    tax: amount * 0.1, total: amount * 1.1, status: 'estimated',
+  }))
   .build();
 ```
 
-The tax tool uses runtime string membership validation, not enum advertising or a literal-union type: Ax 25.4.9 + Zod 4.1.11 rejects converted `z.enum(...)` fields. See the [narrow enum-conversion qualification](references/signature.md#standard-schema-zod-valibot-arktype); other Standard Schema shapes remain supported.
+The tax region is an input, so it uses a string validator: `z.enum(...)` maps to output-only Ax `class`, as shown by the tool's status result. On outputs, Zod enums advertise and validate allowed labels and preserve literal-union types, including enum arrays and optional arrays. See [Standard Schema: Zod](references/signature.md#standard-schema-zod) for synchronous conversion, original-validator semantics, and vendor boundaries.
 
 ## Running and Forward Types
 

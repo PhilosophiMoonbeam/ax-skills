@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { ax, f, s, type AxChatResponse, type AxGenInput } from '@ax-llm/ax';
+import { ax, f, s, type AxChatResponse, type AxGenInput, type AxGenOutput } from '@ax-llm/ax';
 import { z } from 'zod';
 import { options, scriptedAI, type Example } from './support.js';
 
@@ -80,8 +80,8 @@ export const examples: readonly Example[] = [
   },
   {
     id: '01-signatures/standard-schema',
-    title: 'Standard Schema fields execute transformations and custom refinements',
-    features: ['StandardSchema', 'zod', 'per-field schema', 'whole-object schema', 'transform', 'refine', 'superRefine'],
+    title: 'Standard Schema preserves typed enums, arrays and original Zod validators',
+    features: ['StandardSchema', 'zod', 'per-field schema', 'whole-object schema', 'enum', 'optional arrays', 'transform', 'regex flags', 'refine', 'superRefine'],
     modes: ['offline'],
     async run(ctx) {
       // Zod owns application-specific semantics that modifier bags cannot express.
@@ -91,44 +91,101 @@ export const examples: readonly Example[] = [
         .output('scratchpad', z.string(), { internal: true })
         .output('contactEmail', z.string().email().transform((value) => value.toLowerCase()))
         .output('accountCode', z.string().refine((value) => value.startsWith('AC-'), 'Use an AC- account code'))
+        // Lowercasing runs before the case-insensitive check; the final result
+        // deliberately no longer matches that regex. Reconstructed checks lose semantics.
+        .output('validatedCode', z.string().toLowerCase().regex(/^AC-\d+$/i)
+          .transform((value) => `verified:${value}`))
+        .output('normalizedLabel', z.string().trim().min(3))
+        // Flat fields otherwise select the text-label protocol despite provider capability.
+        .useStructured()
         .build();
       const gen = ax(signature);
+      const outputSchema = signature.toJSONSchema();
+      assert.ok(outputSchema.properties?.validatedCode);
+      assert.ok(outputSchema.properties?.normalizedLabel);
+      assert.equal('pattern' in (outputSchema.properties?.validatedCode ?? {}), false);
+      assert.equal('minLength' in (outputSchema.properties?.normalizedLabel ?? {}), false);
       const result = await gen.forward(scriptedAI([
-        { results: [{ index: 0, content: 'Scratchpad: Normalize\nContact Email: ADA@EXAMPLE.COM\nAccount Code: bad', finishReason: 'stop' }] },
-        { results: [{ index: 0, content: 'Scratchpad: Correct code\nContact Email: ADA@EXAMPLE.COM\nAccount Code: AC-42', finishReason: 'stop' }] },
-      ]), { policyText: 'Codes start AC-', customerNote: 'ADA@EXAMPLE.COM, account AC-42' }, options(ctx));
+        json({ scratchpad: 'Normalize', contactEmail: 'ADA@EXAMPLE.COM', accountCode: 'bad',
+          validatedCode: 'invalid', normalizedLabel: 'abc' }),
+        json({ scratchpad: 'Correct code', contactEmail: 'ADA@EXAMPLE.COM', accountCode: 'AC-42',
+          validatedCode: 'Ac-42', normalizedLabel: '  ab  ' }),
+        json({ scratchpad: 'Correct label', contactEmail: 'ADA@EXAMPLE.COM', accountCode: 'AC-42',
+          validatedCode: 'Ac-42', normalizedLabel: '  abc  ' }),
+      ], { structuredOutputs: true }), { policyText: 'Codes start AC-', customerNote: 'ADA@EXAMPLE.COM, account AC-42' }, { ...options(ctx), maxRetries: 2 });
       assert.equal(result.contactEmail, 'ada@example.com');
       assert.equal(result.accountCode, 'AC-42');
+      assert.equal(result.validatedCode, 'verified:ac-42');
+      assert.equal(result.normalizedLabel, 'abc');
       assert.equal('scratchpad' in result, false);
-      assert.equal(gen.getChatLog().length, 2);
-      // 25.4.9 reads enum def.values, but Zod 4 stores def.entries.
-      // Keep the rejected boundary visible; do not claim enum conversion worked.
-      assert.throws(() => f().input('requestText', z.string())
-        .output(z.object({ priority: z.enum(['low', 'high']) })).build(), /Class type requires options/);
-      // Supported Standard Schema shape: a string with runtime membership validation.
+      assert.equal(gen.getChatLog().length, 3);
+      const prioritySchema = z.enum(['low', 'high']);
       const whole = f().input('requestText', z.string())
         .output(z.object({
-          priority: z.string().refine((value) => value === 'low' || value === 'high', 'Use low or high'),
+          priority: prioritySchema,
+          priorityList: z.array(prioritySchema),
+          optionalPriorities: z.array(prioritySchema).optional(),
+          tags: z.array(z.string()),
+          optionalTags: z.array(z.string()).optional(),
+          counts: z.array(z.number()),
+          flags: z.array(z.boolean()),
           summary: z.string().superRefine((value, context) => {
             if (!value.includes('invoice')) context.addIssue({ code: 'custom', message: 'Mention invoice' });
           }),
-        })).build();
+        })).useStructured().build();
+      for (const name of ['priority', 'priorityList', 'optionalPriorities']) {
+        assert.deepEqual(whole.getOutputFields().find((field) => field.name === name)?.type?.options, ['low', 'high']);
+      }
       const wholeGen = ax(whole);
       const triage = await wholeGen.forward(scriptedAI([
-        { results: [{ index: 0, content: 'Priority: urgent\nSummary: Review the dispute', finishReason: 'stop' }] },
-        { results: [{ index: 0, content: 'Priority: high\nSummary: Review the invoice', finishReason: 'stop' }] },
-      ]), { requestText: 'Urgent invoice dispute' }, options(ctx));
+        json({ priority: 'high', priorityList: ['urgent'], optionalPriorities: ['low'],
+          tags: ['invoice'], optionalTags: ['review'], counts: [1, 2], flags: [true, false],
+          summary: 'Review the dispute' }),
+        json({ priority: 'high', priorityList: ['low', 'high'], optionalPriorities: ['low'],
+          tags: ['invoice'], optionalTags: ['review'], counts: [1, 2], flags: [true, false],
+          summary: 'Review the dispute' }),
+        json({ priority: 'high', priorityList: ['low', 'high'], optionalPriorities: ['low'],
+          tags: ['invoice'], optionalTags: ['review'], counts: [1, 2], flags: [true, false],
+          summary: 'Review the invoice' }),
+      ], { structuredOutputs: true }), { requestText: 'Urgent invoice dispute' }, { ...options(ctx), maxRetries: 2 });
       assert.equal(triage.priority, 'high');
       assert.match(triage.summary, /invoice/);
-      assert.equal(wholeGen.getChatLog().length, 2);
-      // Native Ax class fields retain actual enum options in the prompt and parser.
-      const classified = await ax(f().input('requestText', f.string())
-        .output('priority', f.class(['low', 'high'] as const)).build()).forward(scriptedAI([{
-          results: [{ index: 0, content: 'Priority: high', finishReason: 'stop' }],
-        }]), { requestText: 'Urgent invoice dispute' }, options(ctx));
-      assert.equal(classified.priority, 'high');
-      return { result, triage, classified, zod4EnumConversionRejected: true, correctionRequests: gen.getChatLog().length,
-        proof: 'Schema validation and native class parsing execute; Zod 4 enum conversion is a pinned SDK defect, not supported by this example' };
+      assert.equal(wholeGen.getChatLog().length, 3);
+      assert.deepEqual(triage.priorityList, ['low', 'high']);
+      assert.deepEqual(triage.optionalPriorities, ['low']);
+      assert.deepEqual(triage.tags, ['invoice']);
+      assert.deepEqual(triage.optionalTags, ['review']);
+      assert.deepEqual(triage.counts, [1, 2]);
+      assert.deepEqual(triage.flags, [true, false]);
+      // Inspect declared output types, not control-flow types narrowed by assert.
+      type TriageOutput = AxGenOutput<typeof wholeGen>;
+      const fluentGen = ax(f().input('requestText', f.string())
+        .output('priority', f.class(['low', 'high']))
+        .output('priorityList', f.class(['low', 'high']).array())
+        .output('optionalPriorities', f.class(['low', 'high']).array().optional()).build());
+      type FluentOutput = AxGenOutput<typeof fluentGen>;
+      type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends
+        (<T>() => T extends B ? 1 : 2) ? true : false;
+      const inferredContracts: [
+        Equal<TriageOutput['priority'], 'low' | 'high'>,
+        Equal<TriageOutput['priorityList'], ('low' | 'high')[]>,
+        Equal<TriageOutput['optionalPriorities'], ('low' | 'high')[] | undefined>,
+        Equal<TriageOutput['tags'], string[]>,
+        Equal<TriageOutput['optionalTags'], string[] | undefined>,
+        Equal<TriageOutput['counts'], number[]>,
+        Equal<TriageOutput['flags'], boolean[]>,
+        Equal<FluentOutput['priority'], 'low' | 'high'>,
+        Equal<FluentOutput['priorityList'], ('low' | 'high')[]>,
+        Equal<FluentOutput['optionalPriorities'], ('low' | 'high')[] | undefined>,
+      ] = [true, true, true, true, true, true, true, true, true, true];
+      const omitted = await ax(whole).forward(scriptedAI([json({
+        priority: 'low', priorityList: ['low'], tags: ['invoice'], counts: [], flags: [],
+        summary: 'Review invoice',
+      })], { structuredOutputs: true }), { requestText: 'Routine invoice question' }, options(ctx));
+      assert.equal(omitted.optionalPriorities, undefined);
+      assert.equal(omitted.optionalTags, undefined);
+      return { result, triage, omitted, inferredContracts, correctionRequests: gen.getChatLog().length,
+        proof: 'Deterministic Ax forwards exercise Zod enum/array contracts, regex flags, transformation order and refinement corrections; no live quality or generated-language validator claim' };
     },
   },
   {

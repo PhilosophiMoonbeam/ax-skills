@@ -52,7 +52,7 @@ export const examples: readonly Example[] = [
   },
   {
     id: '26-architecture/evidence-aware-ticket',
-    title: 'Native decision evidence → explicit typed handoff → generative explanation',
+    title: 'Native decision evidence → explicit typed handoff → outcome acknowledgement',
     features: ['architecture', 'evidence-aware-ticket', 'typesafe', 'native-evidence', 'hybrid-generation', 'authorization-boundary'],
     modes: ['offline', 'live'],
     async run(ctx) {
@@ -69,13 +69,26 @@ export const examples: readonly Example[] = [
       type Judgment = false | true | 'unknown';
       type Outcome = 'fraud-review' | 'human-legal-handoff' | 'refund-proposal'
         | 'refund-team-review' | 'retention-proposal' | 'answer' | 'uncertainty-review';
-      type Facts = { eligible: boolean; alreadyRefunded: boolean; amountCents: number; activeSubscription: boolean };
+      // Freshness is host-owned. A stale value remains traceable but is not usable.
+      type Fact<T> = { status: 'known'; value: T } | { status: 'unavailable' } | { status: 'stale'; value: T };
+      type Facts = {
+        eligible: Fact<boolean>; alreadyRefunded: Fact<boolean>;
+        amountCents: Fact<number>; activeSubscription: Fact<boolean>;
+      };
+      const knownFacts: Facts = {
+        eligible: { status: 'known', value: true }, alreadyRefunded: { status: 'known', value: false },
+        amountCents: { status: 'known', value: 2500 }, activeSubscription: { status: 'known', value: true },
+      };
       type RuleId = 'R1-fraud' | 'R2-human-legal' | 'R3-refund' | 'R4-retention' | 'R5-answer';
       type Selection = { outcome: Outcome; winningRule: RuleId; evaluated: { ruleId: RuleId; match: Judgment }[] };
       const questionIds = Object.keys(questions) as QuestionId[];
       const thresholds = { id: 'ticket-thresholds-v1', falseAtMost: 0.3, trueAtLeast: 0.7 } as const;
       const classify = (p: number): Judgment => p <= thresholds.falseAtMost ? false
         : p >= thresholds.trueAtLeast ? true : 'unknown';
+      // A known false conjunct settles AND even when another input is unknown.
+      const and = (a: Judgment, b: Judgment, c: Judgment): Judgment =>
+        a === false || b === false || c === false ? false
+          : a === true && b === true && c === true ? true : 'unknown';
       const selectOutcome = (j: Record<QuestionId, Judgment>, facts: Facts): Selection => {
         const evaluated: Selection['evaluated'] = [];
         const selected = (outcome: Outcome, winningRule: RuleId) => ({ outcome, winningRule, evaluated });
@@ -88,15 +101,19 @@ export const examples: readonly Example[] = [
         evaluated.push({ ruleId: 'R2-human-legal', match: humanOrLegal });
         if (humanOrLegal === true) return selected('human-legal-handoff', 'R2-human-legal');
         if (humanOrLegal === 'unknown') return selected('uncertainty-review', 'R2-human-legal');
-        const refund = facts.eligible && !facts.alreadyRefunded ? j.wantsRefund : false;
+        const notAlreadyRefunded = facts.alreadyRefunded.status === 'known' ? !facts.alreadyRefunded.value : 'unknown';
+        const eligible = facts.eligible.status === 'known' ? facts.eligible.value : 'unknown';
+        const refund = and(eligible, notAlreadyRefunded, j.wantsRefund);
         evaluated.push({ ruleId: 'R3-refund', match: refund });
-        if (refund === true) return selected(
-          facts.amountCents <= 2500 ? 'refund-proposal' : 'refund-team-review', 'R3-refund');
+        if (refund === true) {
+          // A matched refund rule cannot fall through to retention when its
+          // amount branch is unresolved. Amount is irrelevant if refund is false.
+          if (facts.amountCents.status !== 'known') return selected('uncertainty-review', 'R3-refund');
+          return selected(facts.amountCents.value <= 2500 ? 'refund-proposal' : 'refund-team-review', 'R3-refund');
+        }
         if (refund === 'unknown') return selected('uncertainty-review', 'R3-refund');
-        // Any false conjunct settles AND; inactive subscriptions and declined
-        // offers make other retention uncertainty irrelevant.
-        const retention = !facts.activeSubscription || j.wantsCancel === false || j.openToOffer === false ? false
-          : j.wantsCancel === true && j.openToOffer === true ? true : 'unknown';
+        const activeSubscription = facts.activeSubscription.status === 'known' ? facts.activeSubscription.value : 'unknown';
+        const retention = and(activeSubscription, j.wantsCancel, j.openToOffer);
         evaluated.push({ ruleId: 'R4-retention', match: retention });
         if (retention === true) return selected('retention-proposal', 'R4-retention');
         if (retention === 'unknown') return selected('uncertainty-review', 'R4-retention');
@@ -104,48 +121,101 @@ export const examples: readonly Example[] = [
         return selected('answer', 'R5-answer');
       };
       type Scenario = {
-        id: string; conversation: string; facts?: Partial<Facts>;
+        id: string; conversation: string; facts: Facts;
         // Order: unauthorized, human, legal, refund, cancel, offer.
         probabilities: readonly [number, number, number, number, number, number];
         expected: Outcome; rule: RuleId;
       };
       const scenarios: readonly Scenario[] = [
-        { id: 'fraud-overlap', conversation: 'I did not authorize this charge. Get a human or I will sue. Refund me and cancel; I might consider an offer.',
+        { id: 'fraud-overlap', conversation: 'I did not authorize this charge. Get a human or I will sue. Refund me and cancel; I might consider an offer.', facts: knownFacts,
           probabilities: [0.7, 0.9, 0.9, 0.9, 0.9, 0.9], expected: 'fraud-review', rule: 'R1-fraud' },
-        { id: 'human-or-unknown-legal', conversation: 'I need a human and a refund. This may become a legal matter.',
+        { id: 'human-or-unknown-legal', conversation: 'I need a human and a refund. This may become a legal matter.', facts: knownFacts,
           probabilities: [0.1, 0.9, 0.5, 0.9, 0.1, 0.1], expected: 'human-legal-handoff', rule: 'R2-human-legal' },
-        { id: 'legal-or-unknown-human', conversation: 'I will sue. Perhaps a person could help; refund me.',
+        { id: 'legal-or-unknown-human', conversation: 'I will sue. Perhaps a person could help; refund me.', facts: knownFacts,
           probabilities: [0.1, 0.5, 0.9, 0.9, 0.1, 0.1], expected: 'human-legal-handoff', rule: 'R2-human-legal' },
-        { id: 'refund-2500-over-retention', conversation: 'Refund me and cancel, though I would consider an offer.',
+        { id: 'refund-2500-over-retention', conversation: 'Refund me and cancel, though I would consider an offer.', facts: knownFacts,
           probabilities: [0.1, 0.1, 0.1, 0.9, 0.9, 0.9], expected: 'refund-proposal', rule: 'R3-refund' },
-        { id: 'refund-2501', conversation: 'Please refund my payment.', facts: { amountCents: 2501 },
+        { id: 'refund-2501', conversation: 'Please refund my payment.', facts: { ...knownFacts, amountCents: { status: 'known', value: 2501 } },
           probabilities: [0.1, 0.1, 0.1, 0.9, 0.1, 0.1], expected: 'refund-team-review', rule: 'R3-refund' },
-        { id: 'refund-ineligible', conversation: 'Please refund my payment.', facts: { eligible: false },
+        { id: 'refund-ineligible', conversation: 'Please refund my payment.', facts: { ...knownFacts, eligible: { status: 'known', value: false } },
           probabilities: [0.1, 0.1, 0.1, 0.9, 0.1, 0.1], expected: 'answer', rule: 'R5-answer' },
-        { id: 'already-paid-unknown-refund-retention', conversation: 'Maybe return my money. Cancel, but I would consider an offer.', facts: { alreadyRefunded: true },
+        { id: 'already-paid-unknown-refund-retention', conversation: 'Maybe return my money. Cancel, but I would consider an offer.', facts: { ...knownFacts, alreadyRefunded: { status: 'known', value: true } },
           probabilities: [0.1, 0.1, 0.1, 0.5, 0.9, 0.9], expected: 'retention-proposal', rule: 'R4-retention' },
-        { id: 'unknown-fraud-high-edge', conversation: 'I may not have authorized this. Refund me.',
+        { id: 'unknown-fraud-high-edge', conversation: 'I may not have authorized this. Refund me.', facts: knownFacts,
           probabilities: [0.699999, 0.1, 0.1, 0.9, 0.1, 0.1], expected: 'uncertainty-review', rule: 'R1-fraud' },
-        { id: 'unknown-handoff', conversation: 'Perhaps someone should handle this. Refund me.',
+        { id: 'unknown-handoff', conversation: 'Perhaps someone should handle this. Refund me.', facts: knownFacts,
           probabilities: [0.1, 0.5, 0.1, 0.9, 0.1, 0.1], expected: 'uncertainty-review', rule: 'R2-human-legal' },
-        { id: 'unknown-refund', conversation: 'Maybe return my money. Cancel; I would consider an offer.',
+        { id: 'unknown-refund', conversation: 'Maybe return my money. Cancel; I would consider an offer.', facts: knownFacts,
           probabilities: [0.1, 0.1, 0.1, 0.5, 0.9, 0.9], expected: 'uncertainty-review', rule: 'R3-refund' },
-        { id: 'retention', conversation: 'Cancel my subscription, but I am open to a retention offer.',
+        { id: 'retention', conversation: 'Cancel my subscription, but I am open to a retention offer.', facts: knownFacts,
           probabilities: [0.1, 0.1, 0.1, 0.1, 0.9, 0.9], expected: 'retention-proposal', rule: 'R4-retention' },
-        { id: 'inactive-irrelevant-unknowns', conversation: 'I might cancel or consider an offer.', facts: { activeSubscription: false },
+        { id: 'inactive-irrelevant-unknowns', conversation: 'I might cancel or consider an offer.', facts: { ...knownFacts, activeSubscription: { status: 'known', value: false } },
           probabilities: [0.1, 0.1, 0.1, 0.1, 0.5, 0.5], expected: 'answer', rule: 'R5-answer' },
-        { id: 'no-cancel-unknown-offer', conversation: 'Do not cancel. Perhaps an offer would help.',
+        { id: 'no-cancel-unknown-offer', conversation: 'Do not cancel. Perhaps an offer would help.', facts: knownFacts,
           probabilities: [0.1, 0.1, 0.1, 0.1, 0.1, 0.5], expected: 'answer', rule: 'R5-answer' },
-        { id: 'unknown-cancel-no-offer', conversation: 'I may cancel, but I will not consider offers.',
+        { id: 'unknown-cancel-no-offer', conversation: 'I may cancel, but I will not consider offers.', facts: knownFacts,
           probabilities: [0.1, 0.1, 0.1, 0.1, 0.5, 0.1], expected: 'answer', rule: 'R5-answer' },
-        { id: 'uncertain-retention', conversation: 'Cancel my subscription. I might consider an offer.',
+        { id: 'uncertain-retention', conversation: 'Cancel my subscription. I might consider an offer.', facts: knownFacts,
           probabilities: [0.1, 0.1, 0.1, 0.1, 0.9, 0.5], expected: 'uncertainty-review', rule: 'R4-retention' },
-        { id: 'all-negative', conversation: 'Where can I find the usage guide?',
+        { id: 'all-negative', conversation: 'Where can I find the usage guide?', facts: knownFacts,
           probabilities: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1], expected: 'answer', rule: 'R5-answer' },
-        { id: 'inclusive-thresholds', conversation: 'Cancel my subscription; I would consider an offer.',
+        { id: 'inclusive-thresholds', conversation: 'Cancel my subscription; I would consider an offer.', facts: knownFacts,
           probabilities: [0.3, 0.3, 0.3, 0.3, 0.7, 0.7], expected: 'retention-proposal', rule: 'R4-retention' },
-        { id: 'unknown-fraud-low-edge', conversation: 'I am unsure whether I authorized this. Refund me.',
+        { id: 'unknown-fraud-low-edge', conversation: 'I am unsure whether I authorized this. Refund me.', facts: knownFacts,
           probabilities: [0.300001, 0.1, 0.1, 0.9, 0.1, 0.1], expected: 'uncertainty-review', rule: 'R1-fraud' },
+        // Required unresolved facts block this rule and every lower-priority action.
+        { id: 'unavailable-eligibility', conversation: 'Refund me and cancel; I would consider an offer.',
+          facts: { ...knownFacts, eligible: { status: 'unavailable' } },
+          probabilities: [0.1, 0.1, 0.1, 0.9, 0.9, 0.9], expected: 'uncertainty-review', rule: 'R3-refund' },
+        { id: 'stale-eligibility', conversation: 'Refund me and cancel; I would consider an offer.',
+          facts: { ...knownFacts, eligible: { status: 'stale', value: false } },
+          probabilities: [0.1, 0.1, 0.1, 0.9, 0.9, 0.9], expected: 'uncertainty-review', rule: 'R3-refund' },
+        { id: 'unavailable-paid-state', conversation: 'Refund me and cancel; I would consider an offer.',
+          facts: { ...knownFacts, alreadyRefunded: { status: 'unavailable' } },
+          probabilities: [0.1, 0.1, 0.1, 0.9, 0.9, 0.9], expected: 'uncertainty-review', rule: 'R3-refund' },
+        { id: 'stale-paid-state', conversation: 'Refund me and cancel; I would consider an offer.',
+          facts: { ...knownFacts, alreadyRefunded: { status: 'stale', value: false } },
+          probabilities: [0.1, 0.1, 0.1, 0.9, 0.9, 0.9], expected: 'uncertainty-review', rule: 'R3-refund' },
+        { id: 'unavailable-amount', conversation: 'Refund me and cancel; I would consider an offer.',
+          facts: { ...knownFacts, amountCents: { status: 'unavailable' } },
+          probabilities: [0.1, 0.1, 0.1, 0.9, 0.9, 0.9], expected: 'uncertainty-review', rule: 'R3-refund' },
+        { id: 'stale-amount', conversation: 'Refund me and cancel; I would consider an offer.',
+          facts: { ...knownFacts, amountCents: { status: 'stale', value: 2500 } },
+          probabilities: [0.1, 0.1, 0.1, 0.9, 0.9, 0.9], expected: 'uncertainty-review', rule: 'R3-refund' },
+        { id: 'unavailable-subscription', conversation: 'Cancel my subscription; I would consider an offer.',
+          facts: { ...knownFacts, activeSubscription: { status: 'unavailable' } },
+          probabilities: [0.1, 0.1, 0.1, 0.1, 0.9, 0.9], expected: 'uncertainty-review', rule: 'R4-retention' },
+        { id: 'stale-subscription', conversation: 'Cancel my subscription; I would consider an offer.',
+          facts: { ...knownFacts, activeSubscription: { status: 'stale', value: false } },
+          probabilities: [0.1, 0.1, 0.1, 0.1, 0.9, 0.9], expected: 'uncertainty-review', rule: 'R4-retention' },
+        // A known false conjunct makes unavailable/stale sibling facts irrelevant.
+        { id: 'ineligible-unknown-paid-state-and-amount', conversation: 'Maybe refund me. Cancel; I would consider an offer.',
+          facts: { ...knownFacts, eligible: { status: 'known', value: false },
+            alreadyRefunded: { status: 'unavailable' }, amountCents: { status: 'stale', value: 2500 } },
+          probabilities: [0.1, 0.1, 0.1, 0.5, 0.9, 0.9], expected: 'retention-proposal', rule: 'R4-retention' },
+        { id: 'already-paid-unknown-eligibility-and-amount', conversation: 'Maybe refund me. Cancel; I would consider an offer.',
+          facts: { ...knownFacts, eligible: { status: 'stale', value: true },
+            alreadyRefunded: { status: 'known', value: true }, amountCents: { status: 'unavailable' } },
+          probabilities: [0.1, 0.1, 0.1, 0.5, 0.9, 0.9], expected: 'retention-proposal', rule: 'R4-retention' },
+        { id: 'no-refund-no-cancel-unavailable-facts', conversation: 'Do not refund or cancel. Maybe an offer would help.',
+          facts: { eligible: { status: 'unavailable' }, alreadyRefunded: { status: 'unavailable' },
+            amountCents: { status: 'unavailable' }, activeSubscription: { status: 'unavailable' } },
+          probabilities: [0.1, 0.1, 0.1, 0.1, 0.1, 0.5], expected: 'answer', rule: 'R5-answer' },
+        { id: 'no-offer-stale-subscription', conversation: 'I may cancel, but I will not consider offers.',
+          facts: { ...knownFacts, activeSubscription: { status: 'stale', value: true } },
+          probabilities: [0.1, 0.1, 0.1, 0.1, 0.5, 0.1], expected: 'answer', rule: 'R5-answer' },
+        // Settled higher-priority rules never consult lower-priority facts.
+        { id: 'fraud-unavailable-facts', conversation: 'I did not authorize this charge. Refund me and cancel.',
+          facts: { eligible: { status: 'unavailable' }, alreadyRefunded: { status: 'unavailable' },
+            amountCents: { status: 'unavailable' }, activeSubscription: { status: 'unavailable' } },
+          probabilities: [0.9, 0.1, 0.1, 0.9, 0.9, 0.1], expected: 'fraud-review', rule: 'R1-fraud' },
+        { id: 'human-stale-facts', conversation: 'Get a human. I might sue. Refund me and cancel.',
+          facts: { eligible: { status: 'stale', value: true }, alreadyRefunded: { status: 'stale', value: false },
+            amountCents: { status: 'stale', value: 2500 }, activeSubscription: { status: 'stale', value: true } },
+          probabilities: [0.1, 0.9, 0.5, 0.9, 0.9, 0.1], expected: 'human-legal-handoff', rule: 'R2-human-legal' },
+        { id: 'refund-unavailable-subscription', conversation: 'Refund me and cancel; I would consider an offer.',
+          facts: { ...knownFacts, activeSubscription: { status: 'unavailable' } },
+          probabilities: [0.1, 0.1, 0.1, 0.9, 0.9, 0.9], expected: 'refund-proposal', rule: 'R3-refund' },
       ];
       const activeScenarios = ctx.mode === 'live' ? scenarios.slice(0, 1) : scenarios;
       let decisionRequests = 0;
@@ -178,15 +248,17 @@ export const examples: readonly Example[] = [
         raw: AxAITypesafeResponse<typeof questions>;
         judgments: Record<QuestionId, Judgment>;
         selection: Selection;
-        explanation: { caseId: string; outcome: string; explanation: string };
+        acknowledgement: { caseId: string; outcome: string; acknowledgement: string };
       }[] = [];
       for (const [index, scenario] of activeScenarios.entries()) {
         currentScenario = scenario;
         const ticketId = `T-${104 + index}`;
-        const facts: Facts = { eligible: true, alreadyRefunded: false, amountCents: 2500, activeSubscription: true, ...scenario.facts };
-        assert.ok(Number.isSafeInteger(facts.amountCents) && facts.amountCents >= 0);
-        // Only conversation crosses this boundary. Eligibility, ledger, cents and
-        // subscription status are authoritative fixture facts retained by the host.
+        const facts = scenario.facts;
+        if (facts.amountCents.status !== 'unavailable') {
+          assert.ok(Number.isSafeInteger(facts.amountCents.value) && facts.amountCents.value >= 0);
+        }
+        // Only conversation crosses this boundary. Explicit host fixture snapshots
+        // retain each authoritative fact's availability/freshness; none default here.
         const raw = await (ctx.mode === 'live' ? ctx.nativeDecisions : fixtureDecisions).systemOne({
           state: { conversation: scenario.conversation }, questions,
         }, { abortSignal: ctx.signal });
@@ -204,31 +276,32 @@ export const examples: readonly Example[] = [
           assert.equal(selection.winningRule, scenario.rule, scenario.id);
         }
         const handoff: Handoff = { ticketId, selectedOutcome: selection.outcome };
-        const explain = ax('ticketId:string, selectedOutcome:string "Host-owned outcome: fraud-review, human-legal-handoff, refund-proposal, refund-team-review, retention-proposal, answer, or uncertainty-review" -> caseId:string, outcome:class "fraud-review, human-legal-handoff, refund-proposal, refund-team-review, retention-proposal, answer, uncertainty-review", explanation:string "Briefly explain the host-selected outcome as pending, not an executed action"');
-        explain.addAssert(({ caseId, outcome }) => caseId === handoff.ticketId && outcome === handoff.selectedOutcome,
+        const acknowledge = ax('ticketId:string, selectedOutcome:string "Host-owned outcome: fraud-review, human-legal-handoff, refund-proposal, refund-team-review, retention-proposal, answer, or uncertainty-review" -> caseId:string, outcome:class "fraud-review, human-legal-handoff, refund-proposal, refund-team-review, retention-proposal, answer, uncertainty-review", acknowledgement:string "Briefly acknowledge the host-selected outcome as pending, not an executed action. You receive no evidence for a factual rationale"');
+        // These assertions preserve fields, not prose truth or pending-action wording.
+        acknowledge.addAssert(({ caseId, outcome }) => caseId === handoff.ticketId && outcome === handoff.selectedOutcome,
           'Preserve the host ticket ID and outcome; do not select or execute a different action');
         const generative = ctx.mode === 'live' ? ctx.ai : scriptedAI([
-          reply(`Case Id: ${ticketId}\nOutcome: ${selection.outcome}\nExplanation: The host selected ${selection.outcome}; any proposed action remains pending approval.`),
+          reply(`Case Id: ${ticketId}\nOutcome: ${selection.outcome}\nAcknowledgement: The host selected ${selection.outcome}; any proposed action remains pending approval.`),
         ]);
-        const explanation = await explain.forward(generative, handoff, options(ctx));
-        assert.equal(explanation.caseId, ticketId);
-        assert.equal(explanation.outcome, selection.outcome);
-        assert.ok(explanation.explanation.length > 0);
+        const acknowledgement = await acknowledge.forward(generative, handoff, options(ctx));
+        assert.equal(acknowledgement.caseId, ticketId);
+        assert.equal(acknowledgement.outcome, selection.outcome);
+        assert.ok(acknowledgement.acknowledgement.length > 0);
         dispatchIfApproved(handoff);
         assert.equal(dispatchedActions.length, 0);
-        records.push({ scenarioId: scenario.id, ticketId, facts, raw, judgments, selection, explanation });
+        records.push({ scenarioId: scenario.id, ticketId, facts, raw, judgments, selection, acknowledgement });
       }
       if (ctx.mode === 'offline') assert.equal(decisionRequests, scenarios.length);
       const bounded = records[0]!;
       return {
         scenarios: records.length,
-        outcomes: records.map(({ scenarioId, selection }) => ({ scenarioId, outcome: selection.outcome })),
+        outcomes: records.map(({ scenarioId, selection }) => ({ scenarioId, outcome: selection.outcome, winningRule: selection.winningRule })),
         dispatchedActions: dispatchedActions.length,
         trace: {
           ticketId: bounded.ticketId, model: bounded.raw.model,
           provenance: { source: 'native', provider: 'typesafe', model: bounded.raw.model },
           thresholds,
-          questionSetVersion: 'ticket-signals-v1', policyVersion: 'ticket-policy-v1',
+          questionSetVersion: 'ticket-signals-v1', policyVersion: 'ticket-policy-v2',
           judgments: questionIds.map((questionId) => ({
             questionId, probability: bounded.raw.answers[questionId].noul, judgment: bounded.judgments[questionId],
           })),
@@ -236,8 +309,8 @@ export const examples: readonly Example[] = [
           evaluatedRules: bounded.selection.evaluated, winningRule: bounded.selection.winningRule,
           outcome: bounded.selection.outcome,
         },
-        design: 'One six-Noul request per conversation; explicit host policy owns ordered routing, authoritative facts and approval. A separate generative provider explains the typed host outcome. Raw native responses stay in internal records; only one bounded trace is returned.',
-        proofBoundary: 'Offline scenarios prove scripted transport, policy, typed handoff and zero unapproved dispatch effects—not judgment quality or calibration. Thresholds are illustrative; live runs one scenario and asserts contracts, not fixture probabilities. No payment or subscription executor is connected.',
+        design: 'One six-Noul request per conversation; explicit host policy owns ordered routing, authoritative fact availability/freshness and approval. A separate generative provider acknowledges only the typed host outcome, without receiving its evidence. Raw native responses stay in internal records; only one bounded trace is returned.',
+        proofBoundary: 'Offline scenarios prove scripted transport, policy including relevant unavailable/stale fact review, typed handoff and zero unapproved dispatch effects—not judgment quality, calibration or prose truth. Field assertions preserve ticket ID and outcome, not factual rationale. Thresholds are illustrative; live runs one scenario and asserts contracts, not fixture probabilities. No payment or subscription executor is connected.',
       };
     },
   },

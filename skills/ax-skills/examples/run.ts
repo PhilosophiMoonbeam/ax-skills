@@ -208,6 +208,7 @@ function makeService(prefix: 'AI' | 'AI_DECISIONS', settings: AxAIServiceOptions
       break;
     case 'typesafe':
     case 'openai-decisions':
+    case 'google-gemini-decisions':
       service = ai({ name: provider, apiKey, apiURL, config: { model } });
       break;
     case 'webllm':

@@ -14,9 +14,9 @@
     "build:browser": "esbuild browser/chrome-ai.ts --bundle --platform=browser --conditions=browser --format=esm --target=chrome138 --external:node:* --outfile=browser/dist/chrome-ai.js"
   },
   "dependencies": {
-    "@ax-llm/ax": "25.4.9",
-    "@ax-llm/ax-ai-sdk-provider": "25.4.9",
-    "@ax-llm/ax-tools": "25.4.9",
+    "@ax-llm/ax": "25.4.10",
+    "@ax-llm/ax-ai-sdk-provider": "25.4.10",
+    "@ax-llm/ax-tools": "25.4.10",
     "@opentelemetry/api": "1.9.0",
     "@opentelemetry/sdk-trace-base": "2.0.1",
     "ai": "7.0.2",

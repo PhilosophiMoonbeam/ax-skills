@@ -1,6 +1,6 @@
 # Native MCP integration with Ax
 
-Use for `AxMCPClient`, transports, catalogs, tools/prompts/resources, tasks, subscriptions, host requests, authentication/OAuth, MCP Apps, replay, and native integration with Gen, Agent, Flow, chat, optimization, and event runtimes. Source API snapshot: 25.4.9. MCP is a live protocol client, not a function-conversion utility: preserve client/session ownership, catalogs, raw content, tasks, notifications, identity policy, and cancellation context.
+Use for `AxMCPClient`, transports, catalogs, tools/prompts/resources, tasks, subscriptions, host requests, authentication/OAuth, MCP Apps, replay, and native integration with Gen, Agent, Flow, chat, optimization, and event runtimes. Source API snapshot: 25.4.10. MCP is a live protocol client, not a function-conversion utility: preserve client/session ownership, catalogs, raw content, tasks, notifications, identity policy, and cancellation context.
 
 ## Integration and safety rules
 
@@ -208,6 +208,8 @@ Signature-aware input plans are the data boundary. Raw data stays in `eventConte
 After `notifications/resources/list_changed`, managed sources refresh/diff selection. Selector exceptions retain prior selection; partial failures retain successful wire transitions and retry incomplete work on the next change/reconnect. Manual subscriptions, every source, and restored intent have distinct logical owners: first owner sends `resources/subscribe`, last release sends `resources/unsubscribe`. Closing one source cannot break another owner; closing the client ends all ownership/transport state.
 
 Legacy listening maintains `resources/subscribe` and optionally resumes GET/SSE with `Last-Event-ID`. Modern `subscriptions/listen` contains catalog interests, concrete resource URIs, and known task IDs; changes restart POST with a fresh request ID and no resume header. `startListening()` is nonblocking in both eras and returns `ready`, `done`, and `close()`.
+
+Own the listener's `done` promise immediately. During cleanup, collect unexpected listener failures and rethrow them only after a successful operation; never replace the primary operation failure from `finally`. Track failure separately from its `unknown` value because a rejection may be `undefined`. Exclude cancellation only when its rejection is the exact reason from the host-owned close signal; cleanup timing and an `AbortError` name do not establish cause. Always close the owned client and fixture.
 
 Generated transports supervise legacy long-lived GET/SSE and resume where supported. Generated runtimes are host-driven: use `nextDueAt()` and `runDue()` for delayed work. Rust hosts also call `AxMCPEventSource.poll()` to drain callbacks on the host thread. Close source/runtime before caller-owned client so unsubscribe/cancellation can still be sent. For inbox, continuations, stores, and sinks see [event runtime](references/event-runtime.md). Lifecycle/troubleshooting: Ax repository `docs/MCP_SUBSCRIPTIONS.md` and checked-in six-language MCP examples.
 

@@ -1,6 +1,6 @@
 # Ax signatures and field contracts
 
-Use for `s()`, `f()`, signature strings, field types, validation, and type-safe inputs/outputs. Source snapshot: Ax 25.4.9. Generator execution belongs in [generator reference](references/gen.md); native decision criteria belong in [Typesafe reference](references/typesafe.md).
+Use for `s()`, `f()`, signature strings, field types, validation, and type-safe inputs/outputs. Source snapshot: Ax 25.4.10. Generator execution belongs in [generator reference](references/gen.md); native decision criteria belong in [Typesafe reference](references/typesafe.md).
 
 ## String syntax and field types
 
@@ -119,9 +119,9 @@ Boolean/class evidence opt-in is `.withEvidence()` or `(evidence)`. `score "Low,
 
 `target:box(evidence)` returns `AxBoxEvidence`: `{ value: AxBox, confidence?: number, provenance }`. Fluent forms are `f.box(description)` (or `f.box()`) and `f.box(description).withEvidence()`. Generative providers support arrays, optional/nested boxes, and box inputs. Native Jev box outputs must be flat, required, single boxes.
 
-Jev 1.14 supports native PNG/JPEG localization with the required experimental header supplied by Ax. Box always returns a region, not a presence judgment: pair it with a boolean if the target may be absent and consume the box only when present. Generative vision providers use validated structured output with `elicited` provenance and no invented native confidence. OpenAI Decisions supports images but rejects Box outputs before transport; use a generative vision model instead. See [Typesafe image/Box transport and preparation](references/typesafe.md#image-inputs-and-box-outputs).
+Jev 1.14 supports native PNG/JPEG localization with the required experimental header supplied by Ax. Box always returns a region, not a presence judgment: pair it with a boolean if the target may be absent and consume the box only when present. Generative vision providers use validated structured output with `elicited` provenance and no invented native confidence. OpenAI Decisions and Gemini Decisions support images but reject Box outputs before transport; use a generative vision model instead. This exclusion concerns decision APIs, not those providers' generative vision paths. See [Typesafe image/Box transport and preparation](references/typesafe.md#image-inputs-and-box-outputs).
 
-**Source scope disagreement (25.4.9):** the signature source says generated-language Box support remains in the AxIR backlog, while the Typesafe source says Image/Box signatures are available in TypeScript, Python, Java, C++, Go, and Rust, with per-language examples. These statements disagree; this reference documents the TypeScript contract and does not establish universal generated-language Box availability.
+**Source scope disagreement (25.4.10):** the signature source says generated-language Box support remains in the AxIR backlog, while the Typesafe source says Image/Box signatures are available in TypeScript, Python, Java, C++, Go, and Rust, with per-language examples. These statements disagree; this reference documents the TypeScript contract and does not establish universal generated-language Box availability.
 
 
 ## Four construction forms
@@ -148,9 +148,9 @@ const sig = f()
   .build();
 ```
 
-### Standard Schema: zod, valibot, arktype
+### Standard Schema: Zod
 
-`.input()` / `.output()` accept [Standard Schema v1](https://standardschema.dev) without wrappers/adapters. Per-field schemas and whole-object schemas work; whole objects decompose in declaration order. Companion `AxFieldOptions` carry Ax-only hints: `{ cache: true }` for input prefix-cache breakpoints; `{ internal: true }` for hidden output scratchpads.
+`.input()` / `.output()` accept Zod schemas exposing [Standard Schema v1](https://standardschema.dev) without wrappers/adapters. Although the official guide also names Valibot and ArkType, the Ax 25.4.10 converter rejects vendors other than Zod; Standard Schema conformance alone does not establish compatibility. Per-field schemas and whole-object schemas work; whole objects decompose in declaration order. Companion `AxFieldOptions` carry Ax-only hints: `{ cache: true }` for input prefix-cache breakpoints; `{ internal: true }` for hidden output scratchpads.
 
 ```typescript
 import { z } from 'zod';
@@ -184,13 +184,17 @@ const sig3 = f()
     score: z.number().min(0).max(100).describe('Numeric score'),
   }))
   .output(z.object({
-    priority: z.string().refine((value) => ['low', 'medium', 'high'].includes(value), 'Use low, medium or high').describe('Priority'),
+    priority: z.enum(['low', 'medium', 'high']).describe('Priority'),
     summary: z.string().describe('Result'),
   }))
   .build();
 ```
 
-Zod string `.email()`, `.url()`, `.min()`, `.max()`, `.regex()` and number `.min()` / `.max()` remain schema validation constraints. Arrays use `z.array(z.string())`. `z.enum([...])` infers a literal union and is intended to map to output-only Ax `class`, but **Ax 25.4.9 + Zod 4.1.11 has a confirmed enum-conversion defect**: the [converter](https://github.com/ax-llm/ax/blob/25.4.9/src/ax/dsp/standardSchema.ts#L228-L235) reads `def.values`, while [Zod 4](https://github.com/colinhacks/zod/blob/v4.1.11/packages/zod/src/v4/classic/schemas.ts#L1545-L1557) stores `def.entries`, leaving rejected empty class options. This is not a blanket Standard Schema limitation. The refined string above validates membership at runtime but infers `string` and does not advertise enum choices in the converted prompt/schema. For native enum advertising and literal-union output types, use `.output('priority', f.class(['low', 'medium', 'high'] as const))` instead of that whole-object output schema. See the [pinned defect and executable examples](references/gen.md#standard-schema-signatures-and-tools).
+Zod 4 arrays retain their element types, including optional arrays. `z.enum([...])` maps to output-only Ax `class`; enum arrays retain allowed options. Both the Zod bridge and `f.class([...])` preserve literal unions in declared generator output types. Zod checks, including formats, bounds, regex flags, refinements and transformations, execute through the original validator rather than copied prompt or JSON Schema constraints. Keep transformation order in the schema: provider-facing shape does not replace runtime validation and correction feedback. See `01-signatures/standard-schema` for executable inference and validation contracts.
+
+This Zod bridge is TypeScript-only. Generated Python, Java, C++, Go, and Rust use native field descriptors for corresponding array, class, and optional contracts; they do not execute JavaScript validators.
+
+Validators must be synchronous; asynchronous Standard Schema validators are rejected. Unsupported introspection shapes can fall back to `json`, so arbitrary Zod features are not guaranteed equivalent prompt or JSON Schema representations. The original schema remains attached for runtime validation.
 
 The same schema shapes work with `fn().arg()`, `.returns()`, `.returnsField()`; schemas infer handler argument types. Per-argument schemas can mix with `f.*()` arguments and Ax hints:
 

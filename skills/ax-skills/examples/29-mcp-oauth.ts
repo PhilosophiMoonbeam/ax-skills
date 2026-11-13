@@ -298,6 +298,60 @@ function tokens(): { store: NonNullable<AxMCPOAuthOptions['tokenStore']>; values
     setToken: (key, token) => { values.set(key, token); }, clearToken: (key) => { values.delete(key); } } };
 }
 
+async function withLegacySSE<T>(fixture: OAuthFixture, run: (client: AxMCPClient) => Promise<T>,
+  options: { fetch?: typeof globalThis.fetch; onResourceUpdated?: (uri: string) => void } = {}): Promise<T> {
+  const hostClose = new AbortController();
+  const hostCloseReason = new DOMException('Owned legacy SSE listener closed', 'AbortError');
+  const ownedFetch: typeof globalThis.fetch = (input, init) => {
+    const requestSignal = init?.signal ?? (input instanceof Request ? input.signal : undefined);
+    return (options.fetch ?? fixture.fetch)(input, { ...init,
+      signal: requestSignal ? AbortSignal.any([requestSignal, hostClose.signal]) : hostClose.signal });
+  };
+  let streamDone: Promise<PromiseSettledResult<void>> | undefined;
+  // Ax25.4.10's legacy binding exposes the existing connection through
+  // startListening(). Own its promise immediately; close() aborts its reader.
+  const legacy = new (class extends AxMCPHTTPSSETransport {
+    override async connect(): Promise<void> {
+      await super.connect();
+      const listener = await super.startListening();
+      streamDone = listener.done.then(
+        () => ({ status: 'fulfilled' as const, value: undefined }),
+        (reason: unknown) => ({ status: 'rejected' as const, reason }),
+      );
+    }
+  })(`${fixture.origin}/sse`, {
+    authentication: axMCPBearerAuthentication('fixture-bearer'),
+    ssrfProtection: localProtection, timeoutMs: 5000, retry: false, fetch: ownedFetch,
+  });
+  const client = new AxMCPClient(legacy, { namespace: 'legacy_sse', era: 'legacy',
+    onResourceUpdated: options.onResourceUpdated });
+  let result!: T;
+  let closeFailed = false, streamFailed = false;
+  let closeFailure: unknown, streamFailure: unknown;
+  try {
+    await client.init();
+    result = await run(client);
+  } finally {
+    // Cancel with an owned reason before SDK close aborts its private controller.
+    // Only this exact reason is expected; an unrelated AbortError still fails.
+    hostClose.abort(hostCloseReason);
+    try { await client.close(); }
+    catch (error: unknown) { closeFailed = true; closeFailure = error; }
+    finally {
+      const outcome = await streamDone;
+      if (outcome?.status === 'rejected' &&
+        !(hostClose.signal.aborted && outcome.reason === hostCloseReason)) {
+        streamFailed = true; streamFailure = outcome.reason;
+      }
+    }
+  }
+  // Reaching here means the operation succeeded. Never replace its primary
+  // failure from finally, and do not use an error-value sentinel: it may be undefined.
+  if (closeFailed) throw closeFailure;
+  if (streamFailed) throw streamFailure;
+  return result;
+}
+
 export const examples: readonly Example[] = [
   {
     id: '29-mcp-oauth/simple-authentication', title: 'Send bearer, Basic, API-key and HMAC over actual loopback HTTP',
@@ -432,7 +486,7 @@ export const examples: readonly Example[] = [
         finally { await secured.close(); }
         assert.equal(f.grants.length, 0, 'Rejected authorization never exchanges a code');
         return { rejected, tokenExchanges: 0,
-          scope: 'TypeScript controls only. Real mTLS requires a certificate-presenting host fetch; signed JAR/JWT auth requires an approved signer. Revocation/introspection are not exercised: the public Ax25.4.9 HTTP transport and OAuth options expose no corresponding methods.' };
+          scope: 'TypeScript controls only. Real mTLS requires a certificate-presenting host fetch; signed JAR/JWT auth requires an approved signer. Revocation/introspection are not exercised: the public Ax25.4.10 HTTP transport and OAuth options expose no corresponding methods.' };
       });
     },
   },
@@ -478,50 +532,112 @@ export const examples: readonly Example[] = [
     async run(ctx) {
       return withOAuthFixture(ctx, 'bearer', async (f) => {
         const observed = Promise.withResolvers<string>();
-        let closing = false;
-        let streamDone: Promise<PromiseSettledResult<void> & { closedByHost?: boolean }> | undefined;
-        // Ax25.4.9's legacy binding exposes the existing connection through
-        // startListening(). Own that promise as soon as connect succeeds:
-        // close() aborts its reader, whose done rejection otherwise goes unhandled.
-        const legacy = new (class extends AxMCPHTTPSSETransport {
-          override async connect(): Promise<void> {
-            await super.connect();
-            const listener = await super.startListening();
-            streamDone = listener.done.then(
-              () => ({ status: 'fulfilled' as const, value: undefined }),
-              (reason: unknown) => ({ status: 'rejected' as const, reason, closedByHost: closing }),
-            );
-          }
-        })(`${f.origin}/sse`, {
-          authentication: axMCPBearerAuthentication('fixture-bearer'),
-          ssrfProtection: localProtection, timeoutMs: 5000, retry: false, fetch: f.fetch,
-        });
-        const client = new AxMCPClient(legacy, { namespace: 'legacy_sse', era: 'legacy',
-          onResourceUpdated: (uri) => { observed.resolve(uri); } });
-        let timer: NodeJS.Timeout | undefined;
-        try {
-          await client.init();
-          const result = await client.callTool('lookup', { sku: 'SKU-42' });
-          assert.deepEqual(result.structuredContent, { sku: 'SKU-42', quantity: 7 });
-          await client.subscribeResource('inventory://policy');
-          timer = setTimeout(() => { observed.reject(new Error('Legacy SSE update deadline exceeded')); }, 5000);
-          assert.equal(await observed.promise, 'inventory://policy');
-          await client.unsubscribeResource('inventory://policy');
-          return { binding: 'legacy HTTP/SSE', result: result.structuredContent, resourceUpdate: true,
-            proof: 'Real authenticated GET endpoint negotiation plus POST requests and SSE notification. New remote deployments should select Streamable HTTP instead.' };
-        } finally {
-          clearTimeout(timer);
-          closing = true;
-          try { await client.close(); }
-          finally {
-            const outcome = await streamDone;
-            if (outcome?.status === 'rejected' &&
-              !(outcome.closedByHost && outcome.reason instanceof Error && outcome.reason.name === 'AbortError')) {
-              throw outcome.reason;
-            }
-          }
-        }
+        return withLegacySSE(f, async (client) => {
+          let timer: NodeJS.Timeout | undefined;
+          try {
+            const result = await client.callTool('lookup', { sku: 'SKU-42' });
+            assert.deepEqual(result.structuredContent, { sku: 'SKU-42', quantity: 7 });
+            await client.subscribeResource('inventory://policy');
+            timer = setTimeout(() => { observed.reject(new Error('Legacy SSE update deadline exceeded')); }, 5000);
+            assert.equal(await observed.promise, 'inventory://policy');
+            await client.unsubscribeResource('inventory://policy');
+            return { binding: 'legacy HTTP/SSE', result: result.structuredContent, resourceUpdate: true,
+              proof: 'Real authenticated GET endpoint negotiation plus POST requests and SSE notification. New remote deployments should select Streamable HTTP instead.' };
+          } finally { clearTimeout(timer); }
+        }, { onResourceUpdated: (uri) => { observed.resolve(uri); } });
       }, { legacySSE: true });
+    },
+  },
+  {
+    id: '29-mcp-oauth/legacy-sse-error-ownership', title: 'Preserve primary operation failures while owning late legacy listener errors',
+    features: ['MCP', 'legacy HTTP/SSE', 'error precedence', 'undefined rejection', 'host abort', 'lifecycle regression'], modes: ['offline'],
+    async run(ctx) {
+      const listenerError = new Error('Injected late legacy SSE reader failure');
+      const unrelatedAbort = new DOMException('Unrelated late legacy SSE reader abort', 'AbortError');
+      const primaryError = new Error('Injected primary legacy operation failure');
+      const scenarios: readonly {
+        name: string;
+        listenerFailure?: { reason: unknown };
+        operationFailure?: { reason: unknown };
+      }[] = [
+        { name: 'success-listener-error', listenerFailure: { reason: listenerError } },
+        { name: 'success-unrelated-listener-abort', listenerFailure: { reason: unrelatedAbort } },
+        { name: 'success-listener-undefined', listenerFailure: { reason: undefined } },
+        { name: 'primary-error-listener-error', operationFailure: { reason: primaryError }, listenerFailure: { reason: listenerError } },
+        { name: 'primary-undefined-listener-error', operationFailure: { reason: undefined }, listenerFailure: { reason: listenerError } },
+        { name: 'expected-host-close-abort' },
+      ];
+      const checked: string[] = [];
+      for (const scenario of scenarios) {
+        await withOAuthFixture(ctx, 'bearer', async (f) => {
+          const sourceDone = Promise.withResolvers<unknown>();
+          let opened = 0, injected = false;
+          let closeSignal: AbortSignal | undefined;
+          // Keep the real authenticated GET, endpoint event and POST exchange.
+          // Inject only the response body's late reader failure on host close.
+          const closeProbeFetch: typeof globalThis.fetch = async (input, init) => {
+            const response = await f.fetch(input, init);
+            if (new URL(input instanceof Request ? input.url : String(input)).pathname !== '/sse') return response;
+            opened++;
+            assert(response.body);
+            const reader = response.body.getReader();
+            const signal = init?.signal; assert(signal);
+            closeSignal = signal;
+            const stream = new ReadableStream<Uint8Array>({
+              start(controller) {
+                signal.addEventListener('abort', () => {
+                  if (scenario.listenerFailure) {
+                    injected = true; controller.error(scenario.listenerFailure.reason);
+                  }
+                }, { once: true });
+              },
+              async pull(controller) {
+                try {
+                  const next = await reader.read();
+                  if (next.done) {
+                    sourceDone.resolve(undefined);
+                    if (!injected) controller.close();
+                  } else if (!injected) controller.enqueue(next.value);
+                } catch (reason: unknown) {
+                  sourceDone.resolve(reason);
+                  if (!injected) controller.error(reason);
+                }
+              },
+              async cancel(reason: unknown) {
+                try { await reader.cancel(reason); }
+                finally { sourceDone.resolve(reason); }
+              },
+            });
+            return new Response(stream, { status: response.status, headers: response.headers });
+          };
+          let operated = false;
+          let ownedClient: AxMCPClient | undefined;
+          const [outcome] = await Promise.allSettled([withLegacySSE(f, async (client) => {
+            ownedClient = client;
+            const result = await client.callTool('lookup', { sku: 'SKU-42' });
+            assert.deepEqual(result.structuredContent, { sku: 'SKU-42', quantity: 7 });
+            operated = true;
+            if (scenario.operationFailure) throw scenario.operationFailure.reason;
+            return result.structuredContent;
+          }, { fetch: closeProbeFetch })]);
+          assert.equal(opened, 1); assert(operated, 'The real operation must run before the injected failure');
+          const sourceFailure = await sourceDone.promise;
+          assert(closeSignal?.aborted, 'Host close must abort the real HTTP request signal');
+          assert.equal(sourceFailure, closeSignal.reason, 'The real HTTP body must reject with its exact cancellation reason');
+          assert.equal(ownedClient?.getEra(), undefined, 'The owned client must close even when an operation or listener fails');
+          const expected = scenario.operationFailure ?? scenario.listenerFailure;
+          if (expected) {
+            assert(outcome.status === 'rejected', scenario.name);
+            assert.equal(outcome.reason, expected.reason, 'Preserve exact failure identity, including undefined');
+          } else {
+            assert(outcome.status === 'fulfilled', scenario.name);
+            assert.deepEqual(outcome.value, { sku: 'SKU-42', quantity: 7 });
+          }
+        }, { legacySSE: true });
+        checked.push(scenario.name);
+      }
+      return { checked,
+        proof: 'The production lifecycle helper owns a real authenticated legacy connection. Response-body fault injection verifies error identity and late listener precedence; every real HTTP reader, client and fixture closes.' };
     },
   },
 ];
