@@ -114,7 +114,7 @@ const result = await program.forward(llm, { question: 'What is 2+2?' });
 
 The default uses Chrome's sampling settings. Chrome extensions can specify `temperature` and `topK` together; when only one is supplied, Ax obtains the other from `LanguageModel.params()`. An incomplete pair without defaults fails before session creation. Web pages do not support these legacy numeric settings. Streaming chunks contain successive text and are passed through unchanged. Ax releases each session on completion, cancellation, or failure. The adapter supports native JSON Schema output and text conversations, with no tools or embeddings. For a runnable browser demo, build Ax and open `src/examples/chrome-ai-chat.html` through a local web server.
 
-The local [browser entry](../examples/browser/chrome-ai.html) uses the same public imports; [adapter fixtures](../examples/33-browser-ai.ts) separately verify wire conversion and session cleanup. Build with `npm --prefix examples run build:browser`, serve the browser directory over localhost, and check Chrome's current desktop/hardware/model prerequisites. Fixture success is not local-model inference.
+The local [browser entry](../examples/browser/chrome-ai.html) uses the same public imports; [adapter fixtures](../examples/33-browser-ai.ts) separately verify wire conversion and session cleanup. Build with `bun run --no-env-file --cwd examples build:browser`, serve the browser directory over localhost, and check Chrome's current desktop/hardware/model prerequisites. Fixture success is not local-model inference.
 
 ## Model Presets
 
@@ -861,8 +861,8 @@ import { AxMCPClient } from '@ax-llm/ax';
 import { axCreateMCPStdioTransport } from '@ax-llm/ax-tools';
 
 const transport = axCreateMCPStdioTransport({
-  command: 'npx',
-  args: ['-y', '@anthropic/mcp-server-filesystem'],
+  command: 'bunx',
+  args: ['@modelcontextprotocol/server-memory'],
 });
 const client = new AxMCPClient(transport);
 ```
@@ -961,10 +961,10 @@ Both interfaces accept `apiURL` including `/v1` (default `https://api.openai.com
 In an Ax source checkout, run the upstream examples from its repository root:
 
 ```bash
-npm run tsx src/examples/typescript/generation/decision-evidence.ts
-npm run tsx src/examples/typescript/generation/openai-decisions.ts
-npm run tsx src/examples/typescript/generation/openai-decisions-native.ts
-npm run tsx src/examples/typescript/generation/openai-decisions-image.ts
+bun run tsx src/examples/typescript/generation/decision-evidence.ts
+bun run tsx src/examples/typescript/generation/openai-decisions.ts
+bun run tsx src/examples/typescript/generation/openai-decisions-native.ts
+bun run tsx src/examples/typescript/generation/openai-decisions-image.ts
 ```
 
 They use `OPENAI_API_KEY` or `OPENAI_APIKEY`. Python, Java, C++, Go, and Rust also support the signature adapter and native ordered questions. Their native factories are `openai_decisions`, `Ax.openaiDecisions`, `axllm::openai_decisions`, `axllm.OpenAIDecisions`, and `openai_decisions`, respectively. Native requests and responses use the language JSON map/value representation and preserve refusals and all usage fields. Runnable examples are under each language generation directory as `openai-decisions` and `openai-decisions-native` (Java uses `OpenAIDecisionsExample` and `OpenAIDecisionsNativeExample`). See the [Decisions guide](https://developers.openai.com/api/docs/guides/decisions) for the current provider contract and availability.

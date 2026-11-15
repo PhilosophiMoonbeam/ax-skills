@@ -23,7 +23,7 @@
 <body>
   <h1>Ask Chrome’s local model with Ax</h1>
   <p>This runs <strong>Gemini Nano through Chrome’s LanguageModel API</strong>, using
-    <code>@ax-llm/ax@25.4.9</code>. No API key, cloud inference or network fallback.
+    <code>@ax-llm/ax@25.4.11</code>. No API key, cloud inference or network fallback.
     Importing the entry only inspects availability; it does not create a session or download a model.</p>
   <p id="capability">Capability not checked: build and serve the browser entry first (instructions below).</p>
 
@@ -43,7 +43,7 @@
     <summary>1 · Build and open locally</summary>
     <p>From <code>skills/ax-skills/examples</code>, with the collection dependencies and
       <code>esbuild@0.25.12</code> installed:</p>
-    <pre>npx --no-install esbuild browser/chrome-ai.ts --bundle --platform=browser --conditions=browser --format=esm --target=chrome138 '--external:node:*' --outfile=browser/dist/chrome-ai.js</pre>
+    <pre>bun run --no-env-file build:browser</pre>
     <p>Serve the examples directory using your local static HTTP server, then open
       <code>http://localhost:PORT/browser/chrome-ai.html</code>. Do not open it as a
       <code>file:</code> URL. For deployment, use HTTPS.</p>
@@ -51,8 +51,8 @@
       <code>--external:node:*</code> keeps that unreachable Node-only path out of browser resolution;
       the demo never creates an executor. Ax and its OpenTelemetry dependency are bundled locally,
       not loaded from a CDN. The generated <code>browser/dist/</code> bundle is not source.</p>
-    <p>The entry uses minimal local DOM shapes. <code>npm run check</code> checks both the
-      browser entry and the Node CLI; <code>npm run build:browser</code> creates the local bundle.</p>
+    <p>The entry uses minimal local DOM shapes. <code>bun run --no-env-file check</code> checks both the
+      browser entry and the Node CLI; <code>bun run --no-env-file build:browser</code> creates the local bundle.</p>
   </details>
 
   <details>

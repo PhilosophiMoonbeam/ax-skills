@@ -39,7 +39,7 @@
     "@ai-sdk/provider": "4.0.0",
     "@ai-sdk/provider-utils": "5.0.0"
   },
-  "allowScripts": {
-    "better-sqlite3@12.11.1": true
-  }
+  "trustedDependencies": [
+    "better-sqlite3"
+  ]
 }

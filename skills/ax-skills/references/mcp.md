@@ -76,7 +76,7 @@ const local = new AxMCPClient(stdio, { namespace: 'local' });
 
 Stdio owns its child process. After `local.close()`, also call `stdio.terminate()` until the transport directly exposes the common `close()` lifecycle.
 
-On Windows, the Node-hosted stdio transport resolves commands such as `npx` using the effective child environment (`PATH`, `PATHEXT`, `ComSpec`). Batch files such as `.cmd` launch through `cmd.exe` with argument escaping; native `.exe` / `.com` programs spawn directly. This 25.4.7 fix belongs to the separate Node tools transport, not portable AxIR clients; see [PR 870](https://github.com/ax-llm/ax/pull/870). Windows execution was not qualified by this collection's Linux checks.
+On Windows, the Node-hosted stdio transport resolves commands using the effective child environment (`PATH`, `PATHEXT`, `ComSpec`). Prefer the native `bun.exe` with `args: ['x', '--no-install', 'owned-mcp-server']` for an installed CLI. Batch files such as `.cmd` launch through `cmd.exe` with argument escaping; native `.exe` / `.com` programs spawn directly. This 25.4.7 fix belongs to the separate Node tools transport, not portable AxIR clients; see [PR 870](https://github.com/ax-llm/ax/pull/870). Windows execution was not qualified by this collection's Linux checks.
 
 ## Gen, Agent, Flow, and chat
 
@@ -225,11 +225,11 @@ Transport `oauth` supports protected-resource discovery, PKCE, client metadata/d
 
 Generated Python/Java/C++/Go/Rust transports implement the portable middle tier: RFC 9728 well-known/challenge discovery, RFC 8414/OIDC server metadata, PKCE S256 authorization-code exchange, RFC 8707 resource binding, refresh with 60-second skew, client credentials, and RFC 9207 `iss`. Configure language `AxMCPOAuthOptions` with `clientId`, endpoint-keyed `tokenStore`, `onAuthCode`, and `requireIss`. The callback receives an authorization URL and returns `code`, `state`, and `iss`; host owns browser/headless interaction. Only `none` and `client_secret_post` client-authentication modes exist in generated ports.
 
-Do not recommend TypeScript-only DPoP, CIMD/DCR, JAR/PAR/RAR, mTLS, revocation/introspection, JWT validation, or enterprise-managed authorization in generated clients. The Ax repository documents `npm run test:mcp-oauth` as its credential-free cross-language gate; that command was not executed here. Per-language configurations: [native MCP/UCP](https://github.com/ax-llm/ax/blob/007ab8366e5bfa98d871feb1af188cc029295c58/docs/MCP_UCP.md).
+Do not recommend TypeScript-only DPoP, CIMD/DCR, JAR/PAR/RAR, mTLS, revocation/introspection, JWT validation, or enterprise-managed authorization in generated clients. In an Ax checkout, use the Bun equivalent `bun run test:mcp-oauth` for its credential-free cross-language gate; that command was not executed here. Per-language configurations: [native MCP/UCP](https://github.com/ax-llm/ax/blob/007ab8366e5bfa98d871feb1af188cc029295c58/docs/MCP_UCP.md).
 
 Keep SSRF protections enabled for remote discovery/redirects. Relax HTTP/loopback only for controlled local development. Checked-in Streamable HTTP examples use `AX_MCP_ENDPOINT`; localhost TypeScript demos explicitly use `ssrfProtection: { allowHTTP: true, allowLoopback: true }`, never for remote endpoints. Generated equivalents `requireHttps`, `allowLocalhost`, and `allowPrivateNetworks` are used only for `127.0.0.1`.
 
-For checks in the Ax repository, run `src/examples/mcp-event-demo-server.ts`, set `AX_MCP_ENDPOINT=http://127.0.0.1:3001/mcp`, and trigger `/control/resource` or `/control/task/complete`. Its mandatory credential-free matrix is `npm run test:mcp-events:generated`, not a gate executed by this collection. Provider-backed examples are advisory and need documented API keys.
+For checks in the Ax repository, run `src/examples/mcp-event-demo-server.ts`, set `AX_MCP_ENDPOINT=http://127.0.0.1:3001/mcp`, and trigger `/control/resource` or `/control/task/complete`. Use `bun run test:mcp-events:generated` for its mandatory credential-free matrix, not a gate executed by this collection. Provider-backed examples are advisory and need documented API keys.
 
 ## Apps, replay, evaluation, and testing
 

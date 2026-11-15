@@ -267,8 +267,8 @@ import { AxMCPClient, agent } from '@ax-llm/ax';
 import { AxMCPStdioTransport } from '@ax-llm/ax-tools';
 
 const transport = new AxMCPStdioTransport({
-  command: 'npx',
-  args: ['-y', '@modelcontextprotocol/server-memory'],
+  command: 'bunx',
+  args: ['@modelcontextprotocol/server-memory'],
 });
 const mcpClient = new AxMCPClient(transport, { namespace: 'memory' });
 

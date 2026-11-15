@@ -608,11 +608,11 @@ export const examples: readonly Example[] = [
         assert.deepEqual(result.structuredContent, { sku: 'SKU-42', quantity: 7 });
         await client.ping(1000);
         const windowsConfig = {
-          command: 'npx.cmd', args: ['--no-install', 'owned-mcp-server'],
+          command: 'bun.exe', args: ['x', '--no-install', 'owned-mcp-server'],
           envRequirements: ['PATH', 'PATHEXT', 'ComSpec'],
         };
         return { result: result.structuredContent, platform: process.platform, windowsConfig,
-          windowsQualification: 'Configuration only: .cmd routing uses effective child PATH/PATHEXT/ComSpec. This case does not execute Windows commands or qualify Windows behavior on Linux.' };
+          windowsQualification: 'Configuration only: native bun.exe spawns directly; .cmd wrappers use effective child PATH/PATHEXT/ComSpec. This case does not execute Windows commands or qualify Windows behavior on Linux.' };
       } finally {
         try { await client.close(); } finally { await stdio.terminate(); }
       }

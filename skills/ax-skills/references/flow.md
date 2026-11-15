@@ -380,7 +380,7 @@ Rules:
 - Limiter failures propagate; tracing and metric failures are fail-open. External meter output is separate from balancer `getMetrics()` state.
 - `axGlobals.abortSignal` is merged with flow-level abort signals.
 
-For a real tracer provider, exporter and shutdown lifecycle, select [`16-flow/opentelemetry-lifecycle`](../examples/16-flow.ts). It uses `@opentelemetry/api` 1.9.0 and `@opentelemetry/sdk-trace-base` 2.0.1; that SDK release is npm-deprecated but tested compatible with this pinned collection.
+For a real tracer provider, exporter and shutdown lifecycle, select [`16-flow/opentelemetry-lifecycle`](../examples/16-flow.ts). It uses `@opentelemetry/api` 1.9.0 and `@opentelemetry/sdk-trace-base` 2.0.1; that SDK release is registry-deprecated but tested compatible with this pinned collection.
 
 ## Program IDs and Demos
 

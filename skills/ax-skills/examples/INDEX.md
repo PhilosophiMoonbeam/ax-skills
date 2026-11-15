@@ -6,27 +6,25 @@ Pinned to `@ax-llm/ax` and `@ax-llm/ax-tools` **25.4.11**. These **38 flat modul
 
 For design or mechanism selection, start with [Architecture](../references/architecture.md), choose the smallest topology, then read the owning guide and one selected module. For a narrow change, go directly to its guide/module below. Progress **core contracts → selected mechanisms → compositions**; do not preload the example corpus. CLI discovery imports metadata from all numbered modules without running cases; this is not an instruction to load all source into an agent’s context.
 
-Run these commands from the installed `ax-skills` directory containing `SKILL.md`. No original `upstream/` fixtures, Ax checkout, repository scripts or additional skill installation is required. Use **Node >=22.18.0**; use **Node 24 and npm 12 for the complete SQLite setup below**. The lockfile pins Zod 4.1.11, TypeScript 5.9.3, tsx 4.20.6 and Node types 22.18.6.
+Run these commands from the installed `ax-skills` directory containing `SKILL.md`. No original `upstream/` fixtures, Ax checkout, repository scripts or additional skill installation is required. Use **Bun 1.4.4** for package management and **Node >=22.18.0** for the SDK scripts; Node 24 is verified. Bun runs the existing Node scripts, not a forced Bun runtime. The authoritative `bun.lock` pins Zod 4.1.11, TypeScript 5.9.3, tsx 4.20.6 and Node types 22.18.6.
 
-The package also pins the Ax Vercel provider 25.4.11, `ai` 7.0.2, esbuild 0.25.12 and overrides `@ai-sdk/provider`/`@ai-sdk/provider-utils` to 4.0.0/5.0.0. The Flow telemetry case uses real OpenTelemetry API 1.9.0 and trace SDK 2.0.1; the latter is npm-deprecated but included for compatibility with this collection.
+The package also pins the Ax Vercel provider 25.4.11, `ai` 7.0.2, esbuild 0.25.12 and overrides `@ai-sdk/provider`/`@ai-sdk/provider-utils` to 4.0.0/5.0.0. The Flow telemetry case uses real OpenTelemetry API 1.9.0 and trace SDK 2.0.1; the latter is registry-deprecated but included for compatibility with this collection.
 
 ```sh
-npm --prefix examples ci --ignore-scripts
-npm --prefix examples install-scripts approve better-sqlite3
-npm --prefix examples rebuild better-sqlite3 --foreground-scripts
-npm --prefix examples run check
-npm --prefix examples run list
-npm --prefix examples run list -- 01-signatures
-npm --prefix examples run offline -- 01-signatures
-npm --prefix examples run offline
+bun install --no-env-file --cwd examples --frozen-lockfile
+bun run --no-env-file --cwd examples check
+bun run --no-env-file --cwd examples list
+bun run --no-env-file --cwd examples list 01-signatures
+bun run --no-env-file --cwd examples offline 01-signatures
+bun run --no-env-file --cwd examples offline
 ```
 
-`--ignore-scripts` prevents dependency lifecycle scripts, including automatic upstream skill installation. Explicit approval/rebuild enables only the SQLite native dependency, requiring a compatible prebuild or native build toolchain. The package records npm 12 approval for the pinned driver; on npm versions without `install-scripts`, omit only that approval command and retain the targeted rebuild. Do not rebuild all dependencies or enable Ax’s postinstall. Installation downloads packages and writes `examples/node_modules`; `check` performs standalone `tsc --noEmit`. `list` emits JSON with exact case IDs, titles, features and supported modes without constructing services or loading an env file. Basenames omit `.ts`; exact IDs and basenames are supported, not prefixes or wildcards. A selected module expands to every exported case; execution rejects it if any selected case lacks that mode. Use a listed exact ID for mixed-mode modules.
+The explicit `trustedDependencies: ["better-sqlite3"]` list replaces Bun's default lifecycle allowlist: only that pinned native driver may build, while Ax's automatic skill installation remains disabled. A compatible native prebuild or build toolchain is required; do not use `bun pm trust --all`. `--no-env-file` suppresses Bun's automatic `.env` loading; the live runner still accepts an explicit `--env` path. Installation downloads packages and writes `examples/node_modules`; `check` performs standalone `tsc --noEmit`. `list` emits JSON with exact case IDs, titles, features and supported modes without constructing services or loading an env file. Basenames omit `.ts`; exact IDs and basenames are supported, not prefixes or wildcards. A selected module expands to every exported case; execution rejects it if any selected case lacks that mode. Use a listed exact ID for mixed-mode modules. Bun forwards script arguments directly; no package-manager `--` separator is needed.
 
 Live execution is **named and opt-in**, never the default. Set `AX_EXAMPLE_ENV_FILE` to an absolute private env-file path. This exported case declares live mode; confirm current metadata with `list` before selecting another case:
 
 ```sh
-npm --prefix examples run live -- --env "$AX_EXAMPLE_ENV_FILE" 26-architecture/typed-invoice
+bun run --no-env-file --cwd examples live --env "$AX_EXAMPLE_ENV_FILE" 26-architecture/typed-invoice
 ```
 
 Keep that file outside the installed collection and version control. The runner loads only the explicitly supplied file; it does not search for root.env or print its contents. Listing ignores `--env`. Do not run live cases merely to follow a guide.
@@ -98,9 +96,9 @@ Supported APIs and exported modes describe intended scope. Only recorded command
 | [16-flow.ts](16-flow.ts) | Typed dependencies, native evidence, hook precedence/failures, event continuation, pending-node cancellation and OpenTelemetry lifecycle | [Flows](../references/flow.md) |
 | [26-architecture.ts](26-architecture.ts) | Five application patterns; `evidence-aware-ticket` combines atomic judgments, current/unavailable/stale authoritative facts, ordered host rules and optional outcome acknowledgement | [Architecture](../references/architecture.md#11-compose-small-patterns-and-stage-verification), [Judgment policy](../references/typesafe.md#atomic-judgments-and-host-policy) |
 
-Use `npm --prefix examples run list -- MODULE_BASENAME` to find the exact case ID. Read that case's `run(ctx)`, imports and referenced helpers—not the corpus—then run `npm --prefix examples run offline -- CASE_ID`. Return to the guide for constraints; examples demonstrate selected contracts, not every supported combination.
+Use `bun run --no-env-file --cwd examples list MODULE_BASENAME` to find the exact case ID. Read that case's `run(ctx)`, imports and referenced helpers—not the corpus—then run `bun run --no-env-file --cwd examples offline CASE_ID`. Return to the guide for constraints; examples demonstrate selected contracts, not every supported combination.
 
-For the browser surface, run `npm --prefix examples run build:browser`, serve `examples/browser/` with a local static HTTP server and open `chrome-ai.html`. `check` includes this entry. Only a compatible Chrome profile can run its local model; Node fixtures and an unavailable-state rendering do not establish Gemini Nano inference. No model session or download starts on import.
+For the browser surface, run `bun run --no-env-file --cwd examples build:browser`, serve `examples/browser/` with a local static HTTP server and open `chrome-ai.html`. `check` includes this entry. Only a compatible Chrome profile can run its local model; Node fixtures and an unavailable-state rendering do not establish Gemini Nano inference. No model session or download starts on import.
 
 ## Exact Release and Source-Backed Cases
 

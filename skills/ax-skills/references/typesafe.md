@@ -224,10 +224,10 @@ Local offline contracts: [`06-decisions`](../examples/06-decisions.ts), cases `a
 Run in the Ax repository root; `tsx` loads `.env`:
 
 ```bash
-npm run tsx src/examples/typescript/generation/typesafe.ts
-npm run tsx src/examples/typescript/generation/typesafe-native.ts
-npm run tsx src/examples/typescript/generation/typesafe-hybrid.ts
-npm run tsx src/examples/typescript/generation/value-descriptions.ts
+bun run tsx src/examples/typescript/generation/typesafe.ts
+bun run tsx src/examples/typescript/generation/typesafe-native.ts
+bun run tsx src/examples/typescript/generation/typesafe-hybrid.ts
+bun run tsx src/examples/typescript/generation/value-descriptions.ts
 ```
 
 First two require `TYPESAFE_API_KEY` or `TYPESAFE_APIKEY`; last two also require `OPENAI_API_KEY` or `OPENAI_APIKEY`. [Comparison](https://github.com/ax-llm/ax/blob/main/src/examples/typescript/generation/value-descriptions.ts) uses the same described signature across providers; [native](https://github.com/ax-llm/ax/blob/main/src/examples/typescript/generation/typesafe-native.ts) covers all primitives/model discovery; [hybrid](https://github.com/ax-llm/ax/blob/main/src/examples/typescript/generation/typesafe-hybrid.ts) composes two programs. Assert response contracts in live checks, never exact model probabilities.
