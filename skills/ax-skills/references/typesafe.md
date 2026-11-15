@@ -1,6 +1,6 @@
 # Typed decisions: Typesafe / Jev, OpenAI and Gemini
 
-Use for TypeScript decision signatures, native questions, probabilities, rubric scores, evidence and explicit hybrid generation. Source API snapshot: 25.4.10. Jev-specific details include structured criteria and experimental images/Box. Select `name: 'typesafe'` for Jev (`jev-latest` by default); neither Jev nor the dedicated OpenAI/Gemini Decisions endpoints is a freeform generation or tool-use provider. Official Jev adapter/native clients also cover Python, Java, C++, Go and Rust; use each package's syntax and qualify target behavior rather than assuming universal parity.
+Use for TypeScript decision signatures, native questions, probabilities, rubric scores, evidence and explicit hybrid generation. Source API snapshot: 25.4.11. Jev-specific details include structured criteria and experimental images/Box. Select `name: 'typesafe'` for Jev (`jev-latest` by default); neither Jev nor the dedicated OpenAI/Gemini Decisions endpoints is a freeform generation or tool-use provider. Official Jev adapter/native clients also cover Python, Java, C++, Go and Rust; use each package's syntax and qualify target behavior rather than assuming universal parity.
 
 ## Choose an interface
 
@@ -82,7 +82,7 @@ const decision = await triage.forward(model, {
 
 Field names/descriptions become question instructions. Boolean value descriptions map to `criteria.true`/`criteria.false`; class descriptions use exact label keys. Partial descriptions are allowed; undescribed class labels map to `null`. Duplicate/unknown keys and empty descriptions fail validation. Quote labels containing spaces/punctuation. Fluent equivalents: `f.boolean(...).describeValues({ true: '...', false: '...' })` and `f.class([...], ...).describeValues({ label: '...' })`.
 
-Conventional providers render base descriptions plus `value: description` lines in prompt/JSON schema. Annotations survive serialization without changing inferred types/allowed values. Complete local syntax: [signatures](signature.md); original [signature resource](https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-signature.md). Use `score` for ordered label rubrics. Structured JSON criteria/custom numeric rubric entries belong in native requests, not JSON encoded into quoted descriptions.
+Conventional providers render base descriptions plus `value: description` lines in prompt/JSON schema. Annotations survive serialization without changing inferred types/allowed values. Complete local syntax: [signatures](signature.md). Use `score` for ordered label rubrics. Structured JSON criteria/custom numeric rubric entries belong in native requests, not JSON encoded into quoted descriptions.
 
 The adapter sends the normal Ax prompt as native state and batches outputs into one request. It supports required boolean/class/rubric score/box outputs; optional, array, nested, ordinary numeric, and freeform outputs fail before network access. PNG/JPEG image inputs are supported; audio, files, tools, multiple completion samples, and controls such as `temperature`/`maxTokens` are unsupported. No token streaming exists; `streamingForward()` can deliver a completed result. Program behavior: [Gen](gen.md); provider configuration: [AI](ai.md).
 
@@ -218,6 +218,8 @@ Typesafe-only balancers preserve schema-required generation for scalar signature
 For prose, call a second `ax()` with a generative provider and pass explicit inputs. Ax does not automatically split `urgent:boolean, reply:string`. The architecture case passes only ticket ID and selected outcome: its prose is an outcome acknowledgement, not a guaranteed factual rationale. An evidence-based explanation would need an explicit evidence/facts handoff and separate evaluation. Agents requiring tools/code generation use a generative actor and a separate decision step; see [Agent](agent.md).
 
 ## Runnable examples and live checks
+
+Local offline contracts: [`06-decisions`](../examples/06-decisions.ts), cases `adapter-values`, `adapter-evidence`, `native-structured`, `native-validation`, `reranking`, `typed-generation-handoff`, and `refusal-policy`; image transport and presence gates: [`07-images`](../examples/07-images.ts), cases `native-localization`, `native-assets`, `generative-localization`, and `validation-and-absence`. Gemini contracts use `06-decisions/google-gemini-decisions-evidence`, `06-decisions/google-gemini-native-multimodal`, and `06-decisions/google-gemini-native-validation`. Injected HTTP answers establish SDK contracts, not inference quality or calibration.
 
 Run in the Ax repository root; `tsx` loads `.env`:
 

@@ -1,6 +1,6 @@
 # Core AxAgent Construction and Runtime Contracts
 
-Use for `agent(...)`, ordinary tool-using assistants, identity, child delegation, namespaced functions, discovery, `bubbleErrors`, host-side completion, clarification, and public run/state APIs. Generate the smallest correct factory-based shape and copyable code; do not add tutorial prose unless requested. Source API snapshot: `@ax-llm/ax` 25.4.10.
+Use for `agent(...)`, ordinary tool-using assistants, identity, child delegation, namespaced functions, discovery, `bubbleErrors`, host-side completion, clarification, and public run/state APIs. Generate the smallest correct factory-based shape and copyable code; do not add tutorial prose unless requested. Source API snapshot: `@ax-llm/ax` 25.4.11.
 
 ## Choose the Agent Shape
 
@@ -22,12 +22,12 @@ For Typesafe/Jev decisions, keep a generative model for the actor's tools, code,
 
 - Use `agent(...)`, not `new AxAgent(...)`, for new code.
 - Prefer string signatures or `f()` signatures to hand-written signature objects, and `fn(...)` host functions to hand-written JSON Schema.
-- Configure `ai`, `judgeAI`, and `agentIdentity` for instance defaults or child metadata.
+- `ai` supplies instance defaults; delegated child calls receive the caller's runtime AI. For a distinct child model, set `contextOptions: { ai: childAI }`, `executorOptions: { ai: childAI }`, and `responderOptions: { ai: childAI }`. Use `judgeAI` for the default judge/teacher and `agentIdentity` for child metadata.
 - Prefer namespaced functions, e.g. `utils.search(...)` and `kb.find(...)`.
 - Delegate through explicit child agents in `functions`, not recursive `llmQuery(...)`.
 - Actor responses must contain one executable program. Multiple fenced code blocks reject the entire turn without executing any block; the runtime asks for one program. This applies to text and structured JSON responses, with LF or CRLF line endings.
 - Actor code stages require structured generation with the exact `javascriptCode` wire key. Native-capable providers retain strict `json_schema`; providers such as DeepSeek use validated `json_object` and need no provider-visible tools for runtime execution.
-- Generated Go, Python, Java, C++, and Rust distiller/executor stages use `validation_retries`, with one correction attempt by default; set `0` to fail on the first invalid response.
+- Upstream reports `validation_retries` with one correction attempt by default for generated Go, Python, Java, C++, and Rust actor stages (`0` fails immediately). These generated-package contracts are not verified by the TypeScript package; check the target release before using them.
 - Do not combine actor `console.log(...)` with `final(...)`.
 
 ### Direct-response default
@@ -230,7 +230,7 @@ const parent = agent('query:string -> answer:string', {
 - `alwaysInclude: true` keeps the group's full callable definitions inline even with discovery enabled.
 - Keep `functions` entirely flat or entirely grouped; runtime validation rejects mixed plain entries and groups.
 - Flat lists accept `fn(...)` tools and child agents directly. Groups contain callable entries; expose a child using `childAgent.getFunction()`.
-- `relevanceRanking` is on by default; set `false` to opt out. A deterministic local ranker adds an advisory `### Likely Relevant` shortlist to the executor turn as a dynamic, non-cached field, leaving cached prompts byte-stable. The default passed its A/B gate on small and frontier models; generated-language ports implement it through AxIR Core. See [memory and skills](agent-memory-skills.md) for details and [observability](agent-observability.md) for the `relevance_ranking` context event.
+- `relevanceRanking` is on by default; set `false` to opt out. A deterministic local ranker adds an advisory `### Likely Relevant` shortlist to the executor turn as a dynamic, non-cached field, leaving cached prompts byte-stable. Upstream reports successful small/frontier-model evaluations and generated-language parity; neither is a TypeScript runtime guarantee. See [memory and skills](agent-memory-skills.md) for details and [observability](agent-observability.md) for the `relevance_ranking` context event.
 
 ## Native MCP/UCP Attachment and Inheritance
 
@@ -419,7 +419,7 @@ await discover(items: string[]): void
 await discover({ tools?: string | string[], skills?: string | string[] }): void
 ```
 
-The object form requires `onSkillsSearch`. Discovery returns `void`; fetched docs appear in the **next executor prompt**, not in its return value.
+The `tools` path requires function discovery; the `skills` path requires `onSkillsSearch` or a non-empty `skillsCatalog`. The object form can request either path independently. Discovery returns `void`; fetched docs appear in the next actor prompt, not in its return value.
 
 - `discover('kb')`: callable list for discoverable module `kb`.
 - `discover('kb.findSnippets')`: full callable definition.
@@ -427,8 +427,10 @@ The object form requires `onSkillsSearch`. Discovery returns `void`; fetched doc
 - `discover({ tools: ['kb'], skills: ['release-checklist'] })`: tool docs and skill bodies in one turn.
 - Call one batched `discover(...)` with all needed modules, callables, and skills. Do not split calls, loop discovery, or wrap it in `Promise.all(...)`.
 - Read the next prompt's "Discovered Tool Docs" and "Loaded Skills". Do not assign or inspect `await discover(...)`'s result.
-- Discover before using callables whose docs are absent from the prompt. Never call `discover()` in distiller/responder stages.
+- Discover before using callables whose docs are absent from the prompt. The responder has no discovery. In 25.4.11, the distiller can discover metadata and skills, but external callable execution is blocked; leave tool effects to the executor.
 - After a guessed call fails, stop guessing nearby names; discover the module/function and use only the exact discovered qualified name.
+
+Source: [25.4.11 source map](https://unpkg.com/@ax-llm/ax@25.4.11/index.js.map), `agentInternal/coordinator.ts` (`SHARED_KNOB_KEYS`), `initialization.ts` (catalog-backed search), `signatureBuilders.ts` (`skillsDiscoveryMode`), and `runtimeGlobals.ts` (independent tool/skill gates and distiller callable stubs). This implementation boundary supersedes the upstream blanket ban on distiller discovery.
 
 ## Core Configuration
 
@@ -490,12 +492,12 @@ autoUpgrade?: boolean | {
 
 ### Learning and citations
 
-Construction-time `playbook` and `citations` both default off and are portable across TypeScript and generated Python, Java, C++, Go, and Rust packages.
+Construction-time `playbook` and `citations` both default off. The TypeScript contracts follow below; upstream also reports generated Python, Java, C++, Go, and Rust support, which is not established by this package's declarations or offline fixtures.
 
 **`playbook`** attaches an ACE playbook:
 
 - When attached, `learn` defaults on. Runs with failure signals (error turns, dead ends, failing tool calls) trigger one bounded update of durable avoidance rules for the next actor prompt. Clean runs incur zero learning LLM cost.
-- Restore with `playbook: { playbook: snapshot }`; snapshot can be `{ playbook, artifact }` or a bare playbook. Generated packages accept the same shape. Their older `seed` snapshot key still works with a deprecation warning; in the next major version `seed` is TypeScript's numeric random seed.
+- Restore with `playbook: { playbook: snapshot }`; snapshot can be `{ playbook, artifact }` or a bare playbook. Upstream reports the same generated-package shape and a deprecated `seed` snapshot alias; verify those package-specific migration rules before use.
 - Persist via `onUpdate`; read the live handle via `getPlaybook()` or its language-shaped equivalent.
 - Gate with `learn: { minSignals, dedupe }`; disable with `learn: false`.
 - Reflection/curation uses `teacherAI`, defaulting first to the agent's `judgeAI`, then its `ai`. An `isExpensive` teacher also requires `teacherOptions: { useExpensiveModel: 'yes' }`; otherwise updates curate nothing.
@@ -529,7 +531,9 @@ Inspect `assistant.executor.getInstruction()` and that stage's `getOptimizableCo
 
 Pinned implementation: [25.4.9 source map](https://unpkg.com/@ax-llm/ax@25.4.9/index.js.map), `agent/AxAgent.ts` (`setInstruction`, `setSignature`, local instruction component), `agent/agentInternal/coordinator.ts` (pipeline signature routing, aggregate components, additive instruction), and `agent/agentInternal/signatureBuilders.ts` (prompt composition); [25.4.9 public types](https://unpkg.com/@ax-llm/ax@25.4.9/index.d.ts). Generated-language names below follow their own APIs; they do not imply a TypeScript pipeline setter or identical retention boundaries.
 
-| Language | Citations observer | Verified agent playbook evolve |
+The generated-language spellings below are upstream-reported navigation, not verified cross-language API, persistence, or observer-failure guarantees. Check the target package's versioned declarations/examples before porting.
+
+| Language | Reported citations observer | Reported gated playbook evolve |
 | --- | --- | --- |
 | Python | `citations.onCitations` | `agent.playbook().evolve(dataset, options)` |
 | Java | `citations.onCitations` (`Consumer`) | `agent.playbook(null).evolve(dataset, options)` |
@@ -537,7 +541,7 @@ Pinned implementation: [25.4.9 source map](https://unpkg.com/@ax-llm/ax@25.4.9/i
 | Go | `citations.onCitations` (`func([]Value)`) | `agent.GetPlaybook().EvolveAgent(ctx, dataset, options)` |
 | Rust | `set_citations_observer(...)` | `playbook.evolve_agent(&mut agent, client, dataset, options)` |
 
-C++/Rust use `set_playbook_observer(...)` for construction-time learning updates. Python/Java/Go accept `playbook.onUpdate` in their native configuration maps.
+Upstream reports `set_playbook_observer(...)` for C++/Rust learning updates and native `playbook.onUpdate` callbacks for Python/Java/Go.
 
 ## Public Surface and Tuning Boundary
 
@@ -548,7 +552,7 @@ C++/Rust use `set_playbook_observer(...)` for construction-time learning updates
 | State/control | `getState()`, `setState(state?)`, `getContextMap()`, `setContextMap(map?)`, `stop()`, `getSignature()`, `setSignature(signature)`, `getFunction()`, `getId()`, `setId(id)` | Context-map evolve policy is on `AxAgentContextMap`: `infiniteEvolve`, `evolveSteps`, `maxChars`, not agent config |
 | Observability | `getChatLog()`, `getUsage()`, `getStagedUsage()`, `resetUsage()`, `getTraces()` | [Agent observability](agent-observability.md) |
 | Demos/tuning | `setDemos(...)`, `namedPrograms()`, `namedProgramInstances()`, `optimize(...)`, `applyOptimization(...)`, `getOptimizableComponents()`, `applyOptimizedComponents(...)` | [Agent optimization](agent-optimize.md) |
-| Learning | `playbook()`, `getPlaybook()` | `playbook()` returns an agent-aware handle with `update(...)`, `render()`, state/load methods, and verified dataset evolution; `getPlaybook()` reads the live handle. Generated packages use language-shaped names; see [playbooks](playbook.md) |
+| Learning | `playbook()`, `getPlaybook()` | `playbook()` returns an agent-aware handle with `update(...)`, `render()`, state/load methods, and verified dataset evolution; `getPlaybook()` reads the live handle. Upstream reports language-shaped generated-package names; see [playbooks](playbook.md) |
 
 - `getFunction()` requires `agentIdentity` for child-tool metadata.
 - `setSignature(...)` must retain configured `contextFields`; a missing configured field throws.

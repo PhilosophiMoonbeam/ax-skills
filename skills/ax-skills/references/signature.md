@@ -1,6 +1,6 @@
 # Ax signatures and field contracts
 
-Use for `s()`, `f()`, signature strings, field types, validation, and type-safe inputs/outputs. Source snapshot: Ax 25.4.10. Generator execution belongs in [generator reference](gen.md); native decision criteria belong in [Typesafe reference](typesafe.md).
+Use for `s()`, `f()`, signature strings, field types, validation, and type-safe inputs/outputs. Source snapshot: Ax 25.4.11. Generator execution belongs in [generator reference](gen.md); native decision criteria belong in [Typesafe reference](typesafe.md).
 
 ## String syntax and field types
 
@@ -109,7 +109,7 @@ Boolean descriptions use the modifier bag; class descriptions follow the allowed
 
 Conventional providers, including OpenAI, receive the question plus `value: description` lines in prompts and JSON schema descriptions when used. Typesafe receives separate Noul/Choice criteria. Annotations remain separate in the signature and survive `toString()`; rendering neither mutates the signature nor duplicates descriptions. Types, allowed values, and optional/array behavior remain unchanged. Descriptions guide generation, not additional output validation. Number bounds remain validation constraints; use an explicit `score` field for an ordered rubric. Python, Java, C++, Go, and Rust generate the same description, validation, serialization, schema, and prompt semantics.
 
-For Jev boolean/class criteria, use value descriptions; add `.withEvidence()` to retain AxGen probabilities and `f.score(levels)` for ordered rubrics. Full structured criteria require the separate native client. The adapter's `trueThreshold` converts scalar booleans provider-wide; boolean evidence instead uses its field threshold, default `0.5`, independently of the provider setting. Native Noul remains unthresholded. See [Typesafe reference](typesafe.md) and [Atomic judgments and host policy](typesafe.md#atomic-judgments-and-host-policy); original resource: [ax-typesafe](https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-typesafe.md).
+For Jev boolean/class criteria, use value descriptions; add `.withEvidence()` to retain AxGen probabilities and `f.score(levels)` for ordered rubrics. Full structured criteria require the separate native client. The adapter's `trueThreshold` converts scalar booleans provider-wide; boolean evidence instead uses its field threshold, default `0.5`, independently of the provider setting. Native Noul remains unthresholded. See [Typesafe reference](typesafe.md) and [Atomic judgments and host policy](typesafe.md#atomic-judgments-and-host-policy).
 
 Boolean/class evidence opt-in is `.withEvidence()` or `(evidence)`. `score "Low, Medium, High"` returns a continuous zero-based index; `(evidence)` retains ordered probabilities and provenance. Boolean `threshold 0.7` applies locally only to evidence fields. `refusal return` adds a tagged answered/refused union. See [decision evidence](typesafe.md#evidence-provenance-and-reranking).
 
@@ -150,7 +150,7 @@ const sig = f()
 
 ### Standard Schema: Zod
 
-`.input()` / `.output()` accept Zod schemas exposing [Standard Schema v1](https://standardschema.dev) without wrappers/adapters. Although the official guide also names Valibot and ArkType, the Ax 25.4.10 converter rejects vendors other than Zod; Standard Schema conformance alone does not establish compatibility. Per-field schemas and whole-object schemas work; whole objects decompose in declaration order. Companion `AxFieldOptions` carry Ax-only hints: `{ cache: true }` for input prefix-cache breakpoints; `{ internal: true }` for hidden output scratchpads.
+`.input()` / `.output()` accept Zod schemas exposing [Standard Schema v1](https://standardschema.dev) without wrappers/adapters. Although the official guide also names Valibot and ArkType, the Ax 25.4.11 converter rejects vendors other than Zod; Standard Schema conformance alone does not establish compatibility. Per-field schemas and whole-object schemas work; whole objects decompose in declaration order. Companion `AxFieldOptions` carry Ax-only hints: `{ cache: true }` for input prefix-cache breakpoints; `{ internal: true }` for hidden output scratchpads.
 
 ```typescript
 import { z } from 'zod';
@@ -197,6 +197,8 @@ This Zod bridge is TypeScript-only. Generated Python, Java, C++, Go, and Rust us
 Validators must be synchronous; asynchronous Standard Schema validators are rejected. Unsupported introspection shapes can fall back to `json`, so arbitrary Zod features are not guaranteed equivalent prompt or JSON Schema representations. The original schema remains attached for runtime validation.
 
 The same schema shapes work with `fn().arg()`, `.returns()`, `.returnsField()`; schemas infer handler argument types. Per-argument schemas can mix with `f.*()` arguments and Ax hints:
+
+Unlike generation-field validation, tool-schema conversion does not execute the original validators around the handler. Parse arguments before host effects and validate results explicitly when required; [`03-tools-streaming/standard-schema-fields`](../examples/03-tools-streaming.ts) demonstrates this boundary.
 
 ```typescript
 import { z } from 'zod';
@@ -353,6 +355,8 @@ Additional pattern variants:
 ```
 
 ## Working examples
+
+Local contracts: [`01-signatures`](../examples/01-signatures.ts), cases `string-contract`, `fluent-hybrid`, `standard-schema`, `date-boundaries`, `media-shape`, `box-boundaries`, and `invalid-contracts`. For tool schemas, see [Standard Schema signatures and tools](gen.md#standard-schema-signatures-and-tools).
 
 - [Standard Schema (zod)](https://raw.githubusercontent.com/ax-llm/ax/refs/heads/main/src/examples/standard-schema.ts): zod with `f()` and `fn()`, all three source-described shapes.
 - [Fluent Signature](https://raw.githubusercontent.com/ax-llm/ax/refs/heads/main/src/examples/fluent-signature-example.ts): native fluent API.

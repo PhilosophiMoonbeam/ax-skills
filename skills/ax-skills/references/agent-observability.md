@@ -1,6 +1,6 @@
 # AxAgent Observability
 
-Use for AxAgent runtime visibility, progress, callbacks, telemetry, centralized or multi-tenant usage accounting, chat logs, and traces in `@ax-llm/ax`. Source API snapshot: 25.4.10. For setup see [agent authoring](agent.md); for runtime policy see [RLM](agent-rlm.md); for memories and dynamic skills see [memory and skills](agent-memory-skills.md). This is not general application logging.
+Use for AxAgent runtime visibility, progress, callbacks, telemetry, centralized or multi-tenant usage accounting, chat logs, and traces in `@ax-llm/ax`. Source API snapshot: 25.4.11. For setup see [agent authoring](agent.md); for runtime policy see [RLM](agent-rlm.md); for memories and dynamic skills see [memory and skills](agent-memory-skills.md). This is not general application logging.
 
 ## Choose the smallest hook
 
@@ -96,14 +96,15 @@ actorTurnCallback?: (turn: {
 ```
 
 - `code` is normalized actor-generated JavaScript; `stage` identifies distiller/executor.
-- `result` is the raw untruncated runtime return, before type-aware serialization and budget-proportional truncation. `output` is the normalized/truncated action-log replay string, not raw stdout.
+- `result` is the raw untruncated runtime return, before type-aware serialization and budget-proportional truncation. `output` is the normalized/truncated action-log replay string, not raw stdout. In 25.4.11, object replay preserves values shared by sibling keys/arrays; only references back to an ancestor become `[Circular]`. See the [serialization regression](../examples/32-executor-context.ts).
 - `executorResult` is the full current-stage actor payload; the historical name remains for compatibility.
 - `isError` marks execution paths treated as errors; `usage` covers this actor turn only. `model` is populated when explicitly set by `executorModelPolicy`.
 - `thought` exists only if the underlying `AxGen` call enabled `showThoughts` and the provider returned that field.
 - `chatLogMessages` is the raw turn ChatML conversation and is populated only when the callback is set.
 - `actionLogEntryCount` and `guidanceLogEntryCount` are live sizes after turn processing, including resumed runs.
-- Ownership is per configured agent instance. Child agents in `functions: [...]` need their own callback for internal actor turns; parent `onFunctionCall` observes the parent-side child invocation.
+- The top-level callback is executor-owned in 25.4.11, not an all-stage observer. Child agents in `functions: [...]` need their own callback for internal executor turns; parent `onFunctionCall` observes the parent-side child invocation.
 - The source repeats this identical callback declaration as a “deprecated alias” without naming a distinct alias; it does not define a second API.
+- Unlike fail-open `onContextEvent`, runtime `onFunctionCall`, and global usage observation, `actorTurnCallback` is awaited without a failure guard. Catch telemetry-sink failures inside this callback if the run must continue. Source: [25.4.11 source map](https://unpkg.com/@ax-llm/ax@25.4.11/index.js.map), `agentInternal/actorLoopTurn.ts:573–592`; the [observer failure control](../examples/32-executor-context.ts) contrasts the two paths.
 
 ```typescript
 const supportAgent = agent('query:string -> answer:string', {
@@ -205,7 +206,7 @@ AxAgent exposes actor and responder subprograms, but its reporting methods have 
 
 ### `getChatLog()`
 
-In pinned SDK 25.4.9, this returns a flat `AxChatLogEntry[]` instance view, not a guaranteed full history of all completed provider requests. The coordinator returns `pipelineFlow.getChatLog()` immediately when that snapshot is nonempty; only an empty flow log triggers reconstruction from distiller, executor, and responder program logs. `getTraces()` similarly prefers nonempty flow traces over stage-program fallback. Source: [`AxAgent` coordinator in the published 25.4.9 source map](https://unpkg.com/@ax-llm/ax@25.4.9/index.js.map), embedded `../agent/agentInternal/coordinator.ts`, `getChatLog()` lines 693–715 and `getTraces()` lines 606–615.
+In pinned SDK 25.4.11 (also observed in 25.4.9), this returns a flat `AxChatLogEntry[]` instance view, not a guaranteed full history of all completed provider requests. The coordinator returns `pipelineFlow.getChatLog()` immediately when that snapshot is nonempty; only an empty flow log triggers reconstruction from distiller, executor, and responder program logs. `getTraces()` similarly prefers nonempty flow traces over stage-program fallback. Source: [`AxAgent` coordinator in the published 25.4.11 source map](https://unpkg.com/@ax-llm/ax@25.4.11/index.js.map), embedded `../agent/agentInternal/coordinator.ts`, `getChatLog()` lines 693–715 and `getTraces()` lines 606–615.
 
 Each available entry represents a normalized model round trip and can contain sensitive prompts and responses. Optional `name` identifies its producing program; `stage`, when present, distinguishes `ctx` from `task`. Correlate `remoteRequestId` and `remoteId` with actual completed provider requests, then explicitly report requests missing from this view. A normal run can omit completed requests, including distiller requests; do not infer all-stage coverage from a nonempty log or require a fixed entry count. There is no public `getStagedChatLog()` in this SDK.
 

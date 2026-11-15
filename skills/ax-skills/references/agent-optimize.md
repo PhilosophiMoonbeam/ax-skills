@@ -1,6 +1,6 @@
 # AxAgent Optimization and Evaluation
 
-Use for `agent.optimize(...)`, task datasets, judge options, optimization targets, evaluation semantics, delegation tuning, and saved `optimizedProgram` artifacts in `@ax-llm/ax`. Source API snapshot: 25.4.10. Configure a runnable agent first; see [agent authoring](agent.md). Generic `ax(...)`/`flow(...)` tuning with top-level `optimize(program, train, metric, options)` belongs in [GEPA](gepa.md), not this agent workflow. Keep examples short and copyable; repeat general agent guidance only when needed.
+Use for `agent.optimize(...)`, task datasets, judge options, optimization targets, evaluation semantics, delegation tuning, and saved `optimizedProgram` artifacts in `@ax-llm/ax`. Source API snapshot: 25.4.11. Configure a runnable agent first; see [agent authoring](agent.md). Generic `ax(...)`/`flow(...)` tuning with top-level `optimize(program, train, metric, options)` belongs in [GEPA](gepa.md), not this agent workflow. Keep examples short and copyable; repeat general agent guidance only when needed.
 
 ## Defaults and target selection
 
@@ -35,7 +35,7 @@ Novel F1 measures lexical novelty overlap, not factual correctness or confidence
 
 Use the built-in agent judge for practical assistant quality without a trusted metric: open-ended synthesis, nuanced clarifications, tool choices/errors, final-answer quality, and holistic completion. It reviews the full run: completion type, clarification payload, final output, action log, normalized function calls, tool errors, and turn count.
 
-`judgeOptions` mirrors normal forward options; `description` steers priorities such as tool correctness, brevity, groundedness, or policy compliance. Add `judgeAI` and `judgeOptions` for a stronger/separate judge model. `judgeAI` is optional; otherwise the agent uses its configured judge model or runtime model.
+`judgeOptions` mirrors normal forward options; `description` steers priorities such as tool correctness, brevity, groundedness, or policy compliance. Add `judgeAI` and `judgeOptions` for a stronger/separate judge model. Judge resolution is explicit `judgeAI`, configured agent judge, explicit `teacherAI`, then runtime/student AI.
 
 A custom `metric` overrides the built-in judge entirely. Do not combine metric and judge guidance unless two scoring systems are explicitly requested and only the metric's optimization role is understood. For custom LLM metrics, keep the schema minimal and prefer numeric `score:number` over fragile string tiers. Outside `agent.optimize(...)`, use a plain typed `AxGen` evaluator; do not introduce dedicated judge classes/helper abstractions.
 
@@ -107,7 +107,7 @@ const tasks = [
 ];
 
 const result = await assistant.optimize(tasks, {
-  bootstrap: false, // 25.4.9 pipeline bootstrap has the bounded defects below.
+  bootstrap: false, // Component tuning; pipeline demo boundaries are documented below.
   maxMetricCalls: 12,
   verbose: true,
 });
@@ -128,7 +128,9 @@ const result = await assistant.optimize(tasks, { bootstrap: false });
 assistant.applyOptimization(result.optimizedProgram!);
 ```
 
-`target` defaults to actor; `metric` defaults to the built-in LLM judge. These 25.4.9 recipes explicitly disable pipeline bootstrap rather than treating an empty demo artifact as successful demonstration training. The separate generic `BootstrapFewShot` path is supported; see [GEPA and demonstration training](gepa.md) and [`23-optimize`](../examples/23-optimize.ts).
+`target` defaults to actor; `metric` defaults to the built-in LLM judge. These recipes explicitly disable pipeline bootstrap: the 25.4.11 source retains the trace filtering/routing boundaries below. Do not treat an empty demo artifact as successful demonstration training. The separate generic `BootstrapFewShot` path is supported; see [GEPA and demonstration training](gepa.md) and [`23-optimize`](../examples/23-optimize.ts).
+
+`maxMetricCalls` bounds GEPA task evaluations, not tool/model calls or the separate bootstrap budget. Reserve the original baseline and, when demos are installed, seeded validation passes; see [budget semantics](gepa.md#baseline-and-bootstrap-budgets). `apply` defaults to true; set `apply: false` to inspect/persist before changing the running agent.
 
 ## Deterministic metric pattern
 
@@ -209,7 +211,7 @@ const result = await optimizer.compile(program, train, metric, {
 
 ## Evaluation semantics
 
-- MCP/UCP defaults to replay/sandbox evaluation. Live clients are rejected unless `mcpEvaluation: 'live'` is explicit.
+- MCP/UCP defaults to replay/sandbox evaluation. Live clients are rejected unless `mcpEvaluation: { mode: 'live' }` is explicit. Supply evaluation-only clients with `{ mode: 'replay', mcp, ucp }`; the string shorthand `mcpEvaluation: 'live'` is unsupported.
 - Capture one real session with `AxMCPRecordingTransport`; use `AxMCPReplayTransport` for deterministic optimization/evaluation. See [MCP](mcp.md) for transport setup and side-effect policy.
 - Replay normalized MCP notifications and task transitions through `AxEventRuntime`; leave no live subscription active in default optimization. See [event runtime](event-runtime.md).
 - Action traces expose qualified MCP/UCP operations, approvals, task transitions, raw protocol errors, and business outcomes to judges/custom metrics.
@@ -234,9 +236,9 @@ Tell the actor child-input fields and local-only tasks. For synthesis, state the
 - Serialized JSON can be stored in localStorage, IndexedDB, or a backend for browser-safe persistence.
 - Use fresh eval-safe tool state separately for baseline, optimize, and restored replay to prevent side-effect leakage. To demonstrate improvement, run a held-out task before tuning and replay it on a freshly restored optimized agent.
 
-### TypeScript 25.4.9 bootstrap trace-ID boundary
+### TypeScript 25.4.11 bootstrap trace-ID boundary
 
-Source evidence in the installed package's `index.js.map`:
+Source evidence in the released 25.4.11 package's `index.js.map`:
 
 - `../agent/optimize.ts`, `resolveAgentOptimizeTargetIds`, makes `'all'` select staged actor/responder IDs, excluding their container descriptors.
 - `../agent/agentInternal/optimizer.ts`, `createOptimizationProgram`, removes its trace-ID filter only when **every** descriptor is selected. Otherwise it filters `getTraces()` by those selected, stage-prefixed IDs.
@@ -266,7 +268,7 @@ the public generator `BootstrapFewShot` training path exercised by
 [`23-optimize`](../examples/23-optimize.ts), rather than manufacturing an agent
 artifact or representing an empty demo list as successful bootstrap.
 
-### TypeScript 25.4.9 component-and-demo restoration limitation
+### TypeScript 25.4.11 component-and-demo restoration limitation
 
 Implementation evidence: the published `index.js.map` source
 `../agent/agentInternal/coordinator.ts`, `AxAgent.applyOptimization`, first calls
@@ -286,6 +288,8 @@ artifact is available in the distinct-stage shape. The working
 round-trips and replays actual components with `bootstrap: false`; it does not
 claim demo exposure, demo restoration, or demonstrated quality improvement.
 The generic training example is the separate real-demonstration path.
+
+Local cases in [`24-agent-optimize`](../examples/24-agent-optimize.ts): `action-metric-artifact` runs component tuning and restored held-out replay; `builtin-judge-validation` exhausts its one-evaluation budget on the baseline, not evolution; `bootstrap-boundaries` exposes the two demo boundaries; `dataset-boundary` rejects empty training data. Scripted responses demonstrate SDK behavior, not agent-quality improvement.
 
 ## Remote examples
 

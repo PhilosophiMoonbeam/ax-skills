@@ -8,7 +8,7 @@ const answer = (content: string): AxChatResponse => ({ results: [{ index: 0, con
 export const examples: readonly Example[] = [
   {
     id: '32-executor-context/prompt-detail-comparison',
-    title: 'Inspect the real executor: 25.4.9 promptLevel declaration has no effect in bundled templates',
+    title: 'Inspect the real executor: 25.4.11 promptLevel declaration has no effect in bundled templates',
     features: ['promptLevel pinned-template boundary', 'liveRuntimeState', 'executor request inspection', 'distiller handoff'],
     modes: ['offline'],
     async run(ctx) {
@@ -52,11 +52,11 @@ export const examples: readonly Example[] = [
         executorPrompts.push(executorSystem);
         results.push({ level, systemChars: executorSystem.length, total });
       }
-      // Pinned source: index.js.map sourcesContent, agent/templates.generated.ts
+      // Pinned 25.4.11 source: index.js.map sourcesContent, agent/templates.generated.ts
       // lines 8–9 contain no promptLevel branch, although agent/rlm.ts lines
       // 658 and 866 pass the setting to both actor template renderers.
-      assert.equal(executorPrompts[1], executorPrompts[0], '25.4.9 bundled executor templates ignore promptLevel; this is a pinned boundary, not intended extra scaffolding');
-      return { results, selection: '25.4.9 accepts default/detailed but ships identical executor scaffolding; do not rely on promptLevel to reduce context or add weak-model teaching. Replay policy separately controls old-action visibility, not worker variable lifetime.', proof: 'actual executor system prompts, typed responder output and retained runtime business state under scripted code; not comparative model accuracy' };
+      assert.equal(executorPrompts[1], executorPrompts[0], '25.4.11 bundled executor templates ignore promptLevel; this is a pinned boundary, not intended extra scaffolding');
+      return { results, selection: '25.4.11 accepts default/detailed but ships identical executor scaffolding; do not rely on promptLevel to reduce context or add weak-model teaching. Replay policy separately controls old-action visibility, not worker variable lifetime.', proof: 'actual executor system prompts, typed responder output and retained runtime business state under scripted code; not comparative model accuracy' };
     },
   },
   {
@@ -133,6 +133,112 @@ export const examples: readonly Example[] = [
       assert.ok((large.at(-1)?.replayChars ?? Infinity) < (large[0]?.replayChars ?? 0));
       assert.ok(pressure.length > 0);
       return { retainedLength: 18000, configuredCeiling: ceiling, replaySizes: large.map(turn => turn.replayChars), rawSizes: large.map(turn => turn.rawChars), pressureChecks: pressure.length, boundary: 'runtime output limits bound replay, not the underlying value; do not use this as a token, cost or host-memory enforcement mechanism', proof: 'real SDK truncation across scripted normal actor turns' };
+    },
+  },
+  {
+    id: '32-executor-context/shared-reference-serialization',
+    title: 'Preserve sibling shared values in real agent replay while marking a genuine cycle',
+    features: ['25.4.11 PR893', 'AxJSRuntime return mode', 'actorTurnCallback raw versus replay', 'sibling shared references', 'true cycle'],
+    modes: ['offline'],
+    async run(ctx) {
+      const turns: { result: unknown; output: string; error: boolean }[] = [];
+      const prompts: string[] = [];
+      const worker = agent('task:string -> answer:string', {
+        // stdout is already text and would bypass the object serializer fixed
+        // by PR893. Return actual worker objects to exercise that SDK path.
+        runtime: new AxJSRuntime({ outputMode: 'return' }),
+        directResponse: 'off', maxTurns: 5, maxRuntimeChars: 4000,
+        contextPolicy: { preset: 'full' },
+        contextOptions: { model: 'fixture-distiller' },
+        executorOptions: { model: 'fixture-executor' },
+        responderOptions: { model: 'fixture-responder' },
+        actorTurnCallback: turn => {
+          if (turn.stage === 'executor' && turn.result !== undefined) {
+            turns.push({ result: turn.result, output: turn.output, error: turn.isError });
+          }
+        },
+      });
+      const responses = [
+        code('await final("Inspect shared invoice views and a cycle, then report the sum of both sibling amounts", {})'),
+        code('globalThis.shared = { invoiceId: "INV-7", cents: 1700 }; globalThis.siblings = { primary: shared, backup: shared }; siblings'),
+        code('globalThis.repeated = { first: [shared], second: [shared] }; repeated'),
+        code('globalThis.cyclic = { invoiceId: "INV-cycle" }; cyclic.self = cyclic; cyclic'),
+        code('await final("Report the sum of both sibling invoice amounts", { total: siblings.primary.cents + siblings.backup.cents })'),
+        answer('3400'),
+      ];
+      const stages = ['fixture-distiller', 'fixture-executor', 'fixture-executor', 'fixture-executor', 'fixture-executor', 'fixture-responder'];
+      const model = scriptedAI((request, index) => {
+        assert.equal(request.model, stages[index]);
+        prompts.push(JSON.stringify(request.chatPrompt));
+        const response = responses[index]; assert.ok(response, 'finite serialization fixture exhausted'); return response;
+      }, { structuredOutputs: true });
+      try {
+        const result = await worker.forward(model, { task: 'Inspect the same invoice object through sibling keys and arrays; distinguish a self-reference.' }, options(ctx));
+        assert.equal(result.answer, '3400');
+        assert.equal(prompts.length, responses.length);
+        assert.equal(turns.length, 3);
+        assert.ok(turns.every(turn => !turn.error));
+        const sibling = turns[0], arrays = turns[1], cycle = turns[2];
+        assert.ok(sibling && arrays && cycle);
+        assert.ok(sibling.result && typeof sibling.result === 'object');
+        assert.equal(Reflect.get(sibling.result, 'primary'), Reflect.get(sibling.result, 'backup'), 'the worker result must actually share one object');
+        const invoice = { invoiceId: 'INV-7', cents: 1700 };
+        assert.deepEqual(JSON.parse(sibling.output), { primary: invoice, backup: invoice });
+        assert.ok(arrays.result && typeof arrays.result === 'object');
+        const first = Reflect.get(arrays.result, 'first'), second = Reflect.get(arrays.result, 'second');
+        assert.ok(Array.isArray(first) && Array.isArray(second));
+        assert.equal(first[0], second[0], 'distinct sibling arrays must actually contain the same object');
+        assert.deepEqual(JSON.parse(arrays.output), { first: [invoice], second: [invoice] });
+        assert.doesNotMatch(sibling.output + arrays.output, /\[Circular\]/);
+        assert.ok(cycle.result && typeof cycle.result === 'object');
+        assert.equal(Reflect.get(cycle.result, 'self'), cycle.result, 'the control must actually close an ancestor cycle');
+        assert.deepEqual(JSON.parse(cycle.output), { invoiceId: 'INV-cycle', self: '[Circular]' });
+        for (const [index, turn] of turns.entries()) {
+          assert.ok(prompts[index + 2]?.includes(JSON.stringify(turn.output).slice(1, -1)), 'the next real executor request must receive the serialized replay');
+        }
+        return { answer: result.answer, siblings: JSON.parse(sibling.output), arrays: JSON.parse(arrays.output), cycle: JSON.parse(cycle.output), proof: 'real AxJSRuntime objects, identity assertions, SDK serialization and subsequent executor prompts; scripted model I/O, not model-quality evidence' };
+      } finally { worker.stop(); }
+    },
+  },
+  {
+    id: '32-executor-context/observer-failure-boundaries',
+    title: 'A runtime-call observer fails open; an awaited actor-turn callback can abort the run',
+    features: ['onFunctionCall fail-open', 'actorTurnCallback awaited failure', 'executor ownership', 'no responder after failure'],
+    modes: ['offline'],
+    async run(ctx) {
+      const failure = new Error('actor-turn telemetry sink unavailable');
+      const reads: number[] = [], observedCalls: string[] = [], observedStages: string[] = [];
+      let modelCalls = 0;
+      const worker = agent('task:string -> answer:string', {
+        runtime: new AxJSRuntime(), directResponse: 'off', maxTurns: 2,
+        functions: [fn('amount').namespace('billing').description('Read one in-memory invoice amount').returns(f.number()).handler(() => { reads.push(17); return 17; }).build()],
+        onFunctionCall: call => {
+          if (call.qualifiedName === 'billing.amount') {
+            observedCalls.push(call.qualifiedName);
+            throw new Error('runtime-call telemetry sink unavailable');
+          }
+        },
+        actorTurnCallback: turn => {
+          observedStages.push(turn.stage);
+          throw failure;
+        },
+      });
+      const responses = [
+        code('await final("Read the invoice amount using billing.amount", {})'),
+        code('const observedAmount = await billing.amount({}); console.log(observedAmount)'),
+      ];
+      const model = scriptedAI((_request, index) => {
+        modelCalls++;
+        const response = responses[index]; assert.ok(response, 'no responder or recovery request may follow the callback failure'); return response;
+      }, { structuredOutputs: true });
+      try {
+        await assert.rejects(() => worker.forward(model, { task: 'Read the invoice amount.' }, options(ctx)), error => error === failure);
+        assert.deepEqual(observedCalls, ['billing.amount']);
+        assert.deepEqual(reads, [17], 'the failing runtime-call observer must not block its host function');
+        assert.deepEqual(observedStages, ['executor'], 'the top-level actor-turn observer is not a distiller callback');
+        assert.equal(modelCalls, 2, 'the awaited callback failure prevents responder execution');
+        return { runtimeCallObserverFailedOpen: true, actorTurnObserverAborted: true, reads, observedStages, modelCalls, boundary: 'catch actor-turn telemetry-sink failures in the application when observability must not abort execution' };
+      } finally { worker.stop(); }
     },
   },
 ];

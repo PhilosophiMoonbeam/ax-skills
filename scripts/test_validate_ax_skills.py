@@ -58,6 +58,15 @@ class CollectionDiscoveryTests(unittest.TestCase):
         result, validator = self.run_validator()
         self.assertEqual(result, 0, validator.errors)
 
+    def test_preserved_bundle_and_sibling_skills_are_not_curated_entrypoints(self):
+        self.assertTrue((self.repo / 'upstream/ax-llm/SKILL.md').is_file())
+        sibling = self.repo / 'upstream/ax-gen/SKILL.md'
+        sibling.parent.mkdir(parents=True)
+        sibling.write_text('# Supplied specialist\n[Upstream route](missing.md)\n', encoding='utf-8')
+        result, validator = self.run_validator()
+        self.assertEqual(result, 0, validator.errors)
+        self.assertTrue(all(path.is_relative_to(self.collection) for path in validator.documents))
+
     def test_root_master_must_still_link_each_manifest_destination_directly(self):
         destination = sorted(validate.AUTHORED_REFERENCES)[0]
         master = (self.collection / 'SKILL.md').read_text(encoding='utf-8')

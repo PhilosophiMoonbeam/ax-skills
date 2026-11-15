@@ -53,7 +53,7 @@ TOPICS = (
     "agent-optimize", "agent-rlm", "ai", "audio", "event-runtime", "flow",
     "gen", "gepa", "llm", "mcp", "playbook", "refine", "signature", "typesafe",
 )
-SOURCE_ROOT = ".agents/skills/ax-llm"
+SOURCE_ROOT = "upstream/ax-llm"
 EXPECTED = {
     f"{SOURCE_ROOT}/SKILL.md": ("SKILL.md", "references/llm.md"),
     f"{SOURCE_ROOT}/references/quickstart.md": ("references/llm.md",),

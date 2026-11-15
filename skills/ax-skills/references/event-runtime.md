@@ -1,6 +1,6 @@
 # Ax event ingestion, continuations, and safe output routing
 
-Use `AxEventRuntime` to react to notifications, webhooks, timers, queues, task completion, and application events: explicitly wake or resume AxGen, AxAgent, or AxFlow, restore/persist state and results, and safely route output. Program construction belongs in [Generators](gen.md), [Agents](agent.md), and [Flows](flow.md); MCP transport/authentication belongs in [MCP](mcp.md). Sources and subscriptions alone must not invoke programs.
+Use `AxEventRuntime` to react to notifications, webhooks, timers, queues, task completion, and application events: explicitly wake or resume AxGen, AxAgent, or AxFlow, restore/persist state and results, and safely route output. Program construction belongs in [Generators](gen.md), [Agents](agent.md), and [Flows](flow.md); MCP transport/authentication belongs in [MCP](mcp.md). Sources and subscriptions alone must not invoke programs. Source API snapshot: 25.4.11.
 
 ## Mental Model
 
@@ -56,7 +56,7 @@ await source.publish({ event, identity, trust: 'authenticated' });
   contracts. Neither action silently uses the other action's mapping.
 - Use `observe` for progress/logs and `invalidate` for catalog changes.
 - Use `resume` only with an owned continuation correlation key.
-- Use `createProgram(instance)` for stateful multi-tenant Agents.
+- Use `.createProgram(signature, factory)` for fresh, state-restorable instances of stateful multi-tenant Agents; do not share one mutable instance across tenants.
 - Declare `retrySafety: 'idempotent'` only when stable delivery keys protect
   every possible side effect.
 - Persist outputs before final sink delivery; redrive sink failures separately.
@@ -74,7 +74,7 @@ await source.publish({ event, identity, trust: 'authenticated' });
 
 ## Sink redrive reliability
 
-In TypeScript **25.4.9**, successful sink-only `runtime.redrive(deadLetterId)`
+In TypeScript **25.4.11**, successful sink-only `runtime.redrive(deadLetterId)`
 awaits the sink callback with the already-persisted output and removes that
 dead letter, without invoking the program again. It does **not** rewrite
 `run.sinks`: that array remains the original dispatch-attempt snapshot and can
@@ -83,7 +83,7 @@ delivery ledger. Establish completion from the accepted business output in the
 sink callback, current delivery/run state, and removal of the sink dead letter;
 a succeeded run alone does not establish successful sink delivery.
 
-See the pinned [`runtime.ts` sink-redrive branch](https://github.com/ax-llm/ax/blob/25.4.9/src/ax/event/runtime.ts#L301-L343)
+See the pinned [`runtime.ts` sink-redrive branch](https://github.com/ax-llm/ax/blob/007ab8366e5bfa98d871feb1af188cc029295c58/src/ax/event/runtime.ts#L301-L344)
 and the wake → pause → resume → sink-redrive composition in
 [`26-architecture.ts`](../examples/26-architecture.ts). This does not add durability
 to the in-memory store or guarantee cross-system exactly-once effects.
@@ -114,7 +114,7 @@ only their own subscriptions on close. Identity must come from the
 application's authenticated client or token mapping; a bare MCP session is
 anonymous. Add `...axMCPEventRoutes({ client })` for catalog invalidation,
 progress/log observation, and task resume. Resource notifications never get an
-implicit wake route. Upstream subscription policy resource: `docs/MCP_SUBSCRIPTIONS.md` in the Ax repository.
+implicit wake route. Upstream subscription policy resource: [MCP subscription lifecycle](https://github.com/ax-llm/ax/blob/007ab8366e5bfa98d871feb1af188cc029295c58/docs/MCP_SUBSCRIPTIONS.md).
 
 ## UCP Adapter
 
@@ -124,7 +124,7 @@ profile, RFC 9421 signature, digest, freshness and key rotation before enqueue.
 Resolve tenant/account identity from trusted application registration after
 verification; never copy authority from the business payload.
 
-**25.4.9 replay qualification:** `AxUCPClient.verifyOrderEvent` creates a new
+**25.4.11 replay qualification:** `AxUCPClient.verifyOrderEvent` creates a new
 signature verifier per request; its persistent process-local replay check uses
 `Webhook-Id`, while that header and `Webhook-Timestamp` need not be signed.
 Bind them to the signed `request-id` and `created` before ingestion, and require
@@ -137,13 +137,15 @@ The [verified webhook example](../examples/35-ucp.ts) also covers real client
 verification, key rotation, tamper/replay rejection and host-bound tenant routing.
 Its volatile replay state is not restart durability; production hosts need
 durable replay/idempotency policy. Source:
-[`25.4.9 client and signing code`](https://unpkg.com/@ax-llm/ax@25.4.9/index.js.map),
+[`25.4.11 client and signing code`](https://unpkg.com/@ax-llm/ax@25.4.11/index.js.map),
 embedded `../ucp/client.ts` (`verifyOrderEvent`) and `../ucp/signing.ts`.
 
 Native UCP attachment is independent of transport. The same example carries
 UCP through Flow → Agent/Gen and preserves structured results; MCP-backed UCP
 also reuses protocol sessions and propagates cancellation. Attaching a client
 does not itself authorize purchases or establish tenant isolation.
+
+The generated-language statements below describe the supplied source's scope, not runtime qualification performed by this collection.
 
 Generated Python, Java, C++, Go, and Rust packages expose the same Core-owned
 single-worker event state machine plus functioning inline lifecycle dispatch,
@@ -178,3 +180,5 @@ Persistent store implementations must pass
 `runAxEventStoreConformance(createStore, { clock })`. A store must not advertise
 multi-worker capability without the conformance marker checked by runtime
 startup.
+
+Selected examples: [wake/mapping/debounce](../examples/17-events.ts), [owned continuations and uncertain effects](../examples/18-event-resume.ts), [persistent store and sink redrive](../examples/30-event-storage.ts), and [verified UCP webhooks](../examples/35-ucp.ts). The TypeScript examples do not qualify generated runtimes.

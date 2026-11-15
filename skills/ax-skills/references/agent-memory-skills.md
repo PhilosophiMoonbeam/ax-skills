@@ -1,14 +1,14 @@
 # AxAgent Context Maps, Memory Retrieval, and Dynamic Skills
 
-Source API snapshot: `@ax-llm/ax` 25.4.10. Use for `contextMap` / `AxAgentContextMap`, memory catalogs/search/recall, `inputs.memories`, memory carryover and preloading, skill catalogs/search/discovery/preloading, loaded/used IDs and observers, and `relevanceRanking`. For ordinary setup see [agent setup](agent.md); for execution and replay policy see [RLM runtime](agent-rlm.md); for callbacks/telemetry see [observability](agent-observability.md).
+Source API snapshot: `@ax-llm/ax` 25.4.11. Use for `contextMap` / `AxAgentContextMap`, memory catalogs/search/recall, `inputs.memories`, memory carryover and preloading, skill catalogs/search/discovery/preloading, loaded/used IDs and observers, and `relevanceRanking`. For ordinary setup see [agent setup](agent.md); for execution and replay policy see [RLM runtime](agent-rlm.md); for callbacks/telemetry see [observability](agent-observability.md).
 
 `contextMap` persists prompt-resident corpus orientation across successful runs; `contextPolicy` compresses within-run actor replay without deleting runtime state; memories are retrieved task context whose loaded collection resets each run. Loaded skills are system-prompt guides retained on the agent across runs. None is a substitute for the others.
 
 ## Retrieval Defaults and Stage Ownership
 
 - Use `skillsCatalog` / `memoriesCatalog` for plain arrays, not host callbacks that merely scan them; built-in deterministic lexical search requires no host search callback. Use `onSkillsSearch` / `onMemoriesSearch` for vector DB, BM25, KV, or other external retrieval. Host callbacks take precedence over catalog search.
-- `recall(...)` is available to distiller and executor with a callback or non-empty memory catalog. `discover({ skills })` is advertised to the executor with a callback or non-empty skill catalog; the Skills Search section records the source's additional distiller behavior. Do not call either API from the responder stage.
-- Both return `void`; do not assign their results. Loaded content appears in the next actor prompt; JavaScript worker memory visibility has a 25.4.9 qualification below. Batch all searches of each kind into one call per turn: never loop calls or wrap them in `Promise.all(...)`.
+- `recall(...)` and `discover({ skills })` are available to both distiller and executor with the corresponding callback or non-empty catalog in 25.4.11. Neither runs in the responder. Discovery loads guidance/metadata; it does not grant the distiller tool-execution authority.
+- Both return `void`; do not assign their results. Loaded content appears in the next actor prompt; JavaScript worker memory visibility has a 25.4.11 qualification below. Batch all searches of each kind into one call per turn: never loop calls or wrap them in `Promise.all(...)`.
 - Child agents inherit neither search callback; configure each agent explicitly. Use `recall(...)`, not shared fields, to deliver search results.
 - `onLoadedMemories` / `onLoadedSkills` report retrieval, not evidence of actor reliance. `onUsedMemories` / `onUsedSkills` track the actor's declared reliance, not independent proof of use.
 
@@ -70,15 +70,15 @@ When `onMemoriesSearch` is set, the distiller and executor stages gain:
 
 The responder stage does not receive memories.
 
-### 25.4.9 JavaScript worker visibility
+### 25.4.11 JavaScript worker visibility
 
-In the shipped 25.4.9 implementation, `noteLoadedMemories` updates host-owned inputs, while `runActorTurn` calls `syncRuntimeInputsToSession` only when an `inputUpdateCallback` is configured. Without that synchronization, a same-stage worker can still hold its pre-recall memory array even though `onLoadedMemories` fired and the next model prompt includes the loaded content. Loaded-memory analytics and prompt visibility are therefore not proof that actor JavaScript can read the new entries.
+In the shipped 25.4.11 implementation (also observed in 25.4.9), `noteLoadedMemories` updates host-owned inputs, while `runActorTurn` calls `syncRuntimeInputsToSession` only when an `inputUpdateCallback` is configured. Without that synchronization, a same-stage worker can still hold its pre-recall memory array even though `onLoadedMemories` fired and the next model prompt includes the loaded content. Loaded-memory analytics and prompt visibility are therefore not proof that actor JavaScript can read the new entries.
 
 Distiller-to-executor handoff merges the host snapshot into the executor's worker inputs. Recall in the distiller, hand off without reading its stale worker array, then consume `inputs.memories` in the executor. Alternatively, preload application-owned memories at forward time. Do not add a dummy update callback merely to hide this version-bound limitation.
 
-The finite [`catalog-recall-discover` control](examples/14-memory-skills.ts) separately asserts host-loaded/prompt visibility, the distiller worker's pre-handoff snapshot, and the executor worker's post-handoff memory read before creating a real proposal. It does not simulate memory retrieval or substitute hardcoded memory content for that read.
+The finite [`catalog-recall-discover` control](../examples/14-memory-skills.ts) separately asserts host-loaded/prompt visibility, the distiller worker's pre-handoff snapshot, and the executor worker's post-handoff memory read before creating a real proposal. It does not simulate memory retrieval or substitute hardcoded memory content for that read.
 
-Exact release source: [`@ax-llm/ax@25.4.9/index.js.map`](https://unpkg.com/@ax-llm/ax@25.4.9/index.js.map), embedded `../agent/agentInternal/runtimeExecutionNotes.ts` (`noteLoadedMemories`), `actorLoopTurn.ts` (`runActorTurn`), `runtimeExecutionSession.ts` (`syncRuntimeInputsToSession`), and `pipelineForward.ts` (`buildExecutorHandoffInputs`).
+Exact release source: [`@ax-llm/ax@25.4.11/index.js.map`](https://unpkg.com/@ax-llm/ax@25.4.11/index.js.map), embedded `../agent/agentInternal/runtimeExecutionNotes.ts` (`noteLoadedMemories`), `actorLoopTurn.ts` (`runActorTurn`), `runtimeExecutionSession.ts` (`syncRuntimeInputsToSession`), and `pipelineForward.ts` (`buildExecutorHandoffInputs`).
 
 
 ### Enabling
@@ -117,7 +117,7 @@ type AxAgentMemoryResult = {
 
 ### Static catalog (no callback)
 
-If the memory set fits in a plain array, skip the callback entirely: pass `memoriesCatalog` and Ax backs `recall(...)` with a built-in deterministic local search (idf-weighted token overlap over `id` + content; not regex, not embeddings). The `alreadyLoaded` contract is preserved — entries already in the host's loaded-memory snapshot are excluded before ranking.
+If the memory set fits in a plain array, skip the callback entirely: pass `memoriesCatalog` and Ax backs `recall(...)` with deterministic local search (idf-weighted token overlap over `id` + the first 600 content characters; at most three matches per query; not regex or embeddings). Entries already in the host's loaded-memory snapshot are excluded before ranking.
 
 ```typescript
 const myAgent = agent('task:string -> answer:string', {
@@ -162,7 +162,7 @@ const prefs = inputs.memories.find((m) => m.id === 'user-prefs-v2');
 
 Rules:
 
-- The next actor prompt shows recalled entries. In 25.4.9, read new worker-resident entries after distiller-to-executor handoff, not by assuming same-stage JavaScript inputs refresh automatically.
+- The next actor prompt shows recalled entries. In 25.4.11, read new worker-resident entries after distiller-to-executor handoff, not by assuming same-stage JavaScript inputs refresh automatically.
 - `recall()` invokes `onMemoriesSearch` with `(searches, alreadyLoaded)` and returns `void`.
 - Results update the host's loaded-memory snapshot and render in the next actor prompt as:
 
@@ -206,9 +206,9 @@ const myAgent = agent('task:string -> answer:string', {
 
 Use `onSkillsSearch` when the agent needs to load skill guides such as usage instructions, operational guides, or domain conventions into the executor's system prompt on demand. The actor decides which skills to fetch and when, so you do not pre-render every skill into every prompt.
 
-Stage caveat: the source defaults describe skill discovery as executor-available, while this callback-specific contract explicitly includes the distiller and its carryover behavior. Preserve that distinction; do not infer skill discovery availability for a catalog-only distiller from the executor catalog rule.
+Stage boundary: 25.4.11 shares `onSkillsSearch` and `skillsCatalog` with both actors. Initialization synthesizes a search callback for a non-empty catalog, so callback-backed and catalog-backed distillers both receive skill discovery; neither grants tool-execution authority. See [discovery implementation](agent.md#discovery-mode).
 
-When `onSkillsSearch` is set, the distiller and executor stages gain:
+With `onSkillsSearch` or a non-empty `skillsCatalog`, the distiller and executor stages gain:
 
 1. A "Loaded Skills" section in the system prompt that renders matched skill bodies with stable `ID:` values sorted by `id`.
 2. A `discover({ skills })` path the actor `await`s to load more skills. Loaded entries appear in the next turn's prompt. `discover(...)` returns nothing.
@@ -311,7 +311,7 @@ Rules:
 If the caller already knows which skills are relevant, pass them up front instead of round-tripping through `discover({ skills })`.
 
 - Init-time: `skills` on `AxAgentOptions` seeds the executor prompt at agent creation. They survive `setState(...)` resets.
-- Forward-time: `skills` on `forward(ai, values, { skills })` merge in at the start of that call. Distiller and responder ignore forward-time skills.
+- Forward-time: `skills` on `forward(ai, values, { skills })` merge at call start for the executor. An enabled static direct-respond distiller also receives them: for example, default `directResponse: 'auto'` with no executor authority. Ordinary executor-bearing distillers and responders do not ingest these presets. This changes prompt availability, not tool authority or model reliance.
 
 Both accept the same shape `onSkillsSearch` returns: `readonly AxAgentSkillResult[]`. Forward-time skills override init-time skills by `id`. `onLoadedSkills` is not fired for preset skills; that callback is for runtime `discover({ skills })` analytics.
 
@@ -346,7 +346,7 @@ You can use `skills` without setting `onSkillsSearch` at all. That is useful for
 
 ## Advisory Relevance Hints (`relevanceRanking`)
 
-`relevanceRanking` is ON by default — leave it unset; set `relevanceRanking: false` to opt out. The default was flipped after its A/B gate passed (substance-judged, 49 runs per variant per model: small-model first-lookup precision 24%→90% and answer accuracy 14%→29%; frontier-model control accuracy 63%→88% with fewer turns). The generated language ports implement the same advisory hint contract through AxIR Core.
+`relevanceRanking` is ON by default — leave it unset; set `relevanceRanking: false` to opt out. Upstream reports successful A/B evaluations and generated-language parity through AxIR Core; those reported results are not a model-quality or cross-language guarantee from the TypeScript fixtures.
 
 When enabled, a deterministic local ranker scores the agent's discoverable capabilities against the task once per `forward(...)` and injects a short advisory `### Likely Relevant` shortlist into the executor turn — modules (needs `functionDiscovery`), catalog skills (needs `skillsCatalog`), and catalog memories (needs `memoriesCatalog`). The hint is non-authoritative: the full lists still apply and the actor may `discover`/`recall` anything else.
 
@@ -361,11 +361,11 @@ const myAgent = agent('task:string -> answer:string', {
 
 Rules:
 
-- Default is ON across TypeScript and generated language ports; domains still self-gate on their prerequisites (`functionDiscovery` for modules, catalogs for skills/memories), so agents without those see no change. Everything else in this skill (catalog search, the Available Skills index) is independent of the flag.
+- TypeScript defaults ON; domains still self-gate on their prerequisites (`functionDiscovery` for modules, catalogs for skills/memories), so agents without those see no change. Catalog search and the Available Skills index are independent of this flag.
 - The shortlist rides a dynamic, non-cached prompt field; the cached system prompt stays byte-stable across tasks.
 - On low confidence the ranker emits nothing rather than guessing.
 - Memory hint entries include an ~80-char content snippet; very short memories may be usable from the hint alone without a `recall(...)` (such use is not visible to `onUsedMemories`).
-- Observe outcomes via the `relevance_ranking` context event (see [observability](references/agent-observability.md)).
+- Observe outcomes via the `relevance_ranking` context event (see [observability](agent-observability.md)).
 
 ## Loaded And Used Tracking
 
@@ -387,13 +387,13 @@ used; // [{ id, reason, stage }]
 
 Rules:
 
-- The actor can only report memory IDs already in the host's loaded-memory snapshot. In 25.4.9 this can be newer than a same-stage JavaScript worker's `inputs.memories`; `used(...)` is a declaration, not proof of a worker read.
+- The actor can only report memory IDs already in the host's loaded-memory snapshot. In 25.4.11 this can be newer than a same-stage JavaScript worker's `inputs.memories`; `used(...)` is a declaration, not proof of a worker read.
 - The actor can only report skill IDs already present in Loaded Skills.
 - Unknown values are dropped.
 - When tracking is enabled, the actor sees `await used(id, reason?)`; this is the actor-side declaration mechanism.
 - `used(...)` resolves against loaded memory IDs and loaded skill IDs.
 - If memory IDs and skill IDs can collide, namespace them in your application, for example `mem:abc` and `skill:planning`.
-- Python, Go, and Java accept these observers directly in their agent option maps. C++ wraps them with `register_agent_observer(...)`; Rust wraps them with `agent_observer(...)`. The returned marker can be used in constructor or forward option maps, and observer failures are ignored in every language.
+- Upstream reports direct Python/Go/Java observers, C++ `register_agent_observer(...)`, and Rust `agent_observer(...)` wrappers usable at construction or forward time. The TypeScript package does not verify those generated-language signatures or their observer-failure behavior.
 
 Types:
 
@@ -423,11 +423,11 @@ relevanceRanking?: boolean | { topK?: number; minScore?: number };
 
 ## Persisting Agent State Across Languages
 
-TypeScript uses `getState()` / `setState()` for the actor runtime snapshot. The generated packages keep their legacy `GetState` / `SetState` (or language-shaped equivalents) as bare-runtime compatibility methods. Use `ExportRuntimeState` / `RestoreRuntimeState` in generated packages when you need the complete portable agent snapshot, including loaded skills and constructor-preset reapplication after restore. Do not interchange the two snapshot shapes.
+TypeScript uses `getState()` / `setState()` for continuation state, including loaded skills. Upstream reports that generated packages distinguish legacy bare-runtime `GetState` / `SetState` equivalents from complete `ExportRuntimeState` / `RestoreRuntimeState` snapshots (loaded skills and constructor presets included). Those generated snapshot shapes are not verified here; consult the target package before porting and do not assume they interchange with `AxAgentState`.
 
 ## Examples
 
 Full working examples:
 
 - [RLM Memories and Skills](https://raw.githubusercontent.com/ax-llm/ax/refs/heads/main/src/examples/rlm-memories-and-skills.ts) - `onMemoriesSearch` + `recall()` and `onSkillsSearch` + `discover({ skills })` with load observability and actual usage tracking via `onUsedMemories` / `onUsedSkills`
-- [Skills + Memory Ops Assistant](https://raw.githubusercontent.com/ax-llm/ax/refs/heads/main/src/examples/typescript/long-agents/skills-and-memory-assistant.ts) - an on-call assistant that recalls past decisions from a memory store and loads the right runbook skill on demand (also ported to Python, Go, Rust, Java, and C++ under `src/examples/<lang>/long-agents/`). All six languages support the native `onMemoriesSearch` / `onSkillsSearch` host callbacks, passed in the agent options at construction (Go/Java use native function values, Rust a `agent_with_search_callbacks` constructor, C++ a `register_*_search` helper); a static `memory_search_results` / `skill_search_results` config is also available.
+- [Skills + Memory Ops Assistant](https://raw.githubusercontent.com/ax-llm/ax/refs/heads/main/src/examples/typescript/long-agents/skills-and-memory-assistant.ts) - an on-call assistant that recalls prior decisions and loads runbook skills. Upstream reports Python/Go/Rust/Java/C++ ports, native callback constructors/helpers, and static `memory_search_results` / `skill_search_results` configuration; these generated-language APIs are not verified by the TypeScript fixtures.

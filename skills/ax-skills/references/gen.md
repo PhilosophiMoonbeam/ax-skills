@@ -1,6 +1,6 @@
 # AxGen execution, streaming, and validation
 
-Use for `ax()`, `AxGen`, `forward()`, `streamingForward()`, structured outputs, assertions, processors, hooks, and self-tuning. Source snapshot: Ax 25.4.10. Prefer short, modern, copyable code; add tutorial prose only when requested. Use [signature reference](signature.md) for field contracts, [AI reference](ai.md) for providers, [refine reference](refine.md) for reward-scored selection, [MCP reference](mcp.md) for MCP construction/transports/prompts/resources/tools/tasks/subscriptions/authentication/events, and [event runtime reference](event-runtime.md) for wake/resume routing.
+Use for `ax()`, `AxGen`, `forward()`, `streamingForward()`, structured outputs, assertions, processors, hooks, and self-tuning. Source snapshot: Ax 25.4.11. Prefer short, modern, copyable code; add tutorial prose only when requested. Use [signature reference](signature.md) for field contracts, [AI reference](ai.md) for providers, [refine reference](refine.md) for reward-scored selection, [MCP reference](mcp.md) for MCP construction/transports/prompts/resources/tools/tasks/subscriptions/authentication/events, and [event runtime reference](event-runtime.md) for wake/resume routing.
 
 ## Construction and execution defaults
 
@@ -36,7 +36,7 @@ console.log(result.assistantReply);
 
 ### Standard Schema signatures and tools
 
-`ax()` accepts `f().build()` signatures. `f().input()` / `.output()` accept [Standard Schema v1](https://standardschema.dev) validators (zod, valibot, arktype), per-field or whole-object:
+`ax()` accepts `f().build()` signatures. `f().input()` / `.output()` accept [Standard Schema v1](https://standardschema.dev) Zod validators per field or as a whole-object schema. In Ax 25.4.11, automatic external-schema conversion requires vendor `zod`; Valibot and ArkType do not work merely because they implement Standard Schema. Unsupported vendors fail during construction. Use native `f.*()` field types when conversion is unavailable:
 
 ```typescript
 import { z } from 'zod';
@@ -49,16 +49,18 @@ const gen = ax(f()
   }))
   .output(z.object({
     headline: z.string(),
-    recommendation: z.string().refine((value) => ['buy', 'wait', 'skip'].includes(value), 'Use buy, wait or skip'),
+    recommendation: z.enum(['buy', 'wait', 'skip']),
   }))
   .build());
 ```
 
 Constraints (`.min()`, `.email()`, `.regex()`) and custom `.refine()`, `.transform()`, `.superRefine()` run in normal validation/retries at parse time on complete field values, including streaming field boundaries. Ax hints use companion options: `.input('ctx', z.string(), { cache: true })`, `.output('reasoning', z.string(), { internal: true })`.
 
-**Pinned Zod 4 enum-conversion defect (not a blanket Standard Schema limitation):** the bundled guide's whole-object `z.enum(...)` example fails during signature construction with Ax 25.4.9 and Zod 4.1.11. The [Ax converter](https://github.com/ax-llm/ax/blob/25.4.9/src/ax/dsp/standardSchema.ts#L228-L235) reads `def.values`, while [Zod 4.1.11](https://github.com/colinhacks/zod/blob/v4.1.11/packages/zod/src/v4/classic/schemas.ts#L1545-L1557) stores enum values in `def.entries`; the resulting empty class options are rejected. The refined string above preserves runtime membership validation but does not advertise an enum in the converted prompt/schema. For a native Ax enum contract use `.output('recommendation', f.class(['buy', 'wait', 'skip'] as const))`. The [standard-schema example](../examples/01-signatures.ts) explicitly asserts the rejected original boundary, exercises corrected whole-object string/refinement validation and separately executes the native `f.class` alternative. It does not claim the original Zod enum path succeeds.
+Ax 25.4.11 converts Zod 4 enums from `def.entries` and array element schemas from `def.element`; original whole-object validators still run after conversion, including cross-field refinements. The old 25.4.9 enum rejection is no longer a current limitation. Prefer the native `z.enum(...)` above when the schema must advertise its choices; a refined string validates membership but does not advertise an enum. The [Standard Schema examples](../examples/01-signatures.ts) cover current enum, array, and original-validator contracts. Native Ax `.output('recommendation', f.class(['buy', 'wait', 'skip'] as const))` remains an alternative.
 
 `fn().arg()` / `.returns()` accept per-argument or whole-object schemas and infer handler argument types:
+
+Tool conversion and inference do not wrap the handler in the original Zod validator. Parse untrusted arguments with the retained schema before host effects; validate returned values explicitly when their constraints matter. See [`03-tools-streaming/standard-schema-fields`](../examples/03-tools-streaming.ts) for mixed fields and host-owned validation.
 
 ```typescript
 import { z } from 'zod';
@@ -151,6 +153,7 @@ for await (const chunk of stream) {
 - Text labels are case-sensitive and signature-derived: `javascriptCode` is titled `Javascript Code`, not `JavaScript Code`. Match that label (or the exact field name) and its colon before testing code-fence stripping; otherwise singleton fallback can preserve the unmatched label as content. See the [code-and-json-deltas example](../examples/03-tools-streaming.ts).
 - Deltas never end in half a surrogate pair: a trailing high surrogate waits for its low half.
 - Error/token-limit terminal results are rejected even if the final chunk is empty and earlier chunks already form valid output.
+- Text accompanying streamed tool calls accumulates with preceding text in assistant history, and later text chunks parse that complete content. Tool-call chunks still do not trigger field extraction themselves. The [mixed-text regression](../examples/03-tools-streaming.ts) checks next-request history, exactly-once tool execution, and merged output with/without a later text-only chunk. [PR #887](https://github.com/ax-llm/ax/pull/887) fixes TypeScript; [#891](https://github.com/ax-llm/ax/pull/891) ports parser-state retention to generated Python, Java, C++, Go, and Rust. This is bounded source parity evidence, not execution of those packages here.
 
 ## Stopping and cancellation
 
@@ -385,6 +388,8 @@ try {
 `gen.getChatLog()` returns every `ai.chat()` round-trip after `forward()` or `streamingForward()`: system prompt, all messages, model responses. Logs reset at each `.forward()` start; multi-step tool generators produce one entry per step.
 
 ```typescript
+import type { AxChatResponseTextBlock } from '@ax-llm/ax';
+
 await gen.forward(llm, { question: 'What is 2+2?' });
 for (const entry of gen.getChatLog()) {
   console.log('model:', entry.model);
@@ -405,6 +410,7 @@ type AxChatLogEntry = {
   model: string;
   messages: AxChatLogMessage[];
   modelUsage?: AxProgramUsage;
+  textBlocks?: (AxChatResponseTextBlock & { resultIndex: number })[];
 };
 
 // Return contract:
@@ -412,6 +418,25 @@ type AxChatLogEntry = {
 ```
 
 Assistant content uses inline `<think>...</think>` for reasoning and `<tool_call>\n{...}\n</tool_call>` for invocations. System messages include a `<tools>` JSON block when functions exist.
+
+For [Anthropic document citations](ai.md#anthropic-document-citations), use a text signature and a native document value in a `file` field:
+
+```typescript
+const cited = ax('source:file -> answer:string "Answer from the supplied document and cite it"');
+const result = await cited.forward(claude, {
+  source: {
+    source: { type: 'text', data: 'Returns are accepted within 30 days.' },
+    title: 'Returns policy',
+    citations: { enabled: true },
+  },
+});
+const blocks = cited.getChatLog()[0]?.textBlocks;
+// Each block retains its original passage, citations, index, and resultIndex.
+```
+
+All five native source forms work here, as do legacy PDF file values with citation metadata. Enabled citations require every document in the full request history to opt in and reject native structured JSON locally; do not add `.useStructured()`. Both `forward()` and `streamingForward()` retain complete per-block snapshots in each round trip's `getChatLog()[i].textBlocks`. These original passages include provider labels and need not equal parsed field values. `resultIndex` distinguishes response candidates; block `index` distinguishes passages within a candidate. Do not mix either with `citation.documentIndex`, which selects an input document in that request.
+
+`getUsage()[i].citations` retains flat source locations but cannot recover which output passage they support. Usage aggregates across steps and calls; identical document citations from distinct round trips remain separate because source indices are request-local. Retain the matching per-request log/document order rather than treating an aggregated index as a stable document ID. See the [offline source/association cases](../examples/37-document-citations.ts). Generated Python/Java/C++/Go/Rust logs use `text_blocks` with `result_index` and flat `usage.citations`; their source-level support does not establish local execution.
 
 `getUsage()` returns `AxProgramUsage[]` aggregated by `(ai, model)` across steps. Provider cache reports split uncached `promptTokens` from `cacheReadTokens` / `cacheCreationTokens`. `resetUsage()` clears usage:
 

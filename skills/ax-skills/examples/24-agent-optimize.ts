@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {
-  agent, fn, f, AxJSRuntime, axSerializeOptimizedProgram, axDeserializeOptimizedProgram,
-  type AxChatResponse, type AxMetricFn, type AxAgentEvalPrediction, type AxAgentEvalTask,
+  agent, fn, f, AxJSRuntime, AxAgentClarificationError, axSerializeOptimizedProgram, axDeserializeOptimizedProgram,
+  type AxAgentState, type AxChatResponse, type AxMetricFn, type AxAgentEvalPrediction, type AxAgentEvalTask,
 } from '@ax-llm/ax';
 import { options, scriptedAI, type Example, type ExampleContext } from './support.js';
 
@@ -177,9 +177,253 @@ async function datasetBoundary(ctx: ExampleContext) {
   return { emptyDatasetRejected: true, toolSideEffects: ledger.length };
 }
 
+async function clarificationRollouts(ctx: ExampleContext) {
+  type ClarificationInput = { query: string; answer?: string };
+  let phase: 'seed' | 'evaluate' | 'resume' = 'seed';
+  const stageCalls = { seed: 0, evaluate: 0, resume: 0 };
+  let evaluationResponderCalls = 0;
+  const model = scriptedAI(request => {
+    const index = stageCalls[phase]++;
+    // Scalar code/string outputs use field-title text, even when the model
+    // advertises native structured outputs (AxGen selects no responseFormat).
+    const actor = request.chatPrompt.some(message => message.role === 'system' &&
+      (message.content.includes('## Distiller\n') || message.content.includes('## Executor\n')));
+    if (phase === 'evaluate') {
+      if (!actor) { evaluationResponderCalls++; throw new Error('Clarification evaluation must skip the responder'); }
+      assert.ok(index < 4, 'Two evaluations each require one distiller and one executor call');
+      const executor = request.chatPrompt.some(message => message.role === 'system' &&
+        message.content.includes('## Executor\n'));
+      return response(`Javascript Code: ${executor
+        ? 'if (typeof callerToken !== "undefined" || typeof evaluationToken !== "undefined") throw new Error("Evaluation reused continuation"); var evaluationToken = inputs.query; await askClarification({question:"Which destination?", type:"single_choice", choices:["Oslo","Rome"]});'
+        : 'if (typeof callerToken !== "undefined" || typeof evaluationToken !== "undefined") throw new Error("Evaluation inherited caller or previous task state"); await final("Ask for the missing destination without guessing", {});'}`);
+    }
+    const steps = phase === 'seed' ? [
+      'Javascript Code: await final("Save caller continuation and ask for destination", {});',
+      'Javascript Code: const callerToken = "CALLER_ONLY"; await askClarification({question:"Which caller destination?", type:"single_choice", choices:["Oslo","Rome"]});',
+    ] : [
+      'Javascript Code: await final("Resume the original caller with its saved token", {token:callerToken});',
+      'Javascript Code: if (typeof evaluationToken !== "undefined") throw new Error("Evaluation leaked into caller"); await final("Report the saved caller token", {token:callerToken});',
+      'Answer Text: CALLER_ONLY',
+    ];
+    assert.ok(steps[index], 'Unexpected extra caller stage');
+    return response(steps[index]!);
+  }, { structuredOutputs: true });
+  const assistant = agent('query:string, answer?:string -> answerText:string', {
+    ai: model, contextFields: [], directResponse: 'off', maxTurns: 2,
+    runtime: new AxJSRuntime({ nodeWorkerPoolSize: 1, timeout: 5000 }),
+    contextOptions: options(ctx), executorOptions: options(ctx), responderOptions: options(ctx),
+  });
+  const initial = Object.fromEntries(assistant.getOptimizableComponents().map(c => [c.key, c.current]));
+  let callerState: AxAgentState | undefined;
+  const observed: { id: string; prediction: AxAgentEvalPrediction<{ answerText: string }> }[] = [];
+  const tasks: readonly AxAgentEvalTask<ClarificationInput>[] = [
+    { id: 'missing-destination-a', input: { query: 'Book a route, but I have not supplied the destination.' }, criteria: 'Ask precisely for the missing destination; do not invent a final answer.' },
+    { id: 'missing-destination-b', input: { query: 'Find a route; destination is missing.' }, criteria: 'Clarify the destination before producing any final answer.' },
+  ];
+  try {
+    await assert.rejects(() => assistant.forward(model, { query: 'Seed an unfinished caller request.' }, options(ctx)), error => {
+      if (!(error instanceof AxAgentClarificationError)) return false;
+      callerState = error.getState();
+      return true;
+    });
+    assert.ok(callerState);
+    assert.equal(callerState.runtimeBindings.callerToken, 'CALLER_ONLY');
+    const saved = structuredClone(callerState);
+    phase = 'evaluate';
+    const result = await assistant.optimize({
+      train: [
+        { id: 'train-missing-destination-a', input: { query: 'Plan a route without a destination.' }, criteria: tasks[0]!.criteria },
+        { id: 'train-missing-destination-b', input: { query: 'I omitted the destination for this route.' }, criteria: tasks[1]!.criteria },
+      ],
+      validation: tasks,
+    }, {
+      studentAI: model, teacherAI: model, bootstrap: false, apply: false,
+      maxMetricCalls: 2, numTrials: 1, sampleCount: 1, seed: 7, verbose: false,
+      metric: ({ prediction, example }) => {
+        const run = prediction as AxAgentEvalPrediction<{ answerText: string }>;
+        observed.push({ id: (example as AxAgentEvalTask<ClarificationInput>).id!, prediction: run });
+        return run.completionType === 'askClarification' && run.clarification.question === 'Which destination?' &&
+          !('output' in run) && run.toolErrors.length === 0 ? 1 : 0;
+      },
+    });
+    assert.ok(result.optimizedProgram);
+    assert.deepEqual(observed.map(row => row.id), tasks.map(task => task.id));
+    for (const { prediction } of observed) {
+      assert.equal(prediction.completionType, 'askClarification');
+      assert.ok(prediction.clarification);
+      assert.equal(prediction.clarification.question, 'Which destination?');
+      assert.deepEqual(prediction.clarification.choices, ['Oslo', 'Rome']);
+      assert.ok(!('output' in prediction));
+      assert.deepEqual(prediction.toolErrors, []);
+    }
+    assert.equal(evaluationResponderCalls, 0);
+    assert.equal(stageCalls.evaluate, 4, 'No previous evaluation continuation is resumed');
+    assert.equal(result.stats.totalCalls, 2);
+    assert.equal(result.baselineScore, 1);
+    assert.deepEqual(assistant.getState(), saved, 'The original caller continuation is restored after every scored rollout');
+    phase = 'resume';
+    const resumed = await assistant.forward(model, { query: 'Seed an unfinished caller request.', answer: 'Oslo' }, options(ctx));
+    assert.equal(resumed.answerText, 'CALLER_ONLY');
+    assert.equal(stageCalls.resume, 3);
+    return { completionTypes: observed.map(row => row.prediction.completionType),
+      taskIds: observed.map(row => row.id), metricCalls: result.stats.totalCalls,
+      evaluationResponderCalls, callerContinuationRestored: true, resumed };
+  } finally {
+    assistant.applyOptimizedComponents(initial);
+    assistant.setState(callerState);
+    assistant.stop();
+  }
+}
+
+async function delegationCallPolicy(ctx: ExampleContext) {
+  type PolicyInput = { policyCase: string; accountId: string; sku: string; privateContext: string };
+  const childInputs: string[] = [];
+  let childModelCalls = 0;
+  const childAI = scriptedAI(request => {
+    childModelCalls++;
+    assert.ok(childModelCalls <= 9, 'Exactly three bounded child rollouts are allowed');
+    const prompt = JSON.stringify(request.chatPrompt);
+    assert.ok(!prompt.includes('PRIVATE_PARENT_CONTEXT'), 'Child receives explicit narrow inputs, not parent context');
+    childInputs.push(prompt);
+    const actor = request.chatPrompt.some(message => message.role === 'system' &&
+      (message.content.includes('## Distiller\n') || message.content.includes('## Executor\n')));
+    return response(actor
+      ? 'Javascript Code: await final("Return seven available units for this explicitly supplied account and SKU", {accountId:inputs.accountId, sku:inputs.sku, available:7});'
+      : 'Available: 7');
+  }, { structuredOutputs: true });
+  const child = agent('accountId:string, sku:string -> available:number', {
+    ai: childAI, agentIdentity: { name: 'Stock Clerk', namespace: 'team', description: 'Read stock for an explicitly supplied account and SKU' },
+    contextFields: [], directResponse: 'off', maxTurns: 2,
+    runtime: new AxJSRuntime({ nodeWorkerPoolSize: 1, timeout: 5000 }),
+    // Delegated func forwards the caller's AI; pin each child pipeline stage
+    // explicitly so only the narrow child fixture handles these requests.
+    contextOptions: { ...options(ctx), ai: childAI },
+    executorOptions: { ...options(ctx), ai: childAI },
+    responderOptions: { ...options(ctx), ai: childAI },
+  });
+  const lookupInputs: { sku: string }[] = [];
+  const lookup = fn('lookup').namespace('inventory').description('Read the owned public stock count')
+    .arg('sku', f.string()).returns(f.number())
+    .handler(async ({ sku }) => { lookupInputs.push({ sku }); return sku === 'SKU-1' ? 7 : 0; }).build();
+  const policies = [
+    { id: 'required-child', calls: ['team.stockClerk'], forbidden: ['inventory.lookup'], answer: '7', score: 1 },
+    { id: 'required-tool', calls: ['inventory.lookup'], forbidden: ['team.stockClerk'], answer: '7', score: 1 },
+    { id: 'direct-no-child', calls: [], forbidden: ['team.stockClerk', 'inventory.lookup'], answer: 'direct', score: 1 },
+    { id: 'missing-required-child', calls: ['team.stockClerk'], forbidden: ['inventory.lookup'], answer: '7', score: 0 },
+    { id: 'forbidden-child', calls: [], forbidden: ['team.stockClerk'], answer: '7', score: 0 },
+    { id: 'unnecessary-child', calls: [], forbidden: [], answer: '7', score: 0 },
+    { id: 'unnecessary-tool', calls: [], forbidden: [], answer: '7', score: 0 },
+  ] as const;
+  let parentModelCalls = 0;
+  let directExecutorCalls = 0;
+  const model = scriptedAI(request => {
+    parentModelCalls++;
+    assert.ok(parentModelCalls <= 19, 'Five full parent pipelines plus two direct-response pipelines');
+    const prompt = JSON.stringify(request.chatPrompt);
+    // Match a complete input value, not overlapping suffixes such as
+    // required-child inside missing-required-child.
+    const policy = policies.find(item => prompt.includes(`POLICY[${item.id}]`));
+    assert.ok(policy, 'Every actual stage request retains its stable task identity');
+    const actor = request.chatPrompt.some(message => message.role === 'system' &&
+      (message.content.includes('## Distiller\n') || message.content.includes('## Executor\n')));
+    if (!actor) return response(`Answer: ${policy.answer}`);
+    const executor = request.chatPrompt.some(message => message.role === 'system' &&
+      message.content.includes('## Executor\n'));
+    const direct = policy.id === 'direct-no-child' || policy.id === 'missing-required-child';
+    if (direct) {
+      if (executor) directExecutorCalls++;
+      return response(`Javascript Code: await respond("Answer directly; no child or tool is needed", {answer:${JSON.stringify(policy.answer)}});`);
+    }
+    if (!executor) return response('Javascript Code: await final("Follow the explicit policyCase call route using only the needed fields", {});');
+    const childCall = policy.id === 'required-child' || policy.id === 'forbidden-child' || policy.id === 'unnecessary-child';
+    return response(`Javascript Code: ${childCall
+      ? 'const report = await team.stockClerk({accountId:inputs.accountId, sku:inputs.sku}); await final("Return the child-reported available count", {report});'
+      : 'const count = await inventory.lookup({sku:inputs.sku}); await final("Return the tool-reported available count", {count});'}`);
+  }, { structuredOutputs: true });
+  const assistant = agent('policyCase:string, accountId:string, sku:string, privateContext:string -> answer:string', {
+    ai: model, contextFields: [], functions: [child, lookup], directResponse: 'auto', maxTurns: 2,
+    runtime: new AxJSRuntime({ nodeWorkerPoolSize: 1, timeout: 5000 }),
+    contextOptions: options(ctx), executorOptions: options(ctx), responderOptions: options(ctx),
+  });
+  const initial = Object.fromEntries(assistant.getOptimizableComponents().map(c => [c.key, c.current]));
+  const tasks: readonly AxAgentEvalTask<PolicyInput>[] = policies.map(policy => ({
+    id: policy.id,
+    input: { policyCase: `POLICY[${policy.id}]`, accountId: 'acct-demo', sku: 'SKU-1', privateContext: 'PRIVATE_PARENT_CONTEXT' },
+    criteria: `Required calls: ${policy.calls.join(', ') || 'none'}; forbidden calls: ${policy.forbidden.join(', ') || 'none'}. No unnecessary calls. Child arguments must contain only accountId and sku.`,
+    expectedActions: [...policy.calls], forbiddenActions: [...policy.forbidden], expectedOutput: { answer: policy.answer },
+  }));
+  const scored: { id: string; score: number; prediction: AxAgentEvalPrediction<Output> }[] = [];
+  try {
+    const result = await assistant.optimize({
+      train: [{ ...tasks[0]!, id: 'train-child-routing' }, { ...tasks[1]!, id: 'train-tool-routing' }],
+      validation: tasks,
+    }, {
+      studentAI: model, teacherAI: model, bootstrap: false, apply: false,
+      maxMetricCalls: tasks.length, numTrials: 1, sampleCount: 1, seed: 7, verbose: false,
+      metric: ({ prediction, example }) => {
+        const task = example as AxAgentEvalTask<PolicyInput>;
+        const policy = policies.find(item => item.id === task.id)!;
+        const run = prediction as AxAgentEvalPrediction<Output>;
+        const names = run.functionCalls.map(call => call.qualifiedName);
+        const required = task.expectedActions ?? [];
+        const forbidden = task.forbiddenActions ?? [];
+        const narrow = run.functionCalls.every(call => {
+          if (call.qualifiedName !== 'team.stockClerk') return true;
+          const args = call.arguments;
+          return args !== null && typeof args === 'object' && !Array.isArray(args) &&
+            Object.keys(args).length === 2 && Reflect.get(args, 'accountId') === task.input.accountId &&
+            Reflect.get(args, 'sku') === task.input.sku;
+        });
+        const score = run.completionType === 'final' && run.output.answer === policy.answer &&
+          run.toolErrors.length === 0 && names.length === required.length &&
+          required.every(name => names.filter(actual => actual === name).length === 1) &&
+          !forbidden.some(name => names.includes(name)) && narrow ? 1 : 0;
+        scored.push({ id: task.id!, score, prediction: run });
+        return score;
+      },
+    });
+    assert.ok(result.optimizedProgram);
+    assert.deepEqual(scored.map(row => ({ id: row.id, score: row.score })), policies.map(({ id, score }) => ({ id, score })));
+    assert.deepEqual(scored.map(row => row.prediction.functionCalls.map(call => call.qualifiedName)), [
+      ['team.stockClerk'], ['inventory.lookup'], [], [], ['team.stockClerk'], ['team.stockClerk'], ['inventory.lookup'],
+    ]);
+    for (const { prediction } of scored) {
+      assert.equal(prediction.completionType, 'final');
+      assert.deepEqual(prediction.toolErrors, []);
+      for (const call of prediction.functionCalls) {
+        if (call.qualifiedName === 'team.stockClerk') {
+          assert.deepEqual(call.arguments, { accountId: 'acct-demo', sku: 'SKU-1' });
+          assert.match(String(call.result), /7/);
+        } else {
+          assert.deepEqual(call.arguments, { sku: 'SKU-1' });
+          assert.equal(call.result, 7);
+        }
+      }
+    }
+    assert.equal(result.stats.totalCalls, tasks.length);
+    assert.equal(childModelCalls, 9);
+    assert.equal(childInputs.length, 9);
+    assert.deepEqual(lookupInputs, [{ sku: 'SKU-1' }, { sku: 'SKU-1' }]);
+    assert.equal(directExecutorCalls, 0, 'Direct/no-child predictions bypass the executor');
+    assert.equal(parentModelCalls, 19);
+    return { scores: scored.map(({ id, score, prediction }) => ({
+      id, score, calls: prediction.functionCalls.map(call => ({ name: call.qualifiedName, arguments: call.arguments })),
+    })), metricCalls: result.stats.totalCalls, parentModelCalls, childModelCalls,
+      boundary: 'Real child/tool/direct optimizer predictions establish this deterministic call policy, not model-quality improvement or production authorization.' };
+  } finally {
+    assistant.applyOptimizedComponents(initial);
+    assistant.setState(undefined);
+    child.setState(undefined);
+    assistant.stop();
+    child.stop();
+  }
+}
+
 export const examples: readonly Example[] = [
   { id: '24-agent-optimize/action-metric-artifact', title: 'Action-aware tuning with a real component-only artifact and held-out replay', features: ['agent.optimize', 'dataset', 'action-aware', 'deterministic-metric', 'saved-components', 'artifact-replay'], modes: ['offline', 'live'], run: deterministicTuning },
   { id: '24-agent-optimize/bootstrap-boundaries', title: 'Pipeline bootstrap exposes filtered traces and rejects unroutable context demos', features: ['agent.optimize', 'bootstrap', 'trace-eligibility', 'demo-routing', 'error-boundary'], modes: ['offline'], run: bootstrapBoundaries },
   { id: '24-agent-optimize/builtin-judge-validation', title: 'Built-in holistic judge with an explicit baseline-only call budget', features: ['agent.optimize', 'built-in-judge', 'judgeOptions', 'validation', 'baseline-artifact'], modes: ['offline', 'live'], run: builtInJudge },
   { id: '24-agent-optimize/dataset-boundary', title: 'Empty task dataset fails before any tool execution', features: ['agent.optimize', 'error-boundary'], modes: ['offline'], run: datasetBoundary },
+  { id: '24-agent-optimize/clarification-rollouts', title: 'Score necessary clarification with clean rollouts and restore caller continuation', features: ['agent.optimize', 'askClarification', 'completionType', 'state-isolation', 'caller-resume'], modes: ['offline'], run: clarificationRollouts },
+  { id: '24-agent-optimize/delegation-call-policy', title: 'Score real child, tool and direct predictions against required and unnecessary call policies', features: ['agent.optimize', 'delegation', 'functionCalls', 'required-actions', 'forbidden-actions', 'narrow-child-inputs', 'direct-response'], modes: ['offline'], run: delegationCallPolicy },
 ];

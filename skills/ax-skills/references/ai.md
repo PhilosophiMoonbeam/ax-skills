@@ -1,6 +1,6 @@
 # AI providers, models, and runtime configuration
 
-Use for `ai()`, deployment profiles, model catalogs/presets, routing and balancing, embeddings, thinking, service tiers, caching, cancellation, and provider-specific request contracts. Prefer short copyable code, not tutorial prose unless requested. Source API snapshot: 25.4.10. Audio task-specific detail belongs in [audio](audio.md); signature design in [signatures](signature.md); agent/runtime design is outside this reference.
+Use for `ai()`, deployment profiles, model catalogs/presets, routing and balancing, embeddings, thinking, service tiers, caching, cancellation, and provider-specific request contracts. Prefer short copyable code, not tutorial prose unless requested. Source API snapshot: 25.4.11. Audio task-specific detail belongs in [audio](audio.md); signature design in [signatures](signature.md); agent/runtime design is outside this reference.
 
 ## Factory and deployment profiles
 
@@ -501,6 +501,61 @@ console.log(res.results[0]?.thought);
 console.log(res.results[0]?.content);
 ```
 
+### Gemini 4 Hydrogen
+
+Select `AxAIGoogleGeminiModel.Gemini4Hydrogen` (`gemini-4-hydrogen`) with `name: 'google-gemini'`. It supports native JSON Schema, tools, streaming, and multimodal input. Logical thinking levels map `none` / `minimal` / `low` → `low`, `medium` → `medium`, `high` → `high`, and `highest` → `xhigh`. `none` also hides thoughts; omitting a level leaves Google's `high` default untouched. Native `config.thinking.thinkingLevel: 'xhigh'` works too; Gemini 3 clamps `xhigh` to `high`. Explicit `thinkingLevelMapping` overrides the logical mapping after resolving a model preset.
+
+Hydrogen accepts `maxTokens` with a thinking level, unlike Gemini 3, which rejects an explicit cap with `thinkingLevel`. A response segment is limited to 65,536 output tokens; larger caps fail locally because automatic continuation is not implemented. Its 1,048,576-token context includes input and output. Numeric thinking budgets and explicit `contextCache` fail locally. Sampling, penalties, and multiple candidates are omitted on both native Gemini and its Vertex mode; implicit provider caching still applies.
+
+The [Hydrogen cases](../examples/04-providers.ts) inspect real SDK request adaptation, schema/tool support, streaming, and rejection before injected transport. [PR #892](https://github.com/ax-llm/ax/pull/892) also adds Hydrogen and generation examples to Python, Java, C++, Go, and Rust through shared Core, including Java/Go streaming option forwarding. This is source evidence, not locally executed generated-language acceptance.
+
+### Anthropic document citations
+
+Send a `document` chat part, or the same value without `type` as an AxGen `file` / `f.file()` input:
+
+```typescript
+import { ai, type AxDocumentInput } from '@ax-llm/ax';
+
+const source: AxDocumentInput = {
+  source: { type: 'text', data: 'Returns are accepted within 30 days.' },
+  title: 'Returns policy',
+  context: 'Use this policy as the supplied evidence.',
+  citations: { enabled: true },
+  cache: true,
+};
+const claude = ai({ name: 'anthropic', apiKey });
+const response = await claude.chat({
+  chatPrompt: [{ role: 'user', content: [
+    { type: 'document', ...source },
+    { type: 'text', text: 'State the return window and cite the policy.' },
+  ] }],
+}, { stream: false });
+if (!('results' in response)) throw new Error('Expected a completed response');
+console.log(response.results[0]?.textBlocks);
+```
+
+`AxDocumentSource` accepts all five forms:
+
+| Source | Value |
+|---|---|
+| Plain text | `{ type: 'text', data: 'plain UTF-8 text' }` |
+| Inline PDF | `{ type: 'base64', mediaType: 'application/pdf', data: base64Pdf }` |
+| Hosted document | `{ type: 'url', url: 'https://example.com/source.pdf' }` |
+| Uploaded document | `{ type: 'file', fileId: 'file_...' }` (first-party Files API only, not Vertex) |
+| Custom citable blocks | `{ type: 'content', content: [{ type: 'text', text: 'one citable block' }] }` |
+
+Text, file IDs, PDF data, and every custom text block must be nonempty; URLs must use HTTP(S). `title` / `context` must be strings, and `citations.enabled` a boolean. These are local shape checks, not PDF decoding, remote-file validation, or evidence-quality checks. Existing PDF `file` parts (`data` or `fileUri`) also accept `title`, `context`, `citations`, and `cache`; non-PDF file citations fail locally.
+
+Enable citations on **every document across the whole request**, including earlier user messages and legacy PDF files, or on none. Native JSON Schema (`responseFormat.type: 'json_schema'`, mapped to `output_config.format`) is incompatible with enabled citations and fails before transport, including AxGen `.useStructured()`. Use a text signature with a citation instruction in its output description; Ax does not silently weaken an explicit JSON contract.
+
+`results[i].textBlocks` preserves each output passage as `{ index, text, citations? }`. A streaming block update is a **complete snapshot**: replace by `(result.index, block.index)`, never append its `text`. Ordinary `result.content` remains a text delta. Later citation-only updates can add associations without adding display text; earlier snapshots remain unchanged.
+
+Document citations have no `url`. Inspect `type`, `documentIndex`, `documentTitle`, optional `fileId`, and `snippet`, plus the matching range: `startCharIndex` / `endCharIndex`, `startPageNumber` / `endPageNumber`, or `startBlockIndex` / `endBlockIndex`. End positions are exclusive; pages start at 1 and content blocks at 0. These ranges locate **input evidence**, not output text. URL/web-search citations still use `url`.
+
+After either generation mode, [per-round-trip chat-log blocks](gen.md#normalized-chat-logs-and-usage) retain passage associations and `resultIndex`. `getUsage()[i].citations` is a flat source list, not a passage map. Document indices are request-local, never global source IDs: keep the corresponding request's document order. Routers preserve native documents and cited PDFs and exclude incompatible providers even with media degradation enabled; do not strip citations to force fallback.
+
+The [document examples](../examples/37-document-citations.ts) use the actual SDK with finite scripted HTTP/SSE responses, not inference. [PR #894](https://github.com/ax-llm/ax/pull/894) retains URL-less locations; [#895](https://github.com/ax-llm/ax/pull/895) adds sources and passage associations. [#896](https://github.com/ax-llm/ax/pull/896) ports document sources/validation to Python, Java, C++, Go, and Rust. Their results/logs use `text_blocks`, logs add `result_index`, and flat usage uses `citations`; location fields retain camelCase. Log access is `get_chat_log()` in Python/C++/Rust, `getChatLog()` in Java, and `ChatLog` in Go. These generated contracts are documented source scope, not executed acceptance here.
+
 ### Budget Levels
 
 | Level | Anthropic (tokens) | Gemini 2.5 (tokens) | Gemini 3 level |
@@ -795,9 +850,9 @@ const result = await generateText({
 });
 ```
 
-The tested [integration cases](../examples/34-vercel.ts) pin `@ax-llm/ax-ai-sdk-provider@25.4.9` with `ai@7.0.2` on Node ≥22.18. Keep their shared provider types coherent; the example package pins `@ai-sdk/provider@4.0.0` and `@ai-sdk/provider-utils@5.0.0` through overrides.
+The tested [integration cases](../examples/34-vercel.ts) pin `@ax-llm/ax-ai-sdk-provider@25.4.11` with `ai@7.0.2` on Node ≥22.18. Keep their shared provider types coherent; the example package pins `@ai-sdk/provider@4.0.0` and `@ai-sdk/provider-utils@5.0.0` through overrides.
 
-This adapter's `createChatRequest` drops `abortSignal`, `providerOptions` and `responseFormat`; sampling fields are not forwarded through Ax's `modelConfig`. Vercel typed-output validation is client-side, not native schema enforcement. Do not assume transport cancellation or provider-option forwarding from the higher-level call. See the [pinned adapter implementation](https://unpkg.com/@ax-llm/ax-ai-sdk-provider@25.4.9/index.js). The examples use actual adapter/SDK algorithms with explicitly scripted model I/O, not live cross-provider qualification.
+This adapter's `createChatRequest` drops `abortSignal`, `providerOptions` and `responseFormat`; sampling fields are not forwarded through Ax's `modelConfig`. Vercel typed-output validation is client-side, not native schema enforcement. Do not assume transport cancellation or provider-option forwarding from the higher-level call. See the [pinned adapter implementation](https://unpkg.com/@ax-llm/ax-ai-sdk-provider@25.4.11/index.js). The examples use actual adapter/SDK algorithms with explicitly scripted model I/O, not live cross-provider qualification.
 
 ## MCP transport and event ingestion
 

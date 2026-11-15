@@ -1,6 +1,6 @@
 # Ax Skills Collection
 
-One self-contained progressive-disclosure skill for designing and implementing TypeScript applications with `@ax-llm/ax`, grounded in the official **25.4.10** skill bundle. The collection supports holistic architectural decisions before code and precise API use during implementation. It uses terse-yet-complete Standard Technical English: remove repetition, not distinct contracts, constraints, examples or warnings.
+One self-contained progressive-disclosure skill for designing and implementing TypeScript applications with `@ax-llm/ax`, grounded in the supplied official **25.4.11** skills and release. The collection supports holistic architectural decisions before code and precise API use during implementation. It uses terse-yet-complete Standard Technical English: remove repetition, not distinct contracts, constraints, examples or warnings.
 
 ## Design first, then implement
 
@@ -13,7 +13,7 @@ The collection has four disclosure layers:
 | [Master](skills/ax-skills/SKILL.md) | Capability orientation, safety/authorization policy, design-first routing and implementation routes | Always retained when this skill is active |
 | [Architecture guide](skills/ax-skills/references/architecture.md) | Cross-subsystem design decisions, trade-offs and handoff to implementation | On demand for architecture, planning or consequential design changes |
 | 18 implementation references | Source-derived API contracts, constraints, examples and specialist behavior | Only the guides needed for the task |
-| [36 executable modules](skills/ax-skills/examples/INDEX.md) | Runnable core contracts, selected mechanisms and five architectural compositions | Only the selected module/case after its owning guide |
+| [38 executable modules](skills/ax-skills/examples/INDEX.md) | Runnable core contracts, selected mechanisms and five architectural compositions | Only the selected module/case after its owning guide |
 
 The architecture guide is authored, source-grounded synthesis, not an official API quotation or a promise of runtime guarantees. Implementation references preserve the official contracts and their caveats. Read the architecture guide with selected implementation guides when design depends on exact capabilities. Multiple guides are appropriate for overlapping tasks; loading the entire corpus is not the default.
 
@@ -27,7 +27,7 @@ npx skills@latest add https://github.com/PhilosophiMoonbeam/ax-skills/tree/main/
 
 When prompted, select **`ax-skills`** and the target agent host. This collection is intended to be the workspace's one active Ax master. Do not activate a duplicate official `ax-llm` entrypoint or separately registered specialists alongside it; inspect existing installations and deliberately choose which entrypoint remains active.
 
-[Official installation guidance](https://axllm.dev/typescript/skills/) documents a separate upstream installation path. In 25.4.10, when package-install scripts run, automatic setup requires the resolved consumer root's `package.json` to list `@ax-llm/ax` in `dependencies`, `devDependencies` or `optionalDependencies`. It installs official `ax-llm` and local guides in that root's `.claude/skills`, not this collection. Transitive and global installs skip setup, as does CI; runtime imports do not perform this installation. Root resolution prefers `INIT_CWD`, then the installed package's topmost `node_modules` parent. To prevent duplicate setup:
+[Official installation guidance](https://axllm.dev/typescript/skills/) documents a separate upstream installation path. In the pinned package, when package-install scripts run, automatic setup requires the resolved consumer root's `package.json` to list `@ax-llm/ax` in `dependencies`, `devDependencies` or `optionalDependencies`. It installs official `ax-llm` and local guides in that root's `.claude/skills`, not this collection. Transitive and global installs skip setup, as does CI; runtime imports do not perform this installation. Root resolution prefers `INIT_CWD`, then the installed package's topmost `node_modules` parent. To prevent duplicate setup:
 
 - Set `AX_SKIP_SKILL_INSTALL=1` during package installation to skip that run.
 - Run `npx @ax-llm/ax skills-auto-install off` from the project root to save `ax.skills.autoInstall: false` in `package.json`; merge that setting before the first installation if needed. `skills-auto-install on` restores future automatic setup. CI and the environment opt-out take precedence.
@@ -49,7 +49,7 @@ npm --prefix skills/ax-skills/examples run offline -- 01-signatures
 npm --prefix skills/ax-skills/examples run offline
 ```
 
-For an installed skill, run the same commands from its `ax-skills` directory with `--prefix examples`. Package/lock pins are Ax, Ax Tools and the Ax Vercel provider 25.4.10; `ai` 7.0.2 with `@ai-sdk/provider` 4.0.0 and `@ai-sdk/provider-utils` 5.0.0 overrides; OpenTelemetry API 1.9.0 and trace SDK 2.0.1; Zod 4.1.11, TypeScript 5.9.3, tsx 4.20.6, esbuild 0.25.12 and Node types 22.18.6. The trace SDK release is npm-deprecated; earlier compatibility results are historical, not fresh acceptance of this revision. Script-free installation avoids automatic upstream skill setup; explicitly approve/rebuild only `better-sqlite3`, with a compatible native prebuild or build toolchain. The package records npm 12 approval for the pinned driver; older npm versions without `install-scripts` omit only that approval command, retaining the targeted rebuild. Do not rebuild all dependencies or enable Ax’s postinstall. Installation writes `node_modules`; cases own their local resources and temporary stores.
+For an installed skill, run the same commands from its `ax-skills` directory with `--prefix examples`. Package/lock pins are Ax, Ax Tools and the Ax Vercel provider 25.4.11; `ai` 7.0.2 with `@ai-sdk/provider` 4.0.0 and `@ai-sdk/provider-utils` 5.0.0 overrides; OpenTelemetry API 1.9.0 and trace SDK 2.0.1; Zod 4.1.11, TypeScript 5.9.3, tsx 4.20.6, esbuild 0.25.12 and Node types 22.18.6. The trace SDK release is npm-deprecated; compatibility evidence applies only to its recorded checks. Script-free installation avoids automatic upstream skill setup; explicitly approve/rebuild only `better-sqlite3`, with a compatible native prebuild or build toolchain. The package records npm 12 approval for the pinned driver; older npm versions without `install-scripts` omit only that approval command, retaining the targeted rebuild. Do not rebuild all dependencies or enable Ax’s postinstall. Installation writes `node_modules`; cases own their local resources and temporary stores.
 
 Offline is the default: scripted model I/O drives actual SDK algorithms and local/injected protocols, not billed providers or real-provider quality evidence. Browser adapter fixtures and the browser entry do not qualify actual browser-model inference. Audio modules are offline protocol/media fixtures, not real speech or microphone acceptance. SQLite uses native `better-sqlite3`, not Node’s built-in SQLite API. Generic model credentials do not establish audio, image/Box, MCP or OAuth prerequisites.
 
@@ -65,42 +65,50 @@ Supported/exported modes are not exercised acceptance. Report actual typecheck, 
 
 ## Official bundle and local mapping
 
-The local reference snapshot is the complete **19-file official bundle** under `.agents/skills/ax-llm`, published for `@ax-llm/ax` 25.4.10 with npm `gitHead` `bbacc3b7220a60f02225375a074f6ce334046472`. The latest source comparison uses local `bdebc20` versus `516cd53`; these repository boundaries are not the upstream publication revision. The [official index](https://axllm.dev/typescript/.well-known/agent-skills/index.json) identifies the [bundle archive](https://axllm.dev/typescript/.well-known/agent-skills/ax-llm/skill.tar.gz), SHA-256 `f16367324b06114e89bd98c0cb4a5de99453386830346012be880e7bf53a1c7a`. These canonical HTTPS links serve the pinned bytes without downgrading to HTTP; the manifest retains the original publication URLs. All 19 local source members match that publication byte-for-byte: **381,729 bytes and 7,944 lines**. The official sources are tracked reference fixtures. Only `skills/ax-skills/` is the published skill collection; source fixtures and local tooling are not distribution entrypoints.
+The supplied snapshot contains **39 inputs: 827,595 bytes and 16,950 lines** under `upstream/`. Its progressive bundle is the complete **19-file publication** at `upstream/ax-llm`: **386,935 bytes and 8,027 lines**, pinned to `@ax-llm/ax` **25.4.11**, npm `gitHead` `007ab8366e5bfa98d871feb1af188cc029295c58`. The canonical HTTPS [official index](https://axllm.dev/typescript/.well-known/agent-skills/index.json) identifies the [bundle archive](https://axllm.dev/typescript/.well-known/agent-skills/ax-llm/skill.tar.gz), SHA-256 `7a0352003bd15688a0806e8e372e1ece50681ed15eedf27f6f749b2461eb87b8`. The archive pin covers those 19 members, not all 39 supplied files.
 
-Source paths below are relative to `.agents/skills/ax-llm`; destination labels are relative to `skills/ax-skills/`. Links in this README resolve from the repository root; distributed Markdown links resolve from their containing file. The bundle becomes one master plus 18 implementation references, supplemented by one authored architecture reference. The master directly links all 19 references.
+The other inputs are **17 specialist `SKILL.md` wrappers and three nested Typesafe reference copies**. Wrappers largely repeat progressive-reference content with specialist metadata, orientation and examples; they are not 17 novel API topics. Review their distinct contracts, retain duplicate-source mappings and route them to the existing owning guides, not additional active skills. The source partition has 683 section occurrences: 349 unique units and 334 exact duplicates; nine release entries are separate inputs.
 
-Relative to the preserved 25.4.9 bundle, 15 official members are byte-identical. Four change: the master updates version metadata; Providers and Typesafe add Gemini Decisions; Signatures correct Zod 4 enum/array conversion guidance. Installer-lock changes are metadata only, not additional API contracts. See the [25.4.10 release](https://github.com/ax-llm/ax/releases/tag/25.4.10) and [PR 886](https://github.com/ax-llm/ax/pull/886), [PR 888](https://github.com/ax-llm/ax/pull/888), [PR 890](https://github.com/ax-llm/ax/pull/890).
+Source paths in the table are relative to `upstream/`; destinations are relative to `skills/ax-skills/`. Distributed Markdown links resolve from their containing file. One 52-line master directly routes all 19 local references: 18 implementation guides plus authored architecture synthesis. Only `skills/ax-skills/` is distributed; upstream files are reference inputs, not active entrypoints.
 
-The architecture routes dedicated decision providers separately from ordinary generative profiles. Jev supports structured state/criteria and experimental Box; OpenAI Decisions uses ordered questions and per-question refusals; Gemini Decisions uses named multimodal questions, required confidence and input-only usage, with HTTP safety errors rather than refusal unions. Shared evidence shapes do not establish equivalent APIs or calibration. The pinned Ax 25.4.10 OpenAI client is narrower than the current upstream endpoint. Details belong in [typed decisions](skills/ax-skills/references/typesafe.md), not the master.
+The [25.4.11 release](https://github.com/ax-llm/ax/releases/tag/25.4.11) adds or repairs four related surfaces:
+
+- **Streamed tool text:** preserve text accompanying tool calls, merge deltas and retain it in subsequent request history; see [generation](skills/ax-skills/references/gen.md#streaming-output-and-replacement-versions) and [03-tools-streaming.ts](skills/ax-skills/examples/03-tools-streaming.ts). [PR 887](https://github.com/ax-llm/ax/pull/887) and [PR 891](https://github.com/ax-llm/ax/pull/891).
+- **Gemini 4 Hydrogen:** apply its provider-specific thinking, request-size, schema/tool and streaming constraints, not generic Gemini assumptions; see [providers](skills/ax-skills/references/ai.md#gemini-4-hydrogen) and [04-providers.ts](skills/ax-skills/examples/04-providers.ts). [PR 892](https://github.com/ax-llm/ax/pull/892).
+- **Native document citations:** preserve source forms, URL-less document locations and passage associations. Replace streamed block snapshots rather than appending them; provenance is attribution, not truth. See [citations](skills/ax-skills/references/ai.md#anthropic-document-citations), [normalized logs](skills/ax-skills/references/gen.md#normalized-chat-logs-and-usage) and [37-document-citations.ts](skills/ax-skills/examples/37-document-citations.ts). [PR 894](https://github.com/ax-llm/ax/pull/894), [PR 895](https://github.com/ax-llm/ax/pull/895) and [PR 896](https://github.com/ax-llm/ax/pull/896).
+- **Shared references:** repeated sibling references are not ancestor cycles; preserve the former and mark only real cycles in executor replay. See [RLM](skills/ax-skills/references/agent-rlm.md#shared-references-are-not-cycles-25411) and [32-executor-context.ts](skills/ax-skills/examples/32-executor-context.ts). [PR 893](https://github.com/ax-llm/ax/pull/893) and [PR 896](https://github.com/ax-llm/ax/pull/896).
+
+The release/credit entries, including [PR 897](https://github.com/ax-llm/ax/pull/897), are organizational evidence, not extra APIs. Generated-language release notes establish source-described scope, not runtime qualification here. Dedicated Jev, OpenAI and Gemini Decisions remain distinct contracts; shared evidence shapes do not imply equivalent APIs or calibration. See [typed decisions](skills/ax-skills/references/typesafe.md).
 
 Two bounded tsEpistle backports reconcile the MCP example and its index note: `29-mcp-oauth.ts` preserves an earlier operation error when its SSE listener also fails, while still surfacing an unexpected listener failure after successful operations; `examples/INDEX.md` describes that precedence instead of a throw from `finally`. A separate failure flag handles even `throw undefined`; host-owned close cancellation remains expected. This is error-precedence preservation, not broader transport reliability.
 
 **Historical 25.4.9:** [PR 876](https://github.com/ax-llm/ax/pull/876) corrected empty-text Anthropic replay; [PR 883](https://github.com/ax-llm/ax/pull/883) aligned generated cache placement and plain unknown-tool errors; [PR 881](https://github.com/ax-llm/ax/pull/881) narrowed automatic setup. Those bounded contracts remain relevant, but their prior acceptance does not certify this revision.
 
-| Official source | Local destination |
-| --- | --- |
-| `SKILL.md` | [SKILL.md](skills/ax-skills/SKILL.md) and [references/llm.md](skills/ax-skills/references/llm.md) |
-| `references/quickstart.md` | [references/llm.md](skills/ax-skills/references/llm.md) |
-| `references/ax-ai.md` | [references/ai.md](skills/ax-skills/references/ai.md) |
-| `references/ax-audio.md` | [references/audio.md](skills/ax-skills/references/audio.md) |
-| `references/ax-signature.md` | [references/signature.md](skills/ax-skills/references/signature.md) |
-| `references/ax-gen.md` | [references/gen.md](skills/ax-skills/references/gen.md) |
-| `references/ax-agent.md` | [references/agent.md](skills/ax-skills/references/agent.md) |
-| `references/ax-agent-context.md` | [references/agent-context.md](skills/ax-skills/references/agent-context.md) |
-| `references/ax-agent-memory-skills.md` | [references/agent-memory-skills.md](skills/ax-skills/references/agent-memory-skills.md) |
-| `references/ax-agent-rlm.md` | [references/agent-rlm.md](skills/ax-skills/references/agent-rlm.md) |
-| `references/ax-agent-observability.md` | [references/agent-observability.md](skills/ax-skills/references/agent-observability.md) |
-| `references/ax-agent-optimize.md` | [references/agent-optimize.md](skills/ax-skills/references/agent-optimize.md) |
-| `references/ax-flow.md` | [references/flow.md](skills/ax-skills/references/flow.md) |
-| `references/ax-event-runtime.md` | [references/event-runtime.md](skills/ax-skills/references/event-runtime.md) |
-| `references/ax-gepa.md` | [references/gepa.md](skills/ax-skills/references/gepa.md) |
-| `references/ax-playbook.md` | [references/playbook.md](skills/ax-skills/references/playbook.md) |
-| `references/ax-refine.md` | [references/refine.md](skills/ax-skills/references/refine.md) |
-| `references/ax-mcp.md` | [references/mcp.md](skills/ax-skills/references/mcp.md) |
-| `references/ax-typesafe.md` | [references/typesafe.md](skills/ax-skills/references/typesafe.md) |
-| Authored cross-subsystem synthesis; no one-to-one source | [references/architecture.md](skills/ax-skills/references/architecture.md) |
+| Progressive source | Specialist wrapper | Local destination |
+| --- | --- | --- |
+| `ax-llm/SKILL.md` | — | [SKILL.md](skills/ax-skills/SKILL.md) and [references/llm.md](skills/ax-skills/references/llm.md) |
+| `ax-llm/references/quickstart.md` | — | [references/llm.md](skills/ax-skills/references/llm.md) |
+| `ax-llm/references/ax-ai.md` | `ax-ai/SKILL.md` | [references/ai.md](skills/ax-skills/references/ai.md) |
+| `ax-llm/references/ax-audio.md` | `ax-audio/SKILL.md` | [references/audio.md](skills/ax-skills/references/audio.md) |
+| `ax-llm/references/ax-signature.md` | `ax-signature/SKILL.md` | [references/signature.md](skills/ax-skills/references/signature.md) |
+| `ax-llm/references/ax-gen.md` | `ax-gen/SKILL.md` | [references/gen.md](skills/ax-skills/references/gen.md) |
+| `ax-llm/references/ax-agent.md` | `ax-agent/SKILL.md` | [references/agent.md](skills/ax-skills/references/agent.md) |
+| `ax-llm/references/ax-agent-context.md` | `ax-agent-context/SKILL.md` | [references/agent-context.md](skills/ax-skills/references/agent-context.md) |
+| `ax-llm/references/ax-agent-memory-skills.md` | `ax-agent-memory-skills/SKILL.md` | [references/agent-memory-skills.md](skills/ax-skills/references/agent-memory-skills.md) |
+| `ax-llm/references/ax-agent-rlm.md` | `ax-agent-rlm/SKILL.md` | [references/agent-rlm.md](skills/ax-skills/references/agent-rlm.md) |
+| `ax-llm/references/ax-agent-observability.md` | `ax-agent-observability/SKILL.md` | [references/agent-observability.md](skills/ax-skills/references/agent-observability.md) |
+| `ax-llm/references/ax-agent-optimize.md` | `ax-agent-optimize/SKILL.md` | [references/agent-optimize.md](skills/ax-skills/references/agent-optimize.md) |
+| `ax-llm/references/ax-flow.md` | `ax-flow/SKILL.md` | [references/flow.md](skills/ax-skills/references/flow.md) |
+| `ax-llm/references/ax-event-runtime.md` | `ax-event-runtime/SKILL.md` | [references/event-runtime.md](skills/ax-skills/references/event-runtime.md) |
+| `ax-llm/references/ax-gepa.md` | `ax-gepa/SKILL.md` | [references/gepa.md](skills/ax-skills/references/gepa.md) |
+| `ax-llm/references/ax-playbook.md` | `ax-playbook/SKILL.md` | [references/playbook.md](skills/ax-skills/references/playbook.md) |
+| `ax-llm/references/ax-refine.md` | `ax-refine/SKILL.md` | [references/refine.md](skills/ax-skills/references/refine.md) |
+| `ax-llm/references/ax-mcp.md` | `ax-mcp/SKILL.md` | [references/mcp.md](skills/ax-skills/references/mcp.md) |
+| `ax-llm/references/ax-typesafe.md` | `ax-typesafe/SKILL.md` | [references/typesafe.md](skills/ax-skills/references/typesafe.md) |
+| `ax-ai/references/ax-typesafe.md`, `ax-gen/references/ax-typesafe.md`, `ax-signature/references/ax-typesafe.md` | Nested copies, not entrypoints | [references/typesafe.md](skills/ax-skills/references/typesafe.md) |
+| Authored cross-subsystem synthesis; no one-to-one source | — | [references/architecture.md](skills/ax-skills/references/architecture.md) |
 
-[Source manifest](skills/ax-skills/assets/source-manifest.json) schema 2 records the source root, package/version, upstream commit, index/archive URLs and archive SHA-256. Every official Markdown member has a repository-relative source path, collection-relative destinations, SHA-256, original byte count and line count. `authored_references` distinguishes architecture synthesis from copied-source mappings. Archive and member hashes are the ongoing bundle provenance authority. `skills-lock.json` is installer-managed historical metadata: do not manually rewrite it to simulate synchronization.
+[Source manifest](skills/ax-skills/assets/source-manifest.json) **schema 2** pins only the progressive bundle: source root, package/version, npm revision, canonical index/archive URLs, archive hash and each member's destinations, SHA-256, bytes and lines. `authored_references` separates architecture synthesis from source mappings. The coverage audit separately binds the complete supplied inventory and duplicate occurrences; do not treat the bundle manifest as a 39-input manifest. `skills-lock.json` is installer-managed historical metadata, not synchronization evidence; do not hand-edit it.
 
 Two source conflicts remain explicit:
 
@@ -111,14 +119,14 @@ Two source conflicts remain explicit:
 
 Track work in Beads: run `bd prime` and `bd ready`, then create or claim the relevant issue. Read `SKILLS_SPEC.md` and affected source/reference sections before editing. From the repository root:
 
-Maintainer checks require the tracked `.agents/skills/ax-llm` reference fixtures. If they are missing locally, restore the exact official archive identified by the source manifest before source synchronization or structural validation. The sync helper checks or updates an existing snapshot; it does not bootstrap missing fixtures. Installed-skill users need none of these repository inputs.
+Maintainer source checks require the tracked `upstream/ax-llm` progressive fixtures. If missing, restore the exact archive pinned by the source manifest before synchronization or structural validation; the helper does not bootstrap a missing root. Preserve the other supplied specialist/nested inputs separately. Installed-skill users need none of these repository inputs.
 
 ```sh
 python3 scripts/sync_ax_sources.py --check
 python3 scripts/sync_ax_sources.py --update
 ```
 
-No argument means `--check`. Check mode is read-only and reports drift or invalid publication with a nonzero exit status. Explicit `--update` validates the official publication and updates only the preserved source snapshot and schema-2 manifest. It refuses unexpected local files, symlinks and managed source bytes modified relative to the manifest; preserve and resolve local changes rather than overwriting them. Neither mode installs skills, rewrites the lock file, integrates curated references or updates the semantic audit.
+No argument means `--check`. Check mode is read-only and reports drift or invalid publication with a nonzero exit status. Explicit `--update` validates the official publication and updates only `upstream/ax-llm` and the schema-2 manifest; it does not update the 17 sibling specialist wrappers or three nested copies. It refuses unexpected local files, symlinks and managed source bytes modified relative to the manifest; preserve and resolve local changes rather than overwriting them. Neither mode installs skills, rewrites the lock file, integrates curated references or refreshes semantic evidence. Treat supplied inputs as preserved evidence; a deliberate future source refresh needs its own reviewed scope.
 
 Optional CLI arguments are `--repo PATH`, `--collection PATH`, `--index-url URL` and `--npm-url URL`. Publication URL overrides are explicitly trusted inputs, including local test fixtures; do not substitute untrusted endpoints. Exact snapshot/manifest agreement returns exit status 0; drift, invalid metadata/archive, unsafe paths and network/write errors return 1. Update returns 0 after a validated import or no-op; it is mutually exclusive with `--check`.
 
@@ -136,30 +144,32 @@ Keep one `SKILL.md`, with frontmatter name `ax-skills`, description within 1024 
 Structural validation and semantic/design review answer different questions. The integration owner runs the following after integration, with Python 3 and `skills-ref` available:
 
 ```sh
+python3 -m unittest discover -s scripts -p 'test_*.py'
 python3 scripts/sync_ax_sources.py --check
 python3 scripts/validate_ax_skills.py
 skills-ref validate skills/ax-skills
+skills-ref to-prompt skills/ax-skills
 ```
 
-Exercise sync/validator behavior tests and host discovery/disclosure smoke checks as well. Inspect the actual master and selected local guides, not just route labels. These are acceptance instructions, not claims that this revision has passed them.
+Also run the strict TypeScript check, actual CLI discovery and complete offline CLI commands in [Run the installed examples](#run-the-installed-examples). Inspect host discovery/disclosure, the actual master and selected local guides, not just route labels. These are acceptance instructions, not claims that this revision has passed them.
 
-The final **original-versus-new full semantic coverage review** must cover all 19 official source files against the final master and mapped references. Account for every semantic unit and organizational section; resolve missing, incorrect, uncertain or conflicting findings, then repeat the full review after semantic corrections. A destination-only Markdown migration may retain historical semantic evidence through an explicit certificate proving identical resolved targets and unchanged API prose, headings and code fences. It is not a new model review; changed API meaning still requires semantic review.
+The final **original-versus-new full semantic coverage review** must cover all 39 supplied inputs and nine release entries against the final master and mapped references. Account for every nonempty section, including wrapper-only guidance, exact duplicates and organizational material; resolve missing, incorrect, uncertain or conflicting findings, then repeat the full review after semantic corrections. Preserve the 683-occurrence/349-unique/334-duplicate partition instead of counting duplicates as new API topics. A destination-only Markdown migration may retain historical semantic evidence through an explicit certificate proving identical resolved targets and unchanged API prose, headings and code fences. It is not a new semantic review; changed API meaning requires fresh review.
 
 Separately exercise pre-development design and implementation scenarios: select generation versus agents versus flows versus event resumption; assign context/state and side-effect ownership; choose retrieval versus compaction versus optimization; then implement cross-cutting tasks such as agent + MCP, provider + structured outputs, audio + generation, and event-driven agent/flow resumption using only the master and selected guides. Review architecture synthesis for source grounding, explicit assumptions and unsupported guarantees. Verify narrow tasks do not require unrelated guides and overlapping tasks can load several.
 
-[Coverage audit](skills/ax-skills/assets/coverage-audit.json) and [Examples audit](skills/ax-skills/assets/examples-audit.json) hold current fingerprints, deterministic link-migration evidence and Git pointers to immutable historical reviews. Each result applies only to its recorded hashes and observed commands. The 25.4.10 semantic/runtime review is preserved at `058f2ae:skills/ax-skills/assets/coverage-audit.json` and `058f2ae:skills/ax-skills/assets/examples-audit.json`; earlier assets remain at `bdebc209`, with pre-example evidence at `d4f113f` and the 25.4.1 audit at `4cd9d844`. Source-publication identity is not semantic or executable acceptance.
+[Coverage audit](skills/ax-skills/assets/coverage-audit.json) uses the existing **schema 6**; [Examples audit](skills/ax-skills/assets/examples-audit.json) uses **schema 4**. Their existing `current` and `historical_baseline` boundaries separate recorded fingerprints, observed procedure outputs and older evidence; format numbers do not imply fresh acceptance. Source identity, semantic/source dispositions, executable runtime results and disclosure findings are distinct evidence. The integration producer's authorized self-check is **not independent review**, and triage labels are not accepted semantic verdicts. Historical 25.4.10 evidence remains at `058f2ae:skills/ax-skills/assets/coverage-audit.json` and `058f2ae:skills/ax-skills/assets/examples-audit.json`; earlier assets remain at `bdebc209`, with pre-example evidence at `d4f113f` and the 25.4.1 audit at `4cd9d844`. Each result applies only to its recorded target hashes and commands.
 
 Aggregate corpus compression is not task-level quality. A smaller complete collection can still omit a critical constraint, make a poor architectural choice or load irrelevant guides. Evaluate semantic completeness, design correctness and actual selected-guide disclosure separately. Report size/token measurements only with the measured snapshot, tokenizer and load composition; no density percentage or historical token count establishes current acceptance. Documentation checks do not certify live provider behavior, generated-language parity or application correctness.
 
 ## Current executable-example acceptance
 
-The collection contains **206 cases in 36 flat modules** and one selectively loaded index. Strict TypeScript and complete offline CLI acceptance are recorded at `058f2ae` for the unchanged executable sources and package lock; this Markdown repair does not relabel them as fresh runs. Current Python regressions, source identity, standard file-relative link validation and skill disclosure are recorded separately in the audit assets. Offline cases exercise actual SDK algorithms, native SQLite and owned protocol peers, not model quality; the earlier CLI Google-profile check used a synthetic fetch preload, not remote inference.
+The integration owner's **2026-11-15 self-check** observed **230 declared and executed offline cases in 38 modules**, complete offline CLI and strict TypeScript exit 0, with **zero remote model HTTP requests**. All eight procedure commands passed: 36 Python regressions, exact 19-member source identity, structural validation, `skills-ref validate`/`to-prompt`, TypeScript, actual CLI discovery and the full offline run. Structural output recorded 19 directly linked references, 21 collection Markdown files, 620 links and the unchanged 52-line master. The earlier 224-case/37-module result is only the pre-final baseline.
 
-Current reconciliation adds Gemini adapter/native coverage and removes obsolete Zod 4 enum-rejection advice: 25.4.10 supports enum options and array element conversion while original schema validators retain checks/transforms. Jev guidance separates overlapping flags from exclusive Choice, gates applicability separately from selected-label probability, and distinguishes uncertainty, refusal, inapplicability and unavailable authoritative facts. Ticket generation is an outcome acknowledgement, not a guaranteed factual rationale. The owning guides retain Architecture → specialist reference → selected example disclosure. Source: [TypeSafe’s judgment-versus-decision guidance](https://typesafe.ai/blog/dont-call-it-a-decision-model).
+The [index](skills/ax-skills/examples/INDEX.md#exact-release-and-source-backed-cases) binds the exact release/source-backed IDs, modes, prerequisites, effects and cleanup. These source/structure/runtime observations do not by themselves establish semantic completeness or design quality; semantic and disclosure dispositions remain separate [coverage-audit](skills/ax-skills/assets/coverage-audit.json) evidence. The [examples audit](skills/ax-skills/assets/examples-audit.json) binds runtime observations to recorded targets. This is the authorized producer self-check, **not independent review**; historical votes are not relabeled current.
 
-The unchanged ticket composition exercises 33 scenarios, retaining the original 18 and adding unavailable/stale-fact boundaries. Six real legacy-SSE fault scenarios cover primary-error precedence, `undefined` rejection and exact host-cancellation ownership. The 25.4.10 release reviewed all 327 official sections and 102 design/disclosure scenarios, with three judge input-limit errors resolved manually and retained. This link-only migration preserves that historical evidence through deterministic target/prose equivalence; no old model vote is presented as fresh acceptance.
+Offline cases exercise actual SDK algorithms, native SQLite and owned protocol peers, not model quality. Historical Google-profile checks used synthetic fetch; earlier live acceptance covered five scenarios and 16 HTTP requests, not this release. Earlier browser checks observed **unavailable on this device/profile**, not inference. Live speech, microphone, image synthesis, remote MCP/OAuth interoperability, generated-language runtime parity and external business writes remain unqualified.
 
-Earlier executable acceptance and case totals are historical in `bdebc209:README.md` and its audit assets. Earlier live acceptance covered five scenarios and 16 actual HTTP requests; it does not qualify the amended ticket composition or new Gemini cases. Earlier browser checks observed **unavailable on this device/profile**, not model inference. Live speech, microphone, image synthesis and external business writes remain unqualified. Current audit assets record the observed checks separately from historical verdicts; no historical vote is relabeled as current.
+Historical 25.4.10 review covered 327 source sections and 102 design/disclosure scenarios; three input-limit errors were manually resolved and retained. Its Gemini Decisions, Zod 4, ticket-composition and SSE fault results remain evidence for those recorded bytes only. Neither those votes nor deterministic link-repair certificates certify the amended 25.4.11 collection.
 
 ## Historical 25.4.9 refresh results
 

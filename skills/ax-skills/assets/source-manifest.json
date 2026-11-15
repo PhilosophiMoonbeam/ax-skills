@@ -1,27 +1,27 @@
 {
   "schema_version": 2,
-  "source_root": ".agents/skills/ax-llm",
+  "source_root": "upstream/ax-llm",
   "upstream": {
     "package": "@ax-llm/ax",
-    "version": "25.4.10",
-    "git_commit": "bbacc3b7220a60f02225375a074f6ce334046472",
-    "index_url": "https://ax-llm.github.io/ax/typescript/.well-known/agent-skills/index.json",
-    "archive_url": "https://ax-llm.github.io/ax/typescript/.well-known/agent-skills/ax-llm/skill.tar.gz",
-    "archive_sha256": "f16367324b06114e89bd98c0cb4a5de99453386830346012be880e7bf53a1c7a"
+    "version": "25.4.11",
+    "git_commit": "007ab8366e5bfa98d871feb1af188cc029295c58",
+    "index_url": "https://axllm.dev/typescript/.well-known/agent-skills/index.json",
+    "archive_url": "https://axllm.dev/typescript/.well-known/agent-skills/ax-llm/skill.tar.gz",
+    "archive_sha256": "7a0352003bd15688a0806e8e372e1ece50681ed15eedf27f6f749b2461eb87b8"
   },
   "sources": [
     {
-      "source": ".agents/skills/ax-llm/SKILL.md",
+      "source": "upstream/ax-llm/SKILL.md",
       "destinations": [
         "SKILL.md",
         "references/llm.md"
       ],
-      "sha256": "279d65a325dee0ac491533e5a28e450fbdc9ad22bdb429270b679f06f9144c52",
+      "sha256": "c2eeb6c6a97f9002765b632adf7cae1029dd12fbb3c88d8d74469c1cbb25a417",
       "original_bytes": 3360,
       "original_lines": 54
     },
     {
-      "source": ".agents/skills/ax-llm/references/ax-agent-context.md",
+      "source": "upstream/ax-llm/references/ax-agent-context.md",
       "destinations": [
         "references/agent-context.md"
       ],
@@ -30,7 +30,7 @@
       "original_lines": 37
     },
     {
-      "source": ".agents/skills/ax-llm/references/ax-agent-memory-skills.md",
+      "source": "upstream/ax-llm/references/ax-agent-memory-skills.md",
       "destinations": [
         "references/agent-memory-skills.md"
       ],
@@ -39,7 +39,7 @@
       "original_lines": 437
     },
     {
-      "source": ".agents/skills/ax-llm/references/ax-agent-observability.md",
+      "source": "upstream/ax-llm/references/ax-agent-observability.md",
       "destinations": [
         "references/agent-observability.md"
       ],
@@ -48,7 +48,7 @@
       "original_lines": 402
     },
     {
-      "source": ".agents/skills/ax-llm/references/ax-agent-optimize.md",
+      "source": "upstream/ax-llm/references/ax-agent-optimize.md",
       "destinations": [
         "references/agent-optimize.md"
       ],
@@ -57,7 +57,7 @@
       "original_lines": 363
     },
     {
-      "source": ".agents/skills/ax-llm/references/ax-agent-rlm.md",
+      "source": "upstream/ax-llm/references/ax-agent-rlm.md",
       "destinations": [
         "references/agent-rlm.md"
       ],
@@ -66,7 +66,7 @@
       "original_lines": 498
     },
     {
-      "source": ".agents/skills/ax-llm/references/ax-agent.md",
+      "source": "upstream/ax-llm/references/ax-agent.md",
       "destinations": [
         "references/agent.md"
       ],
@@ -75,16 +75,16 @@
       "original_lines": 704
     },
     {
-      "source": ".agents/skills/ax-llm/references/ax-ai.md",
+      "source": "upstream/ax-llm/references/ax-ai.md",
       "destinations": [
         "references/ai.md"
       ],
-      "sha256": "725fb21e91649bcc62e6d709ae495abac48ce2cb67a4575a50ad9bbb9a34e519",
-      "original_bytes": 66090,
-      "original_lines": 1276
+      "sha256": "8f343695024d826a4162ad5dd7af3d8f02d9f1f1139118019ae7accc524bc36e",
+      "original_bytes": 70318,
+      "original_lines": 1345
     },
     {
-      "source": ".agents/skills/ax-llm/references/ax-audio.md",
+      "source": "upstream/ax-llm/references/ax-audio.md",
       "destinations": [
         "references/audio.md"
       ],
@@ -93,7 +93,7 @@
       "original_lines": 460
     },
     {
-      "source": ".agents/skills/ax-llm/references/ax-event-runtime.md",
+      "source": "upstream/ax-llm/references/ax-event-runtime.md",
       "destinations": [
         "references/event-runtime.md"
       ],
@@ -102,7 +102,7 @@
       "original_lines": 146
     },
     {
-      "source": ".agents/skills/ax-llm/references/ax-flow.md",
+      "source": "upstream/ax-llm/references/ax-flow.md",
       "destinations": [
         "references/flow.md"
       ],
@@ -111,16 +111,16 @@
       "original_lines": 742
     },
     {
-      "source": ".agents/skills/ax-llm/references/ax-gen.md",
+      "source": "upstream/ax-llm/references/ax-gen.md",
       "destinations": [
         "references/gen.md"
       ],
-      "sha256": "e62a9d9cb69ec6d255b26ea6e601074ec67187c3036bc026ac69f75f907a327d",
-      "original_bytes": 30518,
-      "original_lines": 645
+      "sha256": "a97b17153f94b9a5ccc6668404c8d20516cd0f4aff7df06ebd0e89cad4c5ccd1",
+      "original_bytes": 31496,
+      "original_lines": 659
     },
     {
-      "source": ".agents/skills/ax-llm/references/ax-gepa.md",
+      "source": "upstream/ax-llm/references/ax-gepa.md",
       "destinations": [
         "references/gepa.md"
       ],
@@ -129,7 +129,7 @@
       "original_lines": 271
     },
     {
-      "source": ".agents/skills/ax-llm/references/ax-mcp.md",
+      "source": "upstream/ax-llm/references/ax-mcp.md",
       "destinations": [
         "references/mcp.md"
       ],
@@ -138,7 +138,7 @@
       "original_lines": 443
     },
     {
-      "source": ".agents/skills/ax-llm/references/ax-playbook.md",
+      "source": "upstream/ax-llm/references/ax-playbook.md",
       "destinations": [
         "references/playbook.md"
       ],
@@ -147,7 +147,7 @@
       "original_lines": 127
     },
     {
-      "source": ".agents/skills/ax-llm/references/ax-refine.md",
+      "source": "upstream/ax-llm/references/ax-refine.md",
       "destinations": [
         "references/refine.md"
       ],
@@ -156,7 +156,7 @@
       "original_lines": 75
     },
     {
-      "source": ".agents/skills/ax-llm/references/ax-signature.md",
+      "source": "upstream/ax-llm/references/ax-signature.md",
       "destinations": [
         "references/signature.md"
       ],
@@ -165,7 +165,7 @@
       "original_lines": 509
     },
     {
-      "source": ".agents/skills/ax-llm/references/ax-typesafe.md",
+      "source": "upstream/ax-llm/references/ax-typesafe.md",
       "destinations": [
         "references/typesafe.md"
       ],
@@ -174,7 +174,7 @@
       "original_lines": 401
     },
     {
-      "source": ".agents/skills/ax-llm/references/quickstart.md",
+      "source": "upstream/ax-llm/references/quickstart.md",
       "destinations": [
         "references/llm.md"
       ],

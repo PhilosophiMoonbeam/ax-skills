@@ -1,6 +1,6 @@
 # AxAgent RLM Runtime, Context Policy, and Semantic Queries
 
-Source API snapshot: `@ax-llm/ax` 25.4.10. Use for RLM code execution, `AxJSRuntime`, `contextFields`, `contextPolicy`, `liveRuntimeState`, `promptLevel`, stage prompts, `executorModelPolicy`, `maxRuntimeChars`, `agent.test(...)`, `llmQuery(...)`, `recursionOptions`, and long-running runtime behavior. Not ordinary setup: see [agent setup](agent.md) for child agents, tool namespaces, clarification, and `bubbleErrors`; [observability](agent-observability.md) for callbacks/logs; [memory and skills](agent-memory-skills.md) for persistent orientation, retrieval, and skill loading.
+Source API snapshot: `@ax-llm/ax` 25.4.11. Use for RLM code execution, `AxJSRuntime`, `contextFields`, `contextPolicy`, `liveRuntimeState`, `promptLevel`, stage prompts, `executorModelPolicy`, `maxRuntimeChars`, `agent.test(...)`, `llmQuery(...)`, `recursionOptions`, and long-running runtime behavior. Not ordinary setup: see [agent setup](agent.md) for child agents, tool namespaces, clarification, and `bubbleErrors`; [observability](agent-observability.md) for callbacks/logs; [memory and skills](agent-memory-skills.md) for persistent orientation, retrieval, and skill loading.
 
 ## Use These Defaults
 
@@ -106,9 +106,9 @@ Important:
 | Earlier compression of older successful work while live runtime state remains visible | `adaptive + balanced` |
 | Very long, character-constrained work that can continue from current runtime state plus compact summaries; strong model | `lean` |
 
-Use `promptLevel: 'default'` normally. **25.4.9 packaged-template limitation:** the coordinator forwards `promptLevel` to both actors and both definition builders pass it to their template renderer, but neither shipped `rlm/distiller.md` nor `rlm/executor.md` template reads it. Consequently, `'detailed'` does not add anti-pattern examples or extra scaffolding in those bundled templates. This is not an executor-only option, nor a guarantee about custom templates or other releases. See the version-pinned [packaged source map](https://unpkg.com/@ax-llm/ax@25.4.9/index.js.map), specifically `agent/agentInternal/coordinator.ts:102–132` (`SHARED_KNOB_KEYS`, including `promptLevel` at line 108), `agent/rlm.ts:658,866` (both definition builders), and `agent/templates.generated.ts:8–9` (both actor templates).
+Use `promptLevel: 'default'` normally. **25.4.11 packaged-template limitation (also observed in 25.4.9):** the coordinator forwards `promptLevel` to both actors and both definition builders pass it to their template renderer, but neither shipped `rlm/distiller.md` nor `rlm/executor.md` template reads it. Consequently, `'detailed'` does not add anti-pattern examples or extra scaffolding in those bundled templates. This is not an executor-only option, nor a guarantee about custom templates or other releases. See the version-pinned [packaged source map](https://unpkg.com/@ax-llm/ax@25.4.11/index.js.map): `agent/agentInternal/coordinator.ts:102–132`, `agent/rlm.ts:658,866`, and `agent/templates.generated.ts:8–9`.
 
-The [executor comparison](../examples/32-executor-context.ts) routes through `directResponse: 'off'`, a distiller `final(...)` handoff, actual executor requests, and the final responder; it also checks retained runtime state and the same invoice result for both settings. Inspect the selected stage rather than assuming the first request belongs to the executor. For weaker/cheaper models, retain `full` replay when exact prior evidence is needed; do not rely on this pinned version's `'detailed'` setting to supply additional teaching, or on `'default'` to reduce context usage. Use replay policy—not `promptLevel`—when planning context budgets in 25.4.9.
+The [executor comparison](../examples/32-executor-context.ts) routes through `directResponse: 'off'`, a distiller `final(...)` handoff, actual executor requests, and the final responder; it also checks retained runtime state and the same invoice result for both settings. Inspect the selected stage rather than assuming the first request belongs to the executor. For weaker/cheaper models, retain `full` replay when exact prior evidence is needed; do not rely on this pinned version's `'detailed'` setting to supply additional teaching, or on `'default'` to reduce context usage. Use replay policy—not `promptLevel`—when planning context budgets in 25.4.11.
 
 For a cheap default actor, prefer `executorModelPolicy` over upgrading the whole agent when exploration—not synthesis—is the bottleneck: upgrade only the executor after repeated error turns, discovery in specific namespaces, growing context, or thrashing, while keeping the responder cheap.
 
@@ -188,13 +188,23 @@ Semantics:
 Runtime output truncation is budget-proportional and type-aware:
 
 - Early turns with little action-log pressure use the full `maxRuntimeChars` ceiling.
-- As the action log fills toward `targetPromptChars`, the limit decays linearly down to 15% of the ceiling, hard-floored at 400 chars.
+- As the action log fills toward `targetPromptChars`, the limit decays linearly down to 15% of the ceiling, with a floor of 400 chars or the configured ceiling when smaller.
 - Large arrays keep the first 3 and last 2 items, with the middle replaced by `... [N hidden items]`.
 - Deep objects replace nested values beyond depth 3 with `[Object]` or `[Array(N)]`.
 - Error stack traces keep the first 3 and last 1 stack frames.
 - Simple values use standard `JSON.stringify` passthrough.
 
 Users do not need to configure this behavior. `maxRuntimeChars` sets the upper bound; the dynamic system only reduces it.
+
+### Shared references are not cycles (25.4.11)
+
+Object-valued runtime returns pass through Ax's `formatInterpreterOutput` → `smartStringify` before replay truncation. [PR #893](https://github.com/ax-llm/ax/pull/893) makes cycle detection ancestor-scoped: `{ primary: shared, backup: shared }` and `{ first: [shared], second: [shared] }` retain both copies; a true ancestor back-reference becomes `[Circular]`. Depth and character limits still apply. This is replay serialization, not a promise to encode arbitrary graphs losslessly or preserve object identity in JSON.
+
+Default stdout-mode `console.log(...)` already returns text and bypasses this object serializer. The [`shared-reference-serialization` case](../examples/32-executor-context.ts) deliberately uses `new AxJSRuntime({ outputMode: 'return' })`, whose usage instructions permit `return` or a trailing expression. It checks real worker identity, both serialized sibling paths, the true-cycle marker, and the next executor requests; no replacement serializer is used.
+
+Exact [25.4.11 source map](https://unpkg.com/@ax-llm/ax@25.4.11/index.js.map): `agent/truncate.ts:159–210`, `agent/runtime.ts:678–695`, `agent/agentInternal/runtimeExecutionHelpers.ts:68–110`, and `funcs/jsRuntime.ts:39,210–225`.
+
+[PR #896's Core source](https://github.com/ax-llm/ax/blob/6b9807f9722dfc1852ff65f1961f0a08958aa09d/ir/axcore/agent.axir#L2314-L2420) carries the same ancestor-only rule into `agent_depth_limited_value` / `agent_smart_stringify`. Its native identity primitives use Python `is`, Java reference `==`, C++ shared-pointer identity, Rust `Rc::ptr_eq`, and Go pointer identity (plus slice length). This is source-observed generated-port design, not executed generated-package acceptance; the local regression executes TypeScript only.
 
 ## Stage Prompt Controls
 
@@ -395,7 +405,7 @@ if (summary.startsWith('[ERROR]')) {
 
 Parallel semantic review example:
 
-The source example below retains queries that say “Use discovery and available tools.” Those words do not grant capabilities: `llmQuery(...)` remains semantic-only, with no tools or discovery. Tool-dependent reviews require child agents; the example's fan-out/fan-in intent is independent semantic reviews followed by a dependent merge.
+Use independent semantic reviews followed by a dependent merge. These queries do not require tools or discovery; tool-dependent reviews belong in child agents.
 
 ```javascript
 const narrowedIncidents = incidents.map((incident) => ({
@@ -407,7 +417,7 @@ const narrowedIncidents = incidents.map((incident) => ({
 const [severityReview, followupReview] = await llmQuery([
   {
     query:
-      'Use discovery and available tools to review severity policy alignment. Return compact findings.',
+      'Review severity policy alignment using only the supplied incidents and rubric. Return compact findings.',
     context: {
       incidents: narrowedIncidents,
       rubric: 'severity-policy',
@@ -415,7 +425,7 @@ const [severityReview, followupReview] = await llmQuery([
   },
   {
     query:
-      'Use discovery and available tools to review postmortem and follow-up obligations. Return compact findings.',
+      'Review postmortem and follow-up obligations using only the supplied incidents and rubric. Return compact findings.',
     context: {
       incidents: narrowedIncidents,
       rubric: 'postmortem-followup',

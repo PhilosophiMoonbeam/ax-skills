@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import {
-  ai, ax, f, flow, runControl, AxMockAIService,
-  type AxAIServiceOptions, type AxChatRequest, type AxChatResponse,
+  ai, ax, f, fn, flow, runControl, axGlobals, AxMockAIService, AxAIOpenAI, AxAIOpenAIModel,
+  AxInMemoryEventStore, eventInput, eventPath, eventRoute, eventRuntime, eventTarget,
+  type AxAIServiceOptions, type AxChatRequest, type AxChatResponse, type AxEventContext, type AxEventIngress,
   type AxChatSession, type AxChatSessionEvent, type AxGenOut, type AxRunControlEvent,
 } from '@ax-llm/ax';
-import { ROOT_CONTEXT, trace } from '@opentelemetry/api';
+import { ROOT_CONTEXT, metrics, trace } from '@opentelemetry/api';
 import { BasicTracerProvider, InMemorySpanExporter, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { options, scriptedAI, type Example } from './support.js';
 
@@ -620,6 +621,387 @@ flowchart TD
       assert.equal(exporter.getFinishedSpans().length, 0);
       assert.ok(summary);
       return { ...summary, exporterRetainedAfterShutdown: 0, boundary: 'Successful-run trace metadata excludes these content sentinels; chat logs still retain content. This flag is not universal redaction of errors, custom attributes, debug logs or provider retention. No network collector or global tracer is installed.' };
+    },
+  },
+  {
+    id: '16-flow/runtime-hook-resolution',
+    title: 'Resolve Flow hooks without changing child defaults; isolate telemetry failures from limiter failures',
+    features: ['flow', 'runtime-hooks', 'precedence', 'global-snapshot', 'telemetry-fail-open', 'rateLimiter'],
+    modes: ['offline'],
+    async run(ctx) {
+      const saved = { rateLimiter: axGlobals.rateLimiter, tracer: axGlobals.tracer, meter: axGlobals.meter };
+      const calls: string[] = [];
+      // Throwing external telemetry boundaries deliberately export nothing.
+      // Ax, not these fixtures, must catch telemetry errors.
+      const hooks = (label: string) => ({
+        rateLimiter: (async (request) => {
+          calls.push(`${label}:limiter`);
+          return request();
+        }) satisfies NonNullable<AxAIServiceOptions['rateLimiter']>,
+        tracer: new Proxy(trace.getTracer(`flow-hooks-${label}`), {
+          get(target, property, receiver) {
+            if (property === 'startSpan' || property === 'startActiveSpan') return () => {
+              calls.push(`${label}:tracer`);
+              throw new Error(`Owned ${label} tracer unavailable`);
+            };
+            return Reflect.get(target, property, receiver);
+          },
+        }),
+        meter: new Proxy(metrics.getMeter(`flow-hooks-${label}`), {
+          get(target, property, receiver) {
+            if (String(property).startsWith('create')) return () => {
+              calls.push(`${label}:meter`);
+              throw new Error(`Owned ${label} meter unavailable`);
+            };
+            return Reflect.get(target, property, receiver);
+          },
+        }),
+      });
+      const global = hooks('global');
+      const service = hooks('service');
+      const child = hooks('child');
+      const factory = hooks('factory');
+      const forward = hooks('forward');
+      let httpCalls = 0;
+      const transport = (defaults: Partial<AxAIServiceOptions> = {}) => new AxAIOpenAI({
+        apiKey: 'offline-flow-hook-fixture',
+        config: { model: AxAIOpenAIModel.GPT4OMini, stream: false },
+        options: {
+          ...defaults,
+          fetch: async () => {
+            httpCalls++;
+            return Response.json({
+              id: 'flow-hook-completion', object: 'chat.completion', created: 0, model: 'gpt-4o-mini',
+              choices: [{ index: 0, message: { role: 'assistant', content: 'Answer: resolved' }, finish_reason: 'stop' }],
+              usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+            });
+          },
+        },
+      });
+      const childDefaults = { ...child };
+      const reusableChild = ax('question:string -> answer:string', childDefaults);
+      const makeFlow = (withChild: boolean, defaults = {}) => flow<{ question: string }>(defaults)
+        .node('answer', withChild ? reusableChild : ax('question:string -> answer:string'))
+        .execute('answer', (state) => ({ question: state.question }))
+        .returns((state) => ({ answer: state.answerResult.answer }));
+      const winners: string[] = [];
+      try {
+        Object.assign(axGlobals, global);
+        const rows = [
+          { winner: 'forward', program: makeFlow(true, factory), model: transport(service), overrides: forward },
+          { winner: 'factory', program: makeFlow(true, factory), model: transport(service), overrides: {} },
+          { winner: 'child', program: makeFlow(true), model: transport(service), overrides: {} },
+          { winner: 'service', program: makeFlow(false), model: transport(service), overrides: {} },
+          { winner: 'global', program: makeFlow(false), model: transport(), overrides: {} },
+        ];
+        for (const row of rows) {
+          const before = calls.length;
+          const result = await row.program.forward(row.model, { question: row.winner }, {
+            ...options(ctx), stream: false, ...row.overrides,
+          });
+          assert.deepEqual(result, { answer: 'resolved' });
+          const observed = calls.slice(before);
+          assert.deepEqual(observed.filter((call) => call.endsWith(':limiter')), [`${row.winner}:limiter`]);
+          assert.ok(observed.includes(`${row.winner}:tracer`));
+          assert.ok(observed.includes(`${row.winner}:meter`));
+          winners.push(row.winner);
+        }
+        assert.deepEqual(childDefaults, child, 'Flow propagation must not rewrite caller-owned child defaults');
+        const beforeStandalone = calls.length;
+        assert.deepEqual(await reusableChild.forward(transport(service), { question: 'Standalone child' }, {
+          ...options(ctx), stream: false,
+        }), { answer: 'resolved' });
+        assert.deepEqual(calls.slice(beforeStandalone).filter((call) => call.endsWith(':limiter')), ['child:limiter']);
+
+        const snapshot = hooks('snapshot');
+        const replacement = hooks('replacement');
+        Object.assign(axGlobals, snapshot);
+        // A static-options service exposes the hooks Ax actually resolves at the
+        // node boundary; it does not implement hook selection or a limiter.
+        let snapshotNodes = 0;
+        const boundary = new AxMockAIService<string>({
+          features: { structuredOutputs: false },
+          chatResponse: async (_request, resolved) => {
+            snapshotNodes++;
+            assert.equal(resolved?.rateLimiter, snapshot.rateLimiter);
+            assert.equal(resolved?.tracer, snapshot.tracer);
+            assert.equal(resolved?.meter, snapshot.meter);
+            return reply('Answer: snapshot retained');
+          },
+        });
+        const snapshotFlow = flow<{ question: string }>()
+          .node('answer', 'question:string -> answer:string')
+          .map((state) => { Object.assign(axGlobals, replacement); return state; })
+          .execute('answer', (state) => ({ question: state.question }))
+          .returns((state) => ({ answer: state.answerResult.answer }));
+        const beforeSnapshot = calls.length;
+        assert.deepEqual(await snapshotFlow.forward(boundary, { question: 'Snapshot before map' }, options(ctx)),
+          { answer: 'snapshot retained' });
+        assert.equal(snapshotNodes, 1);
+        assert.ok(!calls.slice(beforeSnapshot).some((call) => call.startsWith('replacement:')));
+
+        const denied = new Error('Owned limiter denied this request');
+        const beforeDenied = httpCalls;
+        await assert.rejects(makeFlow(false).forward(transport(service), { question: 'Must not reach transport' }, {
+          ...options(ctx), stream: false,
+          rateLimiter: async () => { throw denied; },
+          tracer: forward.tracer, meter: forward.meter,
+        }), (error: unknown) => error instanceof Error && error.message.includes(denied.message));
+        assert.equal(httpCalls, beforeDenied, 'Limiter errors must propagate before model transport');
+      } finally {
+        Object.assign(axGlobals, saved);
+      }
+      assert.equal(axGlobals.rateLimiter, saved.rateLimiter);
+      assert.equal(axGlobals.tracer, saved.tracer);
+      assert.equal(axGlobals.meter, saved.meter);
+      const recovered = await makeFlow(false, forward).forward(transport(service), { question: 'Subsequent isolated run' }, {
+        ...options(ctx), stream: false,
+      });
+      assert.deepEqual(recovered, { answer: 'resolved' });
+      return { winners, httpCalls, recovered,
+        boundary: 'Real OpenAI adapter with owned fetch-only model I/O proves limiter execution and telemetry fail-open. Global snapshot identity is observed at a static-options model boundary; this does not promise freezing a custom service’s own live getOptions implementation.' };
+    },
+  },
+  {
+    id: '16-flow/event-continuation',
+    title: 'Wake and resume a real Flow with signature-valid inputs and node-owned event correlation',
+    features: ['flow', 'eventTarget', 'eventInput', 'eventContext', 'registerContinuation', 'wake', 'resume'],
+    modes: ['offline'],
+    async run(ctx) {
+      const store = new AxInMemoryEventStore();
+      const contexts: AxEventContext[] = [];
+      const phases: string[] = [];
+      const inspectOwner = fn('inspectOwner').description('Check owned event provenance and register a local wait')
+        .arg('requestId', f.string()).arg('phase', f.string()).arg('tenant', f.string())
+        .handler(async ({ requestId, phase, tenant }, extra) => {
+          const context = extra?.eventContext;
+          assert.ok(context, 'Real Flow must propagate eventContext through its Gen node to the owned tool');
+          assert.equal(context.targetId, 'flow-approval');
+          assert.equal(context.identity.tenantId, 'tenant-flow');
+          assert.equal(context.identity.accountId, 'account-flow');
+          assert.equal(context.trust, 'authenticated');
+          assert.equal(tenant, context.identity.tenantId);
+          assert.equal(requestId, 'approval-flow-16');
+          assert.equal(context.ingress.event.id, phase === 'wake' ? 'flow-wake' : 'flow-resume');
+          if (phase === 'wake') {
+            assert.equal(context.continuation, undefined);
+            context.registerContinuation({
+              correlation: [{ kind: 'flow-approval', value: requestId }],
+              metadata: { requestId }, expiresAt: Date.now() + 60_000,
+            });
+          } else {
+            assert.equal(phase, 'resume');
+            assert.ok(context.continuation);
+            assert.deepEqual(context.continuation.correlation, [{ kind: 'flow-approval', value: requestId }]);
+            assert.equal(context.continuation.metadata?.requestId, requestId);
+          }
+          contexts.push(context);
+          phases.push(phase);
+          return phase === 'wake' ? 'waiting for owned approval' : 'owned approval consumed';
+        }).build();
+      const workflow = flow<{ requestId: string; phase: string; tenant: string }>()
+        .node('approval', ax('requestId:string, phase:string, tenant:string -> receiptText:string', { functions: [inspectOwner] }))
+        .execute('approval', (state) => ({ requestId: state.requestId, phase: state.phase, tenant: state.tenant }))
+        .returns((state) => ({ receiptText: state.approvalResult.receiptText }));
+      assert.deepEqual(workflow.getSignature().getInputFields().map((field) => field.name).sort(),
+        ['phase', 'requestId', 'tenant']);
+      let modelCalls = 0;
+      const model = scriptedAI((request, index) => {
+        modelCalls++;
+        assert.ok(index < 4, 'Only one wake and one resume may invoke the Flow node');
+        const phase = index < 2 ? 'wake' : 'resume';
+        if (index % 2 === 0) {
+          const prompt = JSON.stringify(request.chatPrompt);
+          assert.ok(prompt.includes('approval-flow-16') && prompt.includes('tenant-flow') && prompt.includes(phase));
+          return { results: [{ index: 0, functionCalls: [{
+            id: `flow-${phase}-owner`, type: 'function',
+            function: { name: 'inspectOwner', params: { requestId: 'approval-flow-16', phase, tenant: 'tenant-flow' } },
+          }], finishReason: 'function_call' }] };
+        }
+        assert.ok(request.chatPrompt.some((message) => message.role === 'function'
+          && message.result.includes(phase === 'wake' ? 'waiting for owned approval' : 'owned approval consumed')));
+        return reply(`Receipt Text: ${phase === 'wake' ? 'waiting' : 'approved'}`);
+      });
+      const target = eventTarget('flow-approval').program(workflow).ai(model).forwardOptions(options(ctx))
+        .wakeInput(eventInput<{ requestId: string; phase: string; tenant: string }>()
+          .field('requestId', eventPath.data('requestId')).field('phase', eventPath.constant('wake'))
+          .field('tenant', eventPath.identity('tenantId')))
+        .resumeInput(eventInput<{ requestId: string; phase: string; tenant: string }>()
+          .field('requestId', eventPath.continuation('requestId')).field('phase', eventPath.constant('resume'))
+          .field('tenant', eventPath.identity('tenantId'))).build();
+      const runtime = eventRuntime({ store, workerConcurrency: 1, maxAttempts: 1, routes: [
+        eventRoute('flow-start').types('flow.requested').authenticated().instanceKey(eventPath.subject()).wake(target).build(),
+        eventRoute('flow-approved').types('flow.approved').authenticated()
+          .correlate('flow-approval', eventPath.data('requestId')).resume(target).build(),
+      ] });
+      const ingress = (id: string, type: string): AxEventIngress => ({
+        event: { specversion: '1.0', id, type, source: 'urn:example:flow-16', subject: 'approval-flow-16',
+          data: { requestId: 'approval-flow-16' } },
+        identity: { tenantId: 'tenant-flow', accountId: 'account-flow' }, trust: 'authenticated',
+      });
+      try {
+        await runtime.start();
+        const wake = await runtime.publish(ingress('flow-wake', 'flow.requested'), ctx.signal);
+        await runtime.waitForIdle();
+        const paused = await store.getDelivery(wake.deliveryIds[0]!);
+        assert.equal(paused?.status, 'waiting_event');
+        assert.ok(paused.runId);
+        assert.equal(contexts[0]?.runId, paused.runId);
+        const continuation = await store.findContinuation(paused.identityScope,
+          { kind: 'flow-approval', value: 'approval-flow-16' }, Date.now());
+        assert.ok(continuation);
+        const completion = ingress('flow-resume', 'flow.approved');
+        const resumed = await runtime.publish(completion, ctx.signal);
+        await runtime.waitForIdle();
+        const delivery = await store.getDelivery(resumed.deliveryIds[0]!);
+        assert.equal(delivery?.status, 'succeeded');
+        assert.ok(delivery.runId);
+        const run = await runtime.getRun(delivery.runId);
+        assert.equal(run?.instanceKey, continuation.instanceKey);
+        assert.deepEqual(run?.output, { receiptText: 'approved' });
+        assert.equal(contexts[1]?.runId, delivery.runId);
+        assert.equal(contexts[1]?.continuation?.id, continuation.id);
+        assert.equal((await runtime.publish(completion, ctx.signal)).duplicate, true);
+        const replay = await runtime.publish(ingress('flow-replay', 'flow.approved'), ctx.signal);
+        await runtime.waitForIdle();
+        assert.equal((await store.getDelivery(replay.deliveryIds[0]!))?.status, 'dead_lettered');
+        assert.deepEqual(phases, ['wake', 'resume']);
+        assert.equal(modelCalls, 4);
+        return { phases, modelCalls, output: run?.output,
+          boundary: 'Real event runtime → Flow → Gen → owned host tool; volatile identity-scoped continuation consumption, not webhook authentication or crash-durable exactly-once delivery.' };
+      } finally {
+        await runtime.close({ drain: false });
+      }
+    },
+  },
+  {
+    id: '16-flow/session-cancel-pending',
+    title: 'Cancel two parallel controlled nodes while both owned background host tools are pending',
+    features: ['flow', 'parallel', 'runControl', 'asyncTools', 'pending-tools', 'cancellation', 'session-cleanup'],
+    modes: ['offline'],
+    async run(ctx) {
+      const control = runControl();
+      const bothStarted = Promise.withResolvers<void>();
+      const events: AxRunControlEvent[] = [];
+      const unsubscribe = control.onEvent((event) => events.push(event));
+      const records = ['root/left', 'root/right'].map((path) => ({
+        path, started: 0, rejected: 0, accepted: 0, closed: 0, submissions: 0,
+        barrier: Promise.withResolvers<string>(), closeBarrier: Promise.withResolvers<void>(),
+      }));
+      const hostWork: Promise<unknown>[] = [];
+      let started = 0;
+      let joins = 0;
+      const waitOwned = fn('waitOwned').description('Wait on an owned cancellable read barrier')
+        .arg('path', f.string()).execution('background')
+        .handler(async ({ path }, extra) => {
+          const record = records.find((entry) => entry.path === path);
+          assert.ok(record);
+          assert.ok(extra);
+          assert.equal(extra.control, control);
+          assert.equal(extra.executionPath, `${path}/waitOwned`);
+          const signal = extra.abortSignal;
+          assert.ok(signal);
+          signal.throwIfAborted();
+          const abort = () => record.barrier.reject(signal.reason);
+          signal.addEventListener('abort', abort, { once: true });
+          record.started++;
+          const work = (async () => {
+            try {
+              const value = await record.barrier.promise;
+              record.accepted++;
+              return value;
+            } catch (error) {
+              record.rejected++;
+              throw error;
+            } finally {
+              signal.removeEventListener('abort', abort);
+            }
+          })();
+          hostWork.push(work);
+          if (++started === 2) bothStarted.resolve();
+          return work;
+        }).build();
+      class PendingSessionFixture extends AxMockAIService<string> {
+        constructor() {
+          super({ name: 'flow-pending-session-model-io', features: { functions: true },
+            chatResponse: async () => { throw new Error('Controlled nodes must use actual SDK session orchestration'); } });
+        }
+        override getFeatures() { return { ...super.getFeatures(), asyncTools: true }; }
+        async openChatSession(
+          _request: Readonly<AxChatRequest<unknown>>, serviceOptions?: Readonly<AxAIServiceOptions>,
+        ): Promise<AxChatSession> {
+          const record = records.find((entry) => entry.path === serviceOptions?.executionPath);
+          assert.ok(record);
+          assert.equal(record.closed, 0);
+          const call = { id: `${record.path}/pending`, type: 'function' as const,
+            function: { name: 'waitOwned', params: { path: record.path } } };
+          const response: AxChatResponse = { results: [{ index: 0, functionCalls: [call], finishReason: 'function_call' }] };
+          return {
+            model: 'owned-pending-model-io', signal: serviceOptions?.abortSignal,
+            async *events(): AsyncIterable<AxChatSessionEvent> {
+              yield { type: 'tool.call', responseId: record.path, call };
+              yield { type: 'response.completed', responseId: record.path, response };
+              throw new Error('A pending cancelled node must not request another model response');
+            },
+            async submitToolResults() { record.submissions++; throw new Error('Cancelled host results must not be accepted'); },
+            async continue() { throw new Error('Cancelled node must not continue'); },
+            async steer() { return 'next-response'; },
+            async setThinkingTokenBudget() { return 'next-response'; },
+            close() {
+              if (record.closed) return;
+              record.closed++;
+              record.closeBarrier.resolve();
+            },
+          };
+        }
+      }
+      const workflow = flow<{ question: string }>({ batchSize: 2 })
+        .node('left', ax('question:string -> answer:string', { functions: [waitOwned] }))
+        .node('right', ax('question:string -> answer:string', { functions: [waitOwned] }))
+        .parallel([
+          (sub) => sub.execute('left', (state) => ({ question: state.question })),
+          (sub) => sub.execute('right', (state) => ({ question: state.question })),
+        ])
+        .merge('joined', () => { joins++; return 'Unexpected accepted node results'; })
+        .returns((state) => ({ answer: state.joined }));
+      let request: Promise<unknown> | undefined;
+      const abortBarrier = () => bothStarted.reject(ctx.signal.reason);
+      ctx.signal.addEventListener('abort', abortBarrier, { once: true });
+      try {
+        ctx.signal.throwIfAborted();
+        request = workflow.forward(new PendingSessionFixture(), { question: 'Read both owned pending sources' }, {
+          ...options(ctx), control,
+        });
+        // Observe rejection before cancellation; the race exposes early failure
+        // instead of waiting forever for a start signal from a failed node.
+        const rejected = assert.rejects(request, /aborted|abort/i);
+        void rejected.catch(() => {}); // The start race below still exposes any early failure.
+        await Promise.race([bothStarted.promise, request.then(
+          () => { throw new Error('Flow accepted output before both host barriers were released'); },
+          (error: unknown) => { throw error; },
+        )]);
+        assert.deepEqual(records.map(({ started, accepted }) => [started, accepted]), [[1, 0], [1, 0]]);
+        control.abort();
+        await rejected;
+        await Promise.all(hostWork.map((work) => assert.rejects(work, /aborted|abort/i)));
+        await Promise.all(records.map((record) => record.closeBarrier.promise));
+        assert.equal(joins, 0);
+        assert.deepEqual(records.map(({ rejected, accepted, submissions, closed }) =>
+          [rejected, accepted, submissions, closed]), [[1, 0, 0, 1], [1, 0, 0, 1]]);
+        assert.equal(events.filter((event) => event.type === 'completed'
+          && (event.path === 'root/left' || event.path === 'root/right')).length, 0);
+        assert.equal(events.filter((event) => event.type === 'aborted' && event.path === 'root').length, 1);
+        return { sessions: records.map(({ path, started, rejected, accepted, submissions, closed }) =>
+          ({ path, started, rejected, accepted, submissions, closed })), joins,
+          boundary: 'SDK owns parallel node/session orchestration and abort propagation. Only model-session I/O and cooperative host read barriers are scripted; cancellation does not roll back external effects.' };
+      } finally {
+        control.abort();
+        for (const record of records) if (record.started) record.barrier.reject(control.signal.reason);
+        await Promise.allSettled([...(request ? [request] : []), ...hostWork]);
+        await Promise.all(records.filter((record) => record.started).map((record) => record.closeBarrier.promise));
+        ctx.signal.removeEventListener('abort', abortBarrier);
+        unsubscribe();
+      }
     },
   },
 ];

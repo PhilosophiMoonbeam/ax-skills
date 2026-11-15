@@ -1,15 +1,15 @@
 # GEPA and Pareto optimization
 
-Source API snapshot: `@ax-llm/ax` 25.4.10. Use for `AxGEPA`, global `optimize(...)`, reflective prompt evolution, multi-objective/Pareto tuning, `validationExamples`, `maxMetricCalls`, and generator/flow/agent-tree optimization. Prefer global `optimize(...)`; use direct `AxGEPA` or `AxBootstrapFewShot` only for low-level control. Agent wrapper tuning belongs in [agent optimization](agent-optimize.md); inference-time `bestOfN`/`refine` belongs in [refinement](refine.md); evolving context knowledge belongs in [playbooks](playbook.md).
+Source API snapshot: `@ax-llm/ax` 25.4.11. Use for `AxGEPA`, global `optimize(...)`, reflective prompt evolution, multi-objective/Pareto tuning, `validationExamples`, `maxMetricCalls`, and generator/flow/agent-tree optimization. Prefer global `optimize(...)`; use direct `AxGEPA` or `AxBootstrapFewShot` only for low-level control. Agent wrapper tuning belongs in [agent optimization](agent-optimize.md); inference-time `bestOfN`/`refine` belongs in [refinement](refine.md); evolving context knowledge belongs in [playbooks](playbook.md).
 
 ## Execution and selection contract
 
 - Use `optimize(program, train, metric, { studentAI, teacherAI, ... })` for normal generator/flow tuning; prefer `ai()`, `ax()`, and `flow()` for new code. Choose a cheaper student and strong teacher.
 - Both `optimize(...)` and `AxGEPA.compile()` support a single generator or a tree-aware root (flow/agent) with registered optimizable descendants. There is no flow-only GEPA optimizer.
 - GEPA edits generic string components from `getOptimizableComponents()`; a tree exposing none fails. Register child programs under the root. Selection uses measured component accept/reject history, not LLM-generated numeric scores: the teacher proposes text, metrics decide acceptance.
-- For small starter sets, global `optimize(...)` defaults to `AxBootstrapFewShot -> AxGEPA`, retaining demos in `result.optimizedProgram.demos`. Direct `AxGEPA` has its own `bootstrap` option instead.
+- With at most eight training examples, global `optimize(...)` defaults to `AxBootstrapFewShot -> AxGEPA`, retaining demos in `result.optimizedProgram.demos`; override with `bootstrap: false` or explicit bootstrap options. Direct `AxGEPA` has its own `bootstrap` option instead.
 - Always keep `train` and held-out `validationExamples` distinct; do not reuse training examples for selection. Pass a holdout when available.
-- Set `maxMetricCalls` for a strict cost bound. Global `optimize(...)` uses at least `100` implicitly, increasing it only to fit mandatory validation passes; it never raises an explicit limit. Direct `AxGEPA.compile()` requires a positive limit. Reserve validation plus evolution rounds; for expensive trees start with `auto: 'light'` or fewer `numTrials`, then scale up.
+- Set `maxMetricCalls` to bound GEPA evaluations, not total provider calls. Global `optimize(...)` uses at least `100` implicitly, increasing it only to fit mandatory validation passes; it never raises an explicit limit. Direct `AxGEPA.compile()` requires a positive limit. Reserve validation plus evolution rounds; for expensive trees start with `auto: 'light'` or fewer `numTrials`, then scale up.
 - `result.optimizedProgram` is the best easy-to-apply candidate; `result.paretoFront` is the complete multi-objective trade-off set. Apply with `program.applyOptimization(result.optimizedProgram!)`, not only `setInstruction(...)`.
 - Function/tool trace reflection uses stable component IDs where available; function renames do not break saved candidate maps.
 
@@ -20,6 +20,8 @@ Source API snapshot: `@ax-llm/ax` 25.4.10. Use for `AxGEPA`, global `optimize(..
 Baseline and final selection use the same validation subset (including GEPA's size cap), student model, `sampleCount`, metric or adapter, and scalarization. `baselineScores` holds averaged objective values; scalar metrics use `{ score: value }`. `baselineScore` scalarizes that average vector, just like `bestScore`. A dominated seed may disappear from `paretoFront` without removing the baseline metadata.
 
 When bootstrap adds demos, budget two validation passes: original baseline and demo-seeded program. Both count against GEPA's `maxMetricCalls`. Without new demos, GEPA reuses the baseline evaluation without extra model calls. Bootstrap demo generation has its own budget/options; `stats.totalCalls` includes both bootstrap and GEPA evaluations, so it can exceed `maxMetricCalls`.
+
+One GEPA metric call evaluates one example; a tree rollout, multiple samples, teacher reflection, and an LLM metric can each require additional provider calls. Bound bootstrap separately and account for those costs before choosing a monetary budget.
 
 Bootstrap collects only fresh traces from the current training run. A conditional child last called during baseline validation must not contribute its stale held-out trace as a demo.
 
@@ -208,13 +210,8 @@ Baseline fields are result metadata, not part of the optimized artifact. Save `b
 - No tree effect: register children and expose optimizable components.
 - Partial artifact application: use `applyOptimization(...)` so the full tree receives `componentMap`.
 
-## Original example locations
+## Examples
 
-Preserved source checkout paths (not required local dependencies):
+Local contracts: [`23-optimize`](../examples/23-optimize.ts), cases `bootstrap-gepa-artifact`, `bootstrap-traces`, `direct-gepa`, `pareto`, `budget-boundary`, and `qualitative-metric`. These exercise real optimizer selection and artifact application with scripted model I/O, not demonstrated model-quality gains.
 
-- `/Users/vr/src/ax/src/examples/optimize.ts`
-- `/Users/vr/src/ax/src/examples/gepa.ts`
-- `/Users/vr/src/ax/src/examples/gepa-flow.ts`
-- `/Users/vr/src/ax/src/examples/gepa-train-inference.ts`
-- `/Users/vr/src/ax/src/examples/gepa-quality-vs-speed-optimization.ts`
-- `/Users/vr/src/ax/src/examples/axagent-gepa-optimization.ts`
+Original upstream example filenames (inside `src/examples/`, not local dependencies): `optimize.ts`, `gepa.ts`, `gepa-flow.ts`, `gepa-train-inference.ts`, `gepa-quality-vs-speed-optimization.ts`, and `axagent-gepa-optimization.ts`. Agent artifact replay belongs in [agent optimization](agent-optimize.md#artifacts-and-replay).

@@ -1,6 +1,6 @@
 # AxAgent Context Tool Selection
 
-Use this decision guide when choosing a context feature, distinguishing `contextMap` from `contextPolicy` or memory, or designing long-context agents. Select the tool, then use the exact implementation reference below; this is not a core-agent or runtime-code guide. Prefer a direct recommendation over tutorial prose. Source API snapshot: `@ax-llm/ax` 25.4.10.
+Use this decision guide when choosing a context feature, distinguishing `contextMap` from `contextPolicy` or memory, or designing long-context agents. Select the tool, then use the exact implementation reference below; this is not a core-agent or runtime-code guide. Prefer a direct recommendation over tutorial prose. Source API snapshot: `@ax-llm/ax` 25.4.11.
 
 ## Select by Need and Scope
 
@@ -35,3 +35,5 @@ Use this decision guide when choosing a context feature, distinguishing `context
 - [Memory and runtime skills](agent-memory-skills.md): recall, memories, and dynamic guide loading.
 - [Agent optimization](agent-optimize.md): GEPA via `agent.optimize(...)` and optimization hand-off for `agent.playbook(...)`; [playbooks](playbook.md) supplies the dedicated evolution/update contract.
 - [Core agents](agent.md): agent construction and final/clarification protocols.
+
+Selected executable examples: [corpus maps and trajectory policies](../examples/13-context.ts), [recall and runtime skills](../examples/14-memory-skills.ts), [offline agent tuning](../examples/24-agent-optimize.ts), and [playbook evolution/update](../examples/25-playbooks.ts). Choose only the relevant module.

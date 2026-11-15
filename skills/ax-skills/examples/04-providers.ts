@@ -314,6 +314,136 @@ export const examples: readonly Example[] = [
     },
   },
   {
+    id: '04-providers/hydrogen-thinking-and-limits',
+    title: 'Map Hydrogen thinking after preset selection and reject unsupported controls locally',
+    features: ['Gemini4Hydrogen', 'thinking level mapping', 'native xhigh', 'Vertex', 'pre-transport rejection'],
+    modes: ['offline'],
+    async run(ctx) {
+      const outcomes = [];
+      for (const vertex of [false, true]) {
+        const requests: Wire[] = [];
+        const fixture: typeof fetch = async (url, init) => {
+          assert(requests.length < 9, 'Bounded Hydrogen wire scenario');
+          assert.match(String(url), /gemini-4-hydrogen:generateContent/);
+          requests.push(body(init));
+          return Response.json({ candidates: [{ content: { role: 'model', parts: [{ text: 'Four.' }] }, finishReason: 'STOP' }] });
+        };
+        const service = ai({ name: 'google-gemini',
+          apiKey: vertex ? async () => 'fixture-access-token' : 'fixture-only',
+          ...(vertex ? { projectId: 'fixture-project', region: 'global' } : {}),
+          config: { model: AxAIGoogleGeminiModel.Gemini38Flash, temperature: 0.4, topP: 0.8, topK: 10, n: 3 },
+          models: [{ key: 'hydrogen', model: AxAIGoogleGeminiModel.Gemini4Hydrogen, description: 'Explicit Hydrogen route' }],
+          options: { fetch: fixture, retry: { maxRetries: 0 } } });
+        const request = { model: 'hydrogen' as const, chatPrompt: prompt,
+          modelConfig: { maxTokens: 65_536, presencePenalty: 0.3, frequencyPenalty: 0.5, n: 2 } };
+        for (const [level, expected] of [
+          ['none', 'low'], ['minimal', 'low'], ['low', 'low'],
+          ['medium', 'medium'], ['high', 'high'], ['highest', 'xhigh'],
+        ] as const) {
+          const response = completed(await service.chat(request, {
+            stream: false, thinkingTokenBudget: level, showThoughts: true, abortSignal: ctx.signal,
+          }));
+          assert.equal(response.results[0]?.content, 'Four.');
+          const generation = requests.at(-1)?.generationConfig as Wire;
+          assert.equal(generation.maxOutputTokens, 65_536);
+          assert.deepEqual(generation.thinkingConfig, { thinkingLevel: expected, includeThoughts: level !== 'none' });
+          for (const key of ['temperature', 'topP', 'topK', 'presencePenalty', 'frequencyPenalty', 'candidateCount'])
+            assert.equal(generation[key], undefined);
+        }
+        completed(await service.chat(request, { stream: false, abortSignal: ctx.signal }));
+        assert.equal((requests.at(-1)?.generationConfig as Wire).thinkingConfig, undefined,
+          'An omitted level must not replace the provider default');
+        await assert.rejects(() => service.chat({ ...request, modelConfig: { maxTokens: 65_537 } },
+          { stream: false, abortSignal: ctx.signal }), /continuation support/i);
+        await assert.rejects(() => service.chat(request, { stream: false, contextCache: {}, abortSignal: ctx.signal }),
+          /context caching is not supported/i);
+        assert.equal(requests.length, 7, 'Unsupported requests must not reach injected transport');
+        outcomes.push({ vertex, requests: requests.length, highest: 'xhigh', outputCap: 65_536 });
+      }
+      let nativeRequests = 0;
+      const nativeBodies: Wire[] = [];
+      const native = ai({ name: 'google-gemini', apiKey: 'fixture-only',
+        config: { model: AxAIGoogleGeminiModel.Gemini4Hydrogen, thinking: { thinkingLevel: 'xhigh' },
+          thinkingLevelMapping: { highest: 'medium' } },
+        options: { fetch: async (_url, init) => {
+          assert(++nativeRequests <= 2); nativeBodies.push(body(init));
+          return Response.json({ candidates: [{ content: { parts: [{ text: 'Four.' }] }, finishReason: 'STOP' }] });
+        } } });
+      completed(await native.chat({ chatPrompt: prompt }, { stream: false, abortSignal: ctx.signal }));
+      completed(await native.chat({ chatPrompt: prompt }, { stream: false, thinkingTokenBudget: 'highest', abortSignal: ctx.signal }));
+      assert.equal(((nativeBodies[0]?.generationConfig as Wire).thinkingConfig as Wire).thinkingLevel, 'xhigh');
+      assert.equal(((nativeBodies[1]?.generationConfig as Wire).thinkingConfig as Wire).thinkingLevel, 'medium');
+      assert.throws(() => ai({ name: 'google-gemini', apiKey: 'fixture-only',
+        config: { model: AxAIGoogleGeminiModel.Gemini4Hydrogen, thinking: { thinkingTokenBudget: 1024 } },
+        options: { fetch: async () => { assert.fail('Invalid numeric thinking must reject before transport'); } } }),
+        /do not support numeric thinkingTokenBudget/i);
+      // Runtime callers can supply malformed values despite the public string union.
+      await assert.rejects(() => native.chat({ chatPrompt: prompt },
+        { stream: false, thinkingTokenBudget: 1024 as never, abortSignal: ctx.signal }),
+        /do not support numeric thinkingTokenBudget/i);
+      assert.equal(nativeRequests, 2);
+      return { outcomes, nativeXhigh: true, customMapping: 'medium', numericBudgetRejected: true,
+        boundary: 'Actual native/Vertex request adaptation with scripted responses; no inference or generated-package execution.' };
+    },
+  },
+  {
+    id: '04-providers/hydrogen-schema-tools-stream',
+    title: 'Use Hydrogen native schema and tools while preserving streamed response text',
+    features: ['Gemini4Hydrogen', 'native schema', 'tools', 'streaming', 'catalog limits'],
+    modes: ['offline'],
+    async run(ctx) {
+      const requests: Wire[] = [];
+      const service = ai({ name: 'google-gemini', apiKey: 'fixture-only',
+        config: { model: AxAIGoogleGeminiModel.Gemini4Hydrogen },
+        options: { fetch: async (url, init) => {
+          assert(requests.length < 2); requests.push(body(init));
+          const payload = { candidates: [{ content: { role: 'model', parts: [{ text: '{"answer":4}' }] }, finishReason: 'STOP' }] };
+          return String(url).includes(':streamGenerateContent')
+            ? new Response(`data: ${JSON.stringify(payload)}\n\n`, { headers: { 'content-type': 'text/event-stream' } })
+            : Response.json(payload);
+        } } });
+      const request: AxChatRequest = { chatPrompt: prompt, functions: [tool],
+        modelConfig: { maxTokens: 1024 },
+        responseFormat: { type: 'json_schema', schema: {
+          type: 'object', properties: { answer: { type: 'number' } }, required: ['answer'],
+        } } };
+      const response = completed(await service.chat(request, {
+        stream: false, thinkingTokenBudget: 'highest', abortSignal: ctx.signal,
+      }));
+      assert.equal(response.results[0]?.content, '{"answer":4}');
+      const stream = await service.chat(request, { stream: true, thinkingTokenBudget: 'highest', abortSignal: ctx.signal });
+      assert(stream instanceof ReadableStream);
+      const reader = stream.getReader();
+      let text = '';
+      let drained = false;
+      try {
+        for (;;) {
+          const next = await reader.read();
+          if (next.done) { drained = true; break; }
+          text += next.value.results.map(result => result.content ?? '').join('');
+        }
+      } finally {
+        if (!drained) await reader.cancel();
+        reader.releaseLock();
+      }
+      assert.equal(text, '{"answer":4}');
+      for (const sent of requests) {
+        const generation = sent.generationConfig as Wire;
+        assert.equal(generation.responseMimeType, 'application/json');
+        assert.deepEqual(generation.responseJsonSchema, request.responseFormat?.schema);
+        assert.equal((generation.thinkingConfig as Wire).thinkingLevel, 'xhigh');
+        assert.match(JSON.stringify(sent.tools), /lookupPolicy/);
+      }
+      const catalog = axGetSupportedAIModels().find(provider => provider.name === 'google-gemini')
+        ?.models.find(model => model.name === AxAIGoogleGeminiModel.Gemini4Hydrogen);
+      assert(catalog);
+      assert.equal(catalog?.contextWindow, 1_048_576);
+      assert.equal(catalog?.maxTokens, 65_536);
+      return { text, requests: requests.length, contextWindow: catalog.contextWindow, maxTokens: catalog.maxTokens,
+        boundary: 'SDK schema/tool wire support and finite SSE normalization, not proof the provider invoked a tool or answered correctly.' };
+    },
+  },
+  {
     id: '04-providers/anthropic-native-schema-and-budgets', title: 'Use native schema where forced tools are forbidden and bound task budgets',
     features: ['anthropic-adaptive-thinking', 'native-schema', 'forced-tool-rejection', 'task-budget', 'fast-mode'], modes: ['offline'],
     async run(ctx) {

@@ -1,6 +1,6 @@
 # Reward-Based Selection and Refinement
 
-Use `bestOfN(...)` to score complete outputs independently; use `refine(...)` when failed rounds should generate feedback that changes the next attempt. Covers reward functions, thresholds, native samples, serial attempts, advice, and diagnostics, not streaming selection. Source API snapshot: 25.4.10.
+Use `bestOfN(...)` to score complete outputs independently; use `refine(...)` when failed rounds should generate feedback that changes the next attempt. Covers reward functions, thresholds, native samples, serial attempts, advice, and diagnostics, not streaming selection. Source API snapshot: 25.4.11.
 
 ## Validation and Assertions
 
@@ -42,6 +42,8 @@ const improved = refine(program, {
 - `getTraces()` and `getChatLog()` return the selected attempt's diagnostics.
 - `getAttempts()` returns all attempt metadata, including rewards, errors, and advice application.
 
+`rewardFn` may be synchronous or asynchronous. `onAttempt` observes attempt metadata; do not publish a business effect for every candidate. `AxRefineError.attempts` retains failure artifacts. Serial memory/session isolation does not roll back tools or external writes: use eval-safe dependencies and dispatch any accepted effect after selection.
+
 ## Rewards and Thresholds
 
 A reward function returns a number; higher is better. `threshold` marks a good-enough candidate and can stop serial attempts early. Use serial strategy when scoring needs traces, chat logs, tools, or full flow behavior.
@@ -70,6 +72,22 @@ After a below-threshold round, `refine(...)` generates advice. It temporarily ap
 - Programs without instruction components continue as best-of-N rounds and report `adviceApplied: false`.
 - Do not add DSPy-style `hint_` signature fields: Ax uses instruction-component advice.
 
+Bound candidate rounds and feedback separately. `feedbackAI` / `feedbackModelConfig` select the advice generator; wrapper `getUsage()` aggregates candidate attempts, not this separate feedback generator's usage. Reaching the final round below threshold can still select the best scored prediction; threshold is not a hard acceptance invariant.
+
 ## Streaming Safety
 
 Do not use `refine(...)` for streaming. For partial-output safety, use `AxGen.addStreamingAssert(fieldName, fn, message?)`. A streaming assertion fails fast in the current attempt with `AxStreamingAssertionError`; when retries remain, generation retries with correction feedback. See [generator streaming assertions](gen.md).
+
+## Selected Executable Cases
+
+Use the [examples index](../examples/INDEX.md) for setup, modes, effects and cleanup, then select one case from [08-refinement](../examples/08-refinement.ts):
+
+| Case ID | Observable contract |
+| --- | --- |
+| `08-refinement/native-samples` | Native `sampleCount` / `resultPicker`, complete-output scoring, candidate usage and selected diagnostics. |
+| `08-refinement/serial-threshold` | Failed attempt metadata, full-attempt scoring, threshold early stop and one post-selection in-memory draft. |
+| `08-refinement/feedback-rounds` | Generated advice applied to instruction components, next-attempt request and restoration. |
+| `08-refinement/error-restoration-and-no-streaming` | Error artifacts, restoration on failure and both wrappers' streaming rejection. |
+| `08-refinement/no-instruction-components` | Best-of-N rounds with `adviceApplied: false`, no hidden feedback call or `hint_` field. |
+
+These fixtures exercise SDK orchestration; their scores do not establish real answer quality.

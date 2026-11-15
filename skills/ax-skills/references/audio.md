@@ -1,6 +1,6 @@
 # Audio inputs, speech artifacts, and realtime turns
 
-Use for batch speech-to-text (`ai.transcribe()`), batch text-to-speech (`ai.speak()`), synthesized `speech:audio` signature outputs, agent audio handling, and conversational/realtime `.chat()` audio. Choose the smallest matching surface; use forward-time `speech` for structured artifacts and `modelConfig.audio` for chat turns. General provider setup/routing belongs in [AI configuration](ai.md), not here. Source API snapshot: 25.4.10.
+Use for batch speech-to-text (`ai.transcribe()`), batch text-to-speech (`ai.speak()`), synthesized `speech:audio` signature outputs, agent audio handling, and conversational/realtime `.chat()` audio. Choose the smallest matching surface; use forward-time `speech` for structured artifacts and `modelConfig.audio` for chat turns. General provider setup/routing belongs in [AI configuration](ai.md), not here. Source API snapshot: 25.4.11.
 
 ## Audio values and execution boundaries
 
@@ -324,6 +324,8 @@ console.log(res.results[0]?.audio?.data);
 
 Gemini Live uses a one-turn WebSocket call under `.chat()`. It expects PCM input for native audio turns; use `format: 'pcm16'` or `mimeType: 'audio/pcm;rate=16000'`.
 
+The TypeScript Gemini Live implementation requires `globalThis.WebSocket`; unlike the OpenAI/Grok paths, it does not read the per-call `webSocket` option.
+
 `content` is the transcript of what the model said. Native audio models can also send thought summaries, even without `showThoughts`; those arrive in `thought`. When a model acknowledges the request before it thinks, `.chat()` waits for the answer, and `content` and `audio` hold both utterances.
 
 ## Grok Voice Defaults
@@ -424,3 +426,11 @@ const gen = ax('question:string -> answer:string, speech:audio');
 ```
 
 Use `.chat()` audio when the response itself is a conversational audio turn. Do not combine `.chat()` audio output with provider-native structured response formats unless that provider explicitly supports the combination.
+
+## Selected executable examples
+
+- [Batch audio and structured artifacts](../examples/21-audio.ts): `batch-openai`, `batch-provider-boundaries`, `batch-meta`, `scripted-signature`, and `conversation-contract`.
+- [Realtime turns](../examples/22-audio-live.ts): `gemini-binary-live-turn` and `grok-voice-turn`.
+- [Streaming and Meta captions](../examples/31-audio-streams.ts): `openai-http-deltas`, `meta-caption-revisions`, `meta-delta-partials`, `meta-cancel-upload`, and `meta-errors-and-encoding`.
+
+These offline cases use deterministic provider transport fixtures. They demonstrate SDK request mapping, parsing, and lifecycle behavior, not recognition, synthesis quality, or live model entitlement.

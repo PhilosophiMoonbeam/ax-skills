@@ -1,6 +1,6 @@
 # Native MCP integration with Ax
 
-Use for `AxMCPClient`, transports, catalogs, tools/prompts/resources, tasks, subscriptions, host requests, authentication/OAuth, MCP Apps, replay, and native integration with Gen, Agent, Flow, chat, optimization, and event runtimes. Source API snapshot: 25.4.10. MCP is a live protocol client, not a function-conversion utility: preserve client/session ownership, catalogs, raw content, tasks, notifications, identity policy, and cancellation context.
+Use for `AxMCPClient`, transports, catalogs, tools/prompts/resources, tasks, subscriptions, host requests, authentication/OAuth, MCP Apps, replay, and native integration with Gen, Agent, Flow, chat, optimization, and event runtimes. Source API snapshot: 25.4.11. MCP is a live protocol client, not a function-conversion utility: preserve client/session ownership, catalogs, raw content, tasks, notifications, identity policy, and cancellation context. Generated-language notes describe the supplied source's bounded scope, not executed cross-language qualification by this collection.
 
 ## Integration and safety rules
 
@@ -205,13 +205,15 @@ Resource policies: omitted subscribes to none; `'all'` explicitly selects all di
 
 Signature-aware input plans are the data boundary. Raw data stays in `eventContext`; only segment-safe `eventPath` selections become inputs. Multiple matching routes fan out to Agents with independent authorization/run records.
 
+Task continuations use correlation kind `mcp.task` and value `client.getNamespace() + ':' + taskId`. Read the client's canonical namespace through that public accessor; do not construct keys from an unsanitized user label (`other-jobs` becomes `other_jobs`). Keep application identity/trust checks separate from namespace/task matching.
+
 After `notifications/resources/list_changed`, managed sources refresh/diff selection. Selector exceptions retain prior selection; partial failures retain successful wire transitions and retry incomplete work on the next change/reconnect. Manual subscriptions, every source, and restored intent have distinct logical owners: first owner sends `resources/subscribe`, last release sends `resources/unsubscribe`. Closing one source cannot break another owner; closing the client ends all ownership/transport state.
 
 Legacy listening maintains `resources/subscribe` and optionally resumes GET/SSE with `Last-Event-ID`. Modern `subscriptions/listen` contains catalog interests, concrete resource URIs, and known task IDs; changes restart POST with a fresh request ID and no resume header. `startListening()` is nonblocking in both eras and returns `ready`, `done`, and `close()`.
 
 Own the listener's `done` promise immediately. During cleanup, collect unexpected listener failures and rethrow them only after a successful operation; never replace the primary operation failure from `finally`. Track failure separately from its `unknown` value because a rejection may be `undefined`. Exclude cancellation only when its rejection is the exact reason from the host-owned close signal; cleanup timing and an `AbortError` name do not establish cause. Always close the owned client and fixture.
 
-Generated transports supervise legacy long-lived GET/SSE and resume where supported. Generated runtimes are host-driven: use `nextDueAt()` and `runDue()` for delayed work. Rust hosts also call `AxMCPEventSource.poll()` to drain callbacks on the host thread. Close source/runtime before caller-owned client so unsubscribe/cancellation can still be sent. For inbox, continuations, stores, and sinks see [event runtime](event-runtime.md). Lifecycle/troubleshooting: Ax repository `docs/MCP_SUBSCRIPTIONS.md` and checked-in six-language MCP examples.
+Generated transports supervise legacy long-lived GET/SSE and resume where supported. Generated runtimes are host-driven: use `nextDueAt()` and `runDue()` for delayed work. Rust hosts also call `AxMCPEventSource.poll()` to drain callbacks on the host thread. Close source/runtime before caller-owned client so unsubscribe/cancellation can still be sent. For inbox, continuations, stores, and sinks see [event runtime](event-runtime.md). Upstream lifecycle/troubleshooting: [MCP subscriptions](https://github.com/ax-llm/ax/blob/007ab8366e5bfa98d871feb1af188cc029295c58/docs/MCP_SUBSCRIPTIONS.md) and the Ax repository's six-language MCP examples.
 
 In generated Rust and C++ packages, 25.4.5 closes reconnect-delay waits when the client closes, rather than waiting for the retry delay to expire. Generated synchronous ping calls do not create JavaScript deadline timers or abort listeners; do not apply the TypeScript cleanup mechanism literally to those runtimes. This bounded parity scope follows [PR #862](https://github.com/ax-llm/ax/pull/862), not a guarantee of unrelated session or transport parity.
 
@@ -219,24 +221,40 @@ In generated Rust and C++ packages, 25.4.5 closes reconnect-delay waits when the
 
 HTTP simple authentication composes `axMCPBearerAuthentication`, `axMCPBasicAuthentication`, `axMCPAPIKeyAuthentication`, `axMCPHMACAuthentication`, or a caller strategy.
 
-Transport `oauth` supports protected-resource discovery, PKCE, client metadata/dynamic registration, refresh, challenge-driven scope step-up, DPoP, PAR/JAR/RAR, mTLS, revocation, introspection, client credentials, and enterprise-managed authorization. Distributed deployments need persistent token/registration stores. Never serialize tokens into Ax program/event state.
+Transport `oauth` supports protected-resource discovery, PKCE, client metadata/dynamic registration, refresh, challenge-driven scope step-up, DPoP, PAR/JAR/RAR, mTLS, client credentials, and enterprise-managed authorization. Distributed deployments need persistent token/registration stores. Never serialize tokens into Ax program/event state. The released TypeScript OAuth helper implements revocation/introspection internally, but `AxMCPOAuthOptions` and the public HTTP transport expose no corresponding methods; do not invent a public transport call for them.
 
 Generated Python/Java/C++/Go/Rust transports implement the portable middle tier: RFC 9728 well-known/challenge discovery, RFC 8414/OIDC server metadata, PKCE S256 authorization-code exchange, RFC 8707 resource binding, refresh with 60-second skew, client credentials, and RFC 9207 `iss`. Configure language `AxMCPOAuthOptions` with `clientId`, endpoint-keyed `tokenStore`, `onAuthCode`, and `requireIss`. The callback receives an authorization URL and returns `code`, `state`, and `iss`; host owns browser/headless interaction. Only `none` and `client_secret_post` client-authentication modes exist in generated ports.
 
-Do not recommend TypeScript-only DPoP, CIMD/DCR, JAR/PAR/RAR, mTLS, revocation/introspection, JWT validation, or enterprise-managed authorization in generated clients. Credential-free cross-language gate: `npm run test:mcp-oauth`; per-language configurations: Ax repository `docs/MCP_UCP.md`.
+Do not recommend TypeScript-only DPoP, CIMD/DCR, JAR/PAR/RAR, mTLS, revocation/introspection, JWT validation, or enterprise-managed authorization in generated clients. The Ax repository documents `npm run test:mcp-oauth` as its credential-free cross-language gate; that command was not executed here. Per-language configurations: [native MCP/UCP](https://github.com/ax-llm/ax/blob/007ab8366e5bfa98d871feb1af188cc029295c58/docs/MCP_UCP.md).
 
 Keep SSRF protections enabled for remote discovery/redirects. Relax HTTP/loopback only for controlled local development. Checked-in Streamable HTTP examples use `AX_MCP_ENDPOINT`; localhost TypeScript demos explicitly use `ssrfProtection: { allowHTTP: true, allowLoopback: true }`, never for remote endpoints. Generated equivalents `requireHttps`, `allowLocalhost`, and `allowPrivateNetworks` are used only for `127.0.0.1`.
 
-For local checks run `src/examples/mcp-event-demo-server.ts`, set `AX_MCP_ENDPOINT=http://127.0.0.1:3001/mcp`, and trigger `/control/resource` or `/control/task/complete`. Mandatory credential-free matrix: `npm run test:mcp-events:generated`. Provider-backed examples are advisory and need documented API keys.
+For checks in the Ax repository, run `src/examples/mcp-event-demo-server.ts`, set `AX_MCP_ENDPOINT=http://127.0.0.1:3001/mcp`, and trigger `/control/resource` or `/control/task/complete`. Its mandatory credential-free matrix is `npm run test:mcp-events:generated`, not a gate executed by this collection. Provider-backed examples are advisory and need documented API keys.
 
 ## Apps, replay, evaluation, and testing
 
 Negotiate official extensions through capabilities. `AxMCPAppBridge` handles App resources/host messages; enforce CSP, permissions, visibility, allowed tools, and untrusted model-context policy. Never render arbitrary normal-tool HTML as an MCP App.
 
-Wrap real transports with `AxMCPRecordingTransport` to record deterministic protocol interactions; use `AxMCPReplayTransport` for testing, optimization, and evaluation. Live MCP evaluation is rejected by default because repeated model runs can repeat external side effects; opt in deliberately only.
+Wrap real transports with `AxMCPRecordingTransport` to record deterministic protocol interactions; use `AxMCPReplayTransport` for testing, optimization, and evaluation. `agent.optimize()` rejects live MCP clients by default because repeated model runs can repeat external side effects; set `mcpEvaluation: { mode: 'live' }` only deliberately. Its default MCP guard requires replay clients, not merely a transport labeled `sandbox`.
 
 Testing checklist:
 - Use deterministic local servers or replay; namespace/tool collisions must fail before model execution.
 - Cover raw text, image, audio, resource-link, embedded-resource, metadata, task, and error results; catalog changes during multi-step runs; authorization denial before transport execution.
 - Cover reconnect/logical resubscription; anonymous-event rejection by authenticated routes; terminal task resumption restricted to owning identity/correlation; cancellation and uncertain outcomes without duplicate side effects.
 - Close clients, listening handles, runtimes, and local servers in `finally`, respecting source/runtime-before-client ordering.
+
+## Selected executable contracts
+
+Read the [example index](../examples/INDEX.md#modes-prerequisites-and-effects) for selection, modes and bounds; then load only the chosen module/case:
+
+| Exact case ID / module | Boundary |
+|---|---|
+| [`19-mcp/native-chat`](../examples/19-mcp.ts) | Native non-streaming `axMCPChat`, raw result retention and next-step catalog rebuild after a real list-change notification. |
+| [`19-mcp/native-flow`](../examples/19-mcp.ts) | External MCP inherited by nested Flow nodes, shared client initialization, raw results and cancellation context; no function conversion. |
+| [`19-mcp/live-evaluation-guard`](../examples/19-mcp.ts) | Deny `agent.optimize()` with live MCP before model/tool/protocol effects. A sandbox label does not satisfy the replay-only MCP guard. |
+| [`38-mcp-events/managed-subscriptions`](../examples/38-mcp-events.ts) | Concrete-resource selectors, catalog diff/failure recovery, manual plus two-source ownership and reconnect; templates do not expand and notifications do not implicitly invoke a model. |
+| [`38-mcp-events/owned-task-resume`](../examples/38-mcp-events.ts) | Task notifications resume only the trusted owner and matching namespace/task continuation; working/progress observes, foreign ownership and consumed continuation cannot repeat effects. |
+
+All five are **offline-only**: scripted AI and owned local/injected peers need the pinned Node package, not an external server, OAuth consent/credentials or live model. They change fixture catalogs, logical subscriptions and volatile continuation state only. Close sources/runtimes and listening handles before caller-owned clients, terminate workers and restore injected globals in `finally`; never remove unrelated data. Names and supported modes are contracts, not observed acceptance.
+
+Other selected examples: [native catalogs/tasks, stdio and WebSocket](../examples/19-mcp.ts), [host requests, Apps policy and record/replay](../examples/20-mcp-host.ts), and [HTTP authentication, OAuth and listener ownership](../examples/29-mcp-oauth.ts). OAuth fixtures do not create public revocation/introspection APIs: those remain helper-internal in this release. These bounded TypeScript fixtures do not establish cross-language parity, browser rendering, credential security, remote-server interoperability or live model quality.

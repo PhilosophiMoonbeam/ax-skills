@@ -1,6 +1,6 @@
 # AxFlow workflows, DAGs, and execution contracts
 
-Use `flow()` and `AxFlow` for workflows, DAG orchestration, multi-node AI pipelines, conditional routing, parallel execution, and array/map-reduce processing. This reference preserves the source API snapshot **25.4.10**. Prefer short, copyable patterns; provide tutorial prose only when requested. Provider setup belongs in [AI services](ai.md); generic generation in [Generators](gen.md); event ingestion, persistence, and safe routing in [Event runtime](event-runtime.md).
+Use `flow()` and `AxFlow` for workflows, DAG orchestration, multi-node AI pipelines, conditional routing, parallel execution, and array/map-reduce processing. This reference preserves the source API snapshot **25.4.11**. Prefer short, copyable patterns; provide tutorial prose only when requested. Provider setup belongs in [AI services](ai.md); generic generation in [Generators](gen.md); event ingestion, persistence, and safe routing in [Event runtime](event-runtime.md).
 
 ## Builder rules and boundaries
 
@@ -65,7 +65,7 @@ advanced request shapes such as structured criteria. Keep authoritative facts,
 ordered policy and effects in host code; preserve uncertain higher-priority
 rules before lower-priority branches. See [Atomic judgments and host policy](typesafe.md#atomic-judgments-and-host-policy)
 and [Typesafe/Jev integration](typesafe.md) for TypeScript contracts
-and the two-program hybrid pattern. Original upstream resource: [Typesafe](https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-typesafe.md).
+and the two-program hybrid pattern.
 
 ```typescript
 // String signature (creates AxGen automatically)
@@ -648,6 +648,8 @@ flowchart TD
 ```
 
 ## Examples
+
+Local executable contracts: [`16-flow`](../examples/16-flow.ts), cases `typesafe-rubric-score`, `serial-contracts`, `branch-boundaries`, `parallel-merge`, `map-reduce`, `async-parallel-map`, `bounded-state-loops`, `program-cache`, `automatic-session-control`, `mermaid-roundtrip`, `automatic-planning`, and `opentelemetry-lifecycle`.
 
 Fetch these for full working code:
 

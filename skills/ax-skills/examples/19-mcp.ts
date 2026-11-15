@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {
-  agent, ax, AxMCPClient, AxMCPProtocolError, AxMCPWebSocketTransport,
+  agent, ax, flow, axMCPChat, AxJSRuntime, AxMCPClient, AxMCPProtocolError, AxMCPWebSocketTransport,
   type AxMCPJSONRPCMessage, type AxMCPJSONRPCNotification,
   type AxMCPJSONRPCRequest, type AxMCPJSONRPCResponse,
   type AxMCPRequestOptions, type AxMCPTask, type AxMCPTool,
@@ -277,6 +277,246 @@ export const examples: readonly Example[] = [
         assert(peer.requests.some((r) => r.method === 'tools/call'));
         return { ...result, proof: 'Ax executor calls native MCP; fixture proves module plumbing, not model reliability.' };
       } finally { await client.close(); }
+    },
+  },
+  {
+    id: '19-mcp/native-chat', title: 'Refresh native chat tools between actual model steps and retain raw results',
+    features: ['MCP', 'axMCPChat', 'catalog invalidation', 'native tools', 'protocolResult', 'lifecycle'], modes: ['offline'],
+    async run(ctx) {
+      const peer = new LocalMCPPeer();
+      peer.tools = peer.tools.filter((tool) => tool.name === 'lookup');
+      const nextTool = { ...peer.tools[0]!, name: 'lookup_next', description: 'Read inventory using the revised catalog' };
+      const nextResult = { resultType: 'complete', content: [{ type: 'text', text: 'Revised lookup: 8 units' }],
+        structuredContent: { sku: 'SKU-42', quantity: 8 }, _meta: { fixture: true, revision: 2 } };
+      peer.intercept = (request) => {
+        if (request.method !== 'tools/call' || object(request.params).name !== 'lookup_next') return undefined;
+        assert.deepEqual(object(request.params).arguments, { sku: 'SKU-42' });
+        return nextResult;
+      };
+      const send = peer.send.bind(peer);
+      let changes = 0;
+      let firstResult: unknown;
+      // This is server-side JSON-RPC I/O, not a second model/tool dispatcher.
+      peer.send = async (request, requestOptions) => {
+        const response = await send(request, requestOptions);
+        if (request.method === 'tools/call' && object(request.params).name === 'lookup') {
+          assert('result' in response);
+          firstResult = response.result;
+          peer.tools = [nextTool];
+          await peer.emit('notifications/tools/list_changed', {});
+          changes++;
+        }
+        return response;
+      };
+      const client = new AxMCPClient(peer, { namespace: 'inventory', era: 'legacy' });
+      let modelCalls = 0;
+      try {
+        const model = scriptedAI((request, index) => {
+          modelCalls++;
+          assert(index < 3, 'Chat has exactly two tool steps and one final response');
+          if (index === 0) {
+            assert.deepEqual(request.functions?.map((tool) => tool.name), ['lookup']);
+            return { results: [{ index: 0, functionCalls: [{ id: 'chat-original', type: 'function',
+              function: { name: 'lookup', params: { sku: 'SKU-42' } } }] }] };
+          }
+          assert.equal(changes, 1);
+          assert.deepEqual(request.functions?.map((tool) => tool.name), ['lookup_next'],
+            'The next actual model step replaces obsolete definitions without manual refresh');
+          const raw = request.chatPrompt.filter((message) => message.role === 'function');
+          assert.deepEqual(raw[0]?.protocolResult?.value, firstResult);
+          if (index === 1) {
+            return { results: [{ index: 0, functionCalls: [{ id: 'chat-revised', type: 'function',
+              function: { name: 'lookup_next', params: { sku: 'SKU-42' } } }] }] };
+          }
+          assert.deepEqual(raw[1]?.protocolResult?.value, nextResult);
+          return { results: [{ index: 0, content: 'Revised inventory: 8 units.', finishReason: 'stop' }] };
+        });
+        const result = await axMCPChat(model, {
+          chatPrompt: [{ role: 'user', content: 'Read SKU-42, then read again using the revised catalog.' }],
+        }, { ...options(ctx), mcp: client, maxSteps: 3 });
+        assert.equal(result.response.results[0]?.content, 'Revised inventory: 8 units.');
+        assert.equal(result.response.results[0]?.finishReason, 'stop');
+        const raw = result.messages.filter((message) => message.role === 'function');
+        assert.equal(raw.length, 2);
+        assert.deepEqual(raw.map((message) => message.protocolResult?.protocol.kind), ['mcp', 'mcp']);
+        assert.deepEqual(raw.map((message) => message.protocolResult?.value), [firstResult, nextResult]);
+        assert.deepEqual(object(firstResult).structuredContent, { sku: 'SKU-42', quantity: 7 });
+        assert.deepEqual(peer.requests.filter((request) => request.method === 'tools/call')
+          .map((request) => object(request.params).name), ['lookup', 'lookup_next']);
+        assert.equal(peer.requests.filter((request) => request.method === 'tools/list').length, 2);
+        assert.equal(modelCalls, 3);
+        assert(!peer.closed, 'High-level chat does not close the caller-owned client');
+        return { modelCalls, toolCalls: 2, catalogChanges: changes, raw: raw.map((message) => message.protocolResult),
+          proof: 'Actual non-streaming axMCPChat loop and rebuilt native bindings; deterministic model/server I/O, not model-quality evidence.' };
+      } finally { await client.close(); assert(peer.closed); }
+    },
+  },
+  {
+    id: '19-mcp/native-flow', title: 'Inherit an external MCP client through Flow nodes and abort a pending protocol response',
+    features: ['MCP', 'Flow', 'Gen', 'mcpInheritance', 'structured results', 'client reuse', 'abort', 'lifecycle'], modes: ['offline'],
+    async run(ctx) {
+      const peer = new LocalMCPPeer();
+      peer.tools = peer.tools.filter((tool) => tool.name === 'lookup');
+      const client = new AxMCPClient(peer, { namespace: 'inventory', era: 'legacy' });
+      const abort = new AbortController();
+      const started = Promise.withResolvers<void>();
+      const pendingIO: Promise<void>[] = [];
+      let holdNextRead = false, completedReads = 0, transportAborts = 0, activeListeners = 0;
+      let request: Promise<unknown> | undefined;
+      const send = peer.send.bind(peer);
+      peer.send = async (message, requestOptions) => {
+        const response = await send(message, requestOptions);
+        if (message.method === 'tools/call') {
+          if (holdNextRead) {
+            const signal = requestOptions?.signal;
+            assert(signal, 'Flow abort signal must reach the actual MCP transport request');
+            signal.throwIfAborted();
+            // Hold this owned read's protocol response at the I/O boundary.
+            // No SDK/client/Flow method or tool dispatcher is replaced.
+            const wait = Promise.withResolvers<void>();
+            const onAbort = () => { transportAborts++; wait.reject(signal.reason); };
+            activeListeners++;
+            signal.addEventListener('abort', onAbort, { once: true });
+            started.resolve();
+            const work = wait.promise.finally(() => {
+              signal.removeEventListener('abort', onAbort);
+              activeListeners--;
+            });
+            pendingIO.push(work);
+            await work;
+            throw new Error('A cancelled protocol response must never be accepted');
+          }
+          completedReads++;
+        }
+        return response;
+      };
+      const inventory = { sku: 'SKU-42', quantity: 7 };
+      // Only Flow declares mcp. Both real Gen nodes inherit the allowed client.
+      const workflow = flow<{ query: string }, { inventory: unknown; quantity: number }>({
+        mcp: client, mcpInheritance: ['inventory'],
+      })
+        .node('read', ax('query:string -> inventory:json'))
+        .node('check', ax('inventory:json -> quantity:number'))
+        .execute('read', (state) => ({ query: state.query }))
+        .execute('check', (state) => ({ inventory: state.readResult.inventory }))
+        .returns((state) => ({ inventory: state.readResult.inventory, quantity: state.checkResult.quantity }));
+      let modelCalls = 0, cancelModelCalls = 0;
+      try {
+        const model = scriptedAI((message, index) => {
+          modelCalls++;
+          assert(index < 4);
+          if (index === 2) {
+            const prompt = JSON.stringify(message.chatPrompt);
+            assert(prompt.includes('SKU-42') && prompt.includes('7'), 'Structured output reaches the downstream Flow node');
+          }
+          if (index % 2 === 0) {
+            const tool = message.functions?.find((candidate) => candidate.name.includes('lookup'));
+            assert(tool, 'Both nodes inherit external native MCP bindings');
+            return { results: [{ index: 0, functionCalls: [{ id: `flow-read-${index}`, type: 'function',
+              function: { name: tool.name, params: { sku: 'SKU-42' } } }] }] };
+          }
+          const raw = message.chatPrompt.find((entry) => entry.role === 'function');
+          assert(raw?.role === 'function');
+          assert.equal(raw.protocolResult?.protocol.kind, 'mcp');
+          const value = object(raw.protocolResult?.value);
+          assert.deepEqual(value.structuredContent, inventory);
+          assert.deepEqual(value._meta, { fixture: true });
+          assert.equal((value.content as unknown[]).length, 5, 'Raw multimodal result survives native binding');
+          return { results: [{ index: 0, content: index === 1 ? `Inventory: ${JSON.stringify(inventory)}` : 'Quantity: 7' }] };
+        });
+        const result = await workflow.forward(model, { query: 'Read SKU-42 and check its quantity independently.' }, options(ctx));
+        assert.deepEqual(result, { inventory, quantity: 7 });
+        assert.equal(modelCalls, 4);
+        assert.equal(completedReads, 2);
+        assert.equal(peer.requests.filter((message) => message.method === 'initialize').length, 1);
+        assert.equal(peer.requests.filter((message) => message.method === 'tools/list').length, 1);
+        assert.equal(peer.notifications.filter((message) => message.method === 'notifications/initialized').length, 1);
+        assert(!peer.closed, 'Flow preserves caller-owned protocol/client lifetime');
+        holdNextRead = true;
+        const cancelModel = scriptedAI((message) => {
+          cancelModelCalls++;
+          assert.equal(cancelModelCalls, 1, 'No model continuation after cancellation');
+          const tool = message.functions?.find((candidate) => candidate.name.includes('lookup'));
+          assert(tool);
+          return { results: [{ index: 0, functionCalls: [{ id: 'flow-pending', type: 'function',
+            function: { name: tool.name, params: { sku: 'SKU-42' } } }] }] };
+        });
+        request = workflow.forward(cancelModel, { query: 'Wait for the owned inventory read.' }, {
+          ...options(ctx), abortSignal: AbortSignal.any([ctx.signal, abort.signal]),
+        });
+        const rejected = assert.rejects(request, /abort|cancel/i);
+        void rejected.catch(() => {}); // The start race still exposes early failure.
+        await Promise.race([started.promise, request.then(
+          () => { throw new Error('Flow accepted output before the pending read was cancelled'); },
+          (error: unknown) => { throw error; },
+        )]);
+        assert.equal(activeListeners, 1);
+        abort.abort(new Error('Owner cancelled the inherited Flow read'));
+        await rejected;
+        await Promise.all(pendingIO.map((work) => assert.rejects(work, /abort|cancel/i)));
+        assert.equal(transportAborts, 1);
+        assert.equal(activeListeners, 0);
+        assert.equal(completedReads, 2);
+        assert.equal(cancelModelCalls, 1);
+        assert.equal(peer.requests.filter((message) => message.method === 'tools/call').length, 3);
+        assert.equal(peer.requests.filter((message) => message.method === 'initialize').length, 1);
+        return { result, modelCalls, cancelModelCalls, initializations: 1, completedReads, transportAborts,
+          proof: 'Real Flow→Gen native MCP execution, raw protocol results, reused client, and inherited in-flight abort; no Agent runtime workers or external business effects.' };
+      } finally {
+        abort.abort(new Error('Owned Flow fixture cleanup'));
+        await Promise.allSettled([...(request ? [request] : []), ...pendingIO]);
+        try { await client.close(); } finally { peer.close(); }
+        assert(peer.closed);
+        assert.equal(activeListeners, 0);
+      }
+    },
+  },
+  {
+    id: '19-mcp/live-evaluation-guard', title: 'Reject live MCP optimization before any model or protocol effect',
+    features: ['MCP', 'Agent', 'optimize', 'live evaluation guard', 'side-effect preflight', 'lifecycle'], modes: ['offline'],
+    async run() {
+      const peer = new LocalMCPPeer();
+      // An omitted transport evaluationMode is live. Keep the shared sandbox
+      // fixture's public contract unchanged and expose a live transport view.
+      const transport: AxMCPTransport = {
+        evaluationMode: 'live', send: peer.send.bind(peer), sendNotification: peer.sendNotification.bind(peer),
+        setMessageHandler: peer.setMessageHandler.bind(peer), close: () => peer.close(),
+      };
+      const client = new AxMCPClient(transport, { namespace: 'inventory', era: 'legacy' });
+      let modelCalls = 0, metricCalls = 0, progressCalls = 0;
+      const student = scriptedAI(() => { modelCalls++; throw new Error('Live evaluation must reject before model I/O'); });
+      // Preflight opens no runtime session and therefore creates no worker pool.
+      const assistant = agent('query:string -> answer:string', {
+        ai: student, mcp: client, contextFields: [], directResponse: 'off',
+        runtime: new AxJSRuntime({ nodeWorkerPoolSize: 1 }),
+      });
+      try {
+        assert.equal(client.getEvaluationMode(), 'live');
+        const before = JSON.stringify({
+          requests: peer.requests, notifications: peer.notifications,
+          components: assistant.getOptimizableComponents(), state: assistant.getState(),
+          traces: assistant.getTraces(), usage: assistant.getUsage(),
+        });
+        await assert.rejects(assistant.optimize({
+          train: [{ id: 'live-inventory-denied', input: { query: 'Read inventory for SKU-42.' },
+            criteria: 'Read inventory.lookup once and report exactly 7 units.', expectedOutput: { answer: '7' } }],
+        }, {
+          studentAI: student, numTrials: 1, maxMetricCalls: 1,
+          metric: () => { metricCalls++; return 1; },
+          onProgress: () => { progressCalls++; },
+          // Deliberately omit mcpEvaluation: never bypass the default guard.
+        }), /AxAgent\.optimize\(\): live MCP\/UCP clients are disabled during evaluation/);
+        assert.equal(JSON.stringify({
+          requests: peer.requests, notifications: peer.notifications,
+          components: assistant.getOptimizableComponents(), state: assistant.getState(),
+          traces: assistant.getTraces(), usage: assistant.getUsage(),
+        }), before, 'Rejected optimization does not mutate program or protocol state');
+        assert.equal(modelCalls, 0); assert.equal(metricCalls, 0); assert.equal(progressCalls, 0);
+        assert.equal(peer.requests.length, 0); assert.equal(peer.notifications.length, 0);
+        assert(!peer.closed, 'Failed optimization preserves the caller-owned client');
+        return { rejected: true, modelCalls, metricCalls, progressCalls, protocolRequests: peer.requests.length,
+          boundary: 'Ax 25.4.11 requires replay-mode MCP for default optimization; MCP sandbox is also rejected. UCP sandbox acceptance is a separate rule. This case never opts into live evaluation or opens runtime sessions.' };
+      } finally { await client.close(); assert(peer.closed); }
     },
   },
   {

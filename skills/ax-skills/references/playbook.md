@@ -1,6 +1,6 @@
 # Context playbooks and ACE evolution
 
-Source API snapshot: `@ax-llm/ax` 25.4.10. Use for `playbook()`, `AxPlaybook`, evolving context/task knowledge, ACE (Agentic Context Engineering), `agent.playbook()`, offline `evolve()`, and online `update()`. A playbook accumulates reusable knowledge rendered into program context. Prefer `playbook(...)`, which hides ACE; use `AxACE` directly only when low-level engine access is explicitly requested.
+Source API snapshot: `@ax-llm/ax` 25.4.11. Use for `playbook()`, `AxPlaybook`, evolving context/task knowledge, ACE (Agentic Context Engineering), `agent.playbook()`, offline `evolve()`, and online `update()`. A playbook accumulates reusable knowledge rendered into program context. Prefer `playbook(...)`, which hides ACE; use `AxACE` directly only when low-level engine access is explicitly requested.
 
 Playbooks complement offline instruction/demo tuning via [global GEPA optimization](gepa.md) and [agent optimization](agent-optimize.md); they are not best/Pareto optimization artifacts or inference-time [bestOfN/refine](refine.md). Only playbooks also learn online via `update(...)`.
 
@@ -85,7 +85,7 @@ Each teacher call uses the options configured beside its model:
 
 ### Generated-language agent evolution
 
-The playbook engine, construction-time agent attachment, failure harvesting, and verified agent evolution exist in TypeScript and generated Python, Java, C++, Go, and Rust packages. Use native casing and callback types.
+The supplied source describes the playbook engine, construction-time agent attachment, failure harvesting, and verified agent evolution in TypeScript and generated Python, Java, C++, Go, and Rust packages. Use native casing and callback types. The generated-language scope below is source-observed, not runtime qualification performed by this collection.
 
 | Language | Agent-bound evolve call |
 |---|---|
@@ -103,3 +103,17 @@ All five generated packages carry structured `failureSignals` through agent eval
 - Empty playbook after `evolve()`: the model may already score well, leaving nothing to curate. Use harder/ambiguous examples or a weaker student to expose lessons.
 - No effect on agent behavior: ensure `apply` is not `false` and use `agent.playbook(...)`, not bare `playbook()` on an internal program.
 - No growth with an expensive teacher: reflector/curator calls are rejected before any request; only `verbose: true` logs rejection. Set `teacherOptions: { useExpensiveModel: 'yes' }`. An `apb.evolve(...)` miner rejection reports `miner failed` through `onProgress`, also to the console with `verbose: true`.
+
+## Selected executable contracts
+
+Read the [example index](../examples/INDEX.md#modes-prerequisites-and-effects), then select from [25-playbooks.ts](../examples/25-playbooks.ts):
+
+| Exact case ID / module | Boundary |
+|---|---|
+| [`25-playbooks/program-evolve`](../examples/25-playbooks.ts) | Program lifecycle, application and JSON persistence. |
+| [`25-playbooks/online-update`](../examples/25-playbooks.ts) | Explicit feedback with lazy hydration; not automatic agent harvesting. |
+| [`25-playbooks/agent-verified-retain`](../examples/25-playbooks.ts) / [`25-playbooks/agent-verified-reject`](../examples/25-playbooks.ts) | Held-in/held-out gate and exact rollback. |
+| [`25-playbooks/automatic-failure-harvesting`](../examples/25-playbooks.ts) | Construction-time attachment harvests a real recoverable failure, delivers structured signals/snapshot to `onUpdate`, restores persisted lessons and avoids teacher work on a clean run. No explicit update/evolve creates the lesson. |
+| [`25-playbooks/teacher-permission`](../examples/25-playbooks.ts) | Program reflector/curator permission plus the distinct agent weakness-miner and proposal-application option owners; missing miner permission reports failure before HTTP. |
+
+The two latter cases are **offline-only**, using the pinned Node package and scripted student/teacher I/O; no provider credential or billed request is required. Effects are example-owned tool failures, in-memory prompt/playbook changes and JSON snapshot/restore, not business writes. Close agent runtime workers and restore injected globals in `finally`; no durable store or private env file is created. Automatic harvesting is trusted adaptation, not held-out proof. Scripted decisions demonstrate SDK mechanics, not lesson quality, generalized improvement or observed acceptance; exported modes and current gate results remain separate.

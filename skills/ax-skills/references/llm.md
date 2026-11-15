@@ -1,12 +1,12 @@
 # Ax Library Quick Reference
 
-Ax (`@ax-llm/ax`) is a TypeScript library for type-safe LLM signatures, streaming, and multiple providers. Use this overview for `ax()`, `ai()`, `f()`, `s()`, `agent()`, `flow()`, `AxGen`, `AxAgent`, and `AxFlow`; use the focused companion references for detailed contracts. Source API snapshot: 25.4.10.
+Ax (`@ax-llm/ax`) is a TypeScript library for type-safe LLM signatures, streaming, and multiple providers. Use this overview for `ax()`, `ai()`, `f()`, `s()`, `agent()`, `flow()`, `AxGen`, `AxAgent`, and `AxFlow`; use the focused companion references for detailed contracts. Source API snapshot: 25.4.11.
 
 Companion guidance: [AI providers](ai.md) covers providers, routing, and adaptive balancing; [Typesafe/Jev](typesafe.md) covers decisions, criteria, and native scoring; [signatures](signature.md) covers signatures and types; [generators](gen.md) covers generator behavior. For agents, select [core agents/tools](agent.md), [runtime/RLM/delegation](agent-rlm.md), [callbacks/logs/usage](agent-observability.md), [recall/dynamic skills](agent-memory-skills.md), or [tuning/evaluation](agent-optimize.md). See [flows](flow.md) for workflows and [GEPA](gepa.md) for top-level `optimize(...)`, BootstrapFewShot-to-GEPA migration, and Pareto optimization.
 
 ## Imports and Factories
 
-Prefer `ax()`, `ai()`, `agent()`, and `flow()` over class constructors. The Ax 25.4.10 Standard Schema v1 converter supports Zod only, with synchronous validators; Zod is optional when using native signature fields.
+Prefer `ax()`, `ai()`, `agent()`, and `flow()` over class constructors. The Ax 25.4.11 Standard Schema v1 converter supports Zod only, with synchronous validators; Zod is optional when using native signature fields. Valibot/ArkType compatibility claims in older quickstarts do not describe this converter.
 
 ```typescript
 import { ax, ai, f, s, fn, agent, flow, AxMemory, AxMCPClient } from '@ax-llm/ax';
@@ -47,23 +47,25 @@ const tool = fn('search')
   .handler(({ query }) => searchWeb(query))
   .build();
 
-// Standard Schema function tool.
+// Standard Schema tool; retain its validator for the host boundary.
+const taxInput = z.object({
+  amount: z.number().positive().describe('Pre-tax amount in USD'),
+  region: z.string().regex(/^(US|EU|UK)$/).describe('Tax region: US, EU or UK'),
+});
 const zodTool = fn('calculateTax')
   .description('Calculate tax for an amount')
-  .arg(z.object({
-    amount: z.number().positive().describe('Pre-tax amount in USD'),
-    region: z.string().regex(/^(US|EU|UK)$/).describe('Tax region: US, EU or UK'),
-  }))
+  .arg(taxInput)
   .returns(z.object({
     tax: z.number(), total: z.number(), status: z.enum(['estimated', 'final']),
   }))
-  .handler(async ({ amount }) => ({
-    tax: amount * 0.1, total: amount * 1.1, status: 'estimated',
-  }))
+  .handler(async (args) => {
+    const { amount } = taxInput.parse(args);
+    return { tax: amount * 0.1, total: amount * 1.1, status: 'estimated' };
+  })
   .build();
 ```
 
-The tax region is an input, so it uses a string validator: `z.enum(...)` maps to output-only Ax `class`, as shown by the tool's status result. On outputs, Zod enums advertise and validate allowed labels and preserve literal-union types, including enum arrays and optional arrays. See [Standard Schema: Zod](signature.md#standard-schema-zod) for synchronous conversion, original-validator semantics, and vendor boundaries.
+The tax region is an input, so it uses a string validator: `z.enum(...)` maps to output-only Ax `class`. On generator outputs, Zod enums advertise and validate labels and preserve literal unions, including enum arrays and optional arrays. Tool schemas describe and infer fields; they do not invoke original validators around the handler. `taxInput.parse(args)` enforces this host boundary; validate returned values explicitly when needed. See [Standard Schema: Zod](signature.md#standard-schema-zod) and [`03-tools-streaming/standard-schema-fields`](../examples/03-tools-streaming.ts).
 
 ## Running and Forward Types
 
@@ -88,6 +90,17 @@ Programs use `forward(ai, values, options?)` and `streamingForward(ai, values, o
 - `AxGen` exposes `setExamples(...)`, `addAssert(...)`, `addStreamingAssert(...)`, `addFieldProcessor(...)`, `addStreamingFieldProcessor(...)`, and `stop()`. See [generator callback contracts](gen.md).
 - `AxAgent.getFunction()` exposes a child-agent tool and requires `agentIdentity` at construction. See [agents](agent.md).
 - `AxFlow` defines nodes with `.node(...)`, runs them with `.execute(...)`, and selects outputs with `.returns(...)`. See [flows](flow.md).
+
+## Selected 25.4.11 Contracts
+
+Load only the owning section for the task, then select its module through the [examples index](../examples/INDEX.md):
+
+| Need | Owning section and example |
+| --- | --- |
+| Preserve text accompanying streamed tool calls in later model history | [Generator streaming](gen.md#streaming-output-and-replacement-versions); `03-tools-streaming/mixed-tool-text-history`. |
+| Configure Hydrogen thinking levels, schema/tools and bounded output | [Gemini 4 Hydrogen](ai.md#gemini-4-hydrogen); the two Hydrogen cases in `04-providers`. |
+| Supply citable documents, reject incompatible native JSON, retain request-local source/passage associations | [Anthropic document citations](ai.md#anthropic-document-citations), then [normalized logs/usage](gen.md#normalized-chat-logs-and-usage) only for generation accounting; `37-document-citations`. Native citation provenance records attribution, not answer truth. |
+| Distinguish repeated object references from real ancestor cycles | [Shared-reference serialization](agent-rlm.md#shared-references-are-not-cycles-25411); `32-executor-context/shared-reference-serialization`. |
 
 ## Forward Options
 
@@ -313,9 +326,11 @@ const mcpClient = new AxMCPClient(transport, {
 
 Use `eventRuntime()` for notifications, webhooks, timers, or remote tasks that wake/resume an Ax program. Sources publish to an inbox; explicit routes select `observe`, `invalidate`, `wake`, or `resume`. Event payloads are never inserted automatically as user messages. See [event runtime](event-runtime.md).
 
+Select [`18-event-resume/owned-pause-resume`](../examples/18-event-resume.ts) for an owned continuation fixture. For native MCP, [`19-mcp/catalog-raw-errors`](../examples/19-mcp.ts) covers catalogs, resources, subscriptions and client lifecycle; `19-mcp/native-gen` covers attributed resource context. Setup, exact-case selection and effects are in the [examples index](../examples/INDEX.md).
+
 ## Resources
 
-Fetch full working examples as needed:
+Prefer the bundled [examples index](../examples/INDEX.md) for version-pinned runnable cases. The upstream resources below preserve the original quickstart's working-example routes; `main` is moving source, not part of the pinned 25.4.11 execution evidence:
 
 - [Standard Schema (zod)](https://raw.githubusercontent.com/ax-llm/ax/refs/heads/main/src/examples/standard-schema.ts): zod with `f()` and `fn()`.
 - [Chat Log](https://raw.githubusercontent.com/ax-llm/ax/refs/heads/main/src/examples/chat-log.ts): conversation history and multi-step tool calls.

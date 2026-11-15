@@ -148,6 +148,7 @@ class SnapshotTests(unittest.TestCase):
         self.workspace = tempfile.TemporaryDirectory()
         self.addCleanup(self.workspace.cleanup)
         self.repo = Path(self.workspace.name)
+        self.source_root = self.repo / 'upstream/ax-llm'
         self.members = source_members()
         self.upstream = identity(self.members)
         self.manifest = sync.manifest_for_bundle(self.members, self.upstream)
@@ -155,7 +156,7 @@ class SnapshotTests(unittest.TestCase):
         self.manifest_path.parent.mkdir(parents=True)
         self.manifest_path.write_text(json.dumps(self.manifest, indent=2) + '\n', encoding='utf-8')
         for name, content in self.members.items():
-            path = self.repo / sync.SOURCE_ROOT / name
+            path = self.source_root / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(content)
         for relative in ('skills/ax-skills/SKILL.md', 'skills/ax-skills/references/architecture.md', 'skills/ax-skills/assets/coverage-audit.json', 'skills-lock.json'):
@@ -188,6 +189,16 @@ class SnapshotTests(unittest.TestCase):
                 self.assertEqual(after[name], content)
         self.assertEqual(local, members)
 
+    def test_update_preserves_sibling_specialist_sources(self):
+        sibling = self.repo / 'upstream/ax-gen/SKILL.md'
+        sibling.parent.mkdir(parents=True)
+        sibling.write_bytes(b'supplied specialist source\n')
+        members, upstream = self.next_publication()
+        self.assertTrue(sync.update_snapshot(self.repo, self.manifest_path, members, upstream))
+        self.assertEqual(sibling.read_bytes(), b'supplied specialist source\n')
+        self.assertEqual((self.source_root / 'references/quickstart.md').read_bytes(),
+                         members['references/quickstart.md'])
+
     def test_invalid_http_archive_cannot_modify_snapshot(self):
         members, _ = self.next_publication()
         before = self.files()
@@ -198,7 +209,7 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual(self.files(), before)
 
     def test_local_source_edits_refuse_update_and_preserve_every_file(self):
-        target = self.repo / sync.SOURCE_ROOT / 'references/quickstart.md'
+        target = self.source_root / 'references/quickstart.md'
         target.write_bytes(target.read_bytes() + b'local edit\n')
         before = self.files()
         members, upstream = self.next_publication()
@@ -208,14 +219,14 @@ class SnapshotTests(unittest.TestCase):
 
     def test_unmanaged_files_and_symlinks_refuse_update(self):
         members, upstream = self.next_publication()
-        extra = self.repo / sync.SOURCE_ROOT / 'local.txt'
+        extra = self.source_root / 'local.txt'
         extra.write_bytes(b'user data')
         before = self.files()
         with self.assertRaises(sync.SyncError):
             sync.update_snapshot(self.repo, self.manifest_path, members, upstream)
         self.assertEqual(self.files(), before)
         extra.unlink()
-        target = self.repo / sync.SOURCE_ROOT / 'references/quickstart.md'
+        target = self.source_root / 'references/quickstart.md'
         target.unlink()
         target.symlink_to(self.repo / 'skills-lock.json')
         with self.assertRaises(sync.SyncError):

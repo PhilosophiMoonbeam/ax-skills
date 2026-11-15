@@ -23,8 +23,8 @@ from urllib.parse import urljoin, urlsplit
 from urllib.request import Request, urlopen
 
 
-SOURCE_ROOT = '.agents/skills/ax-llm'
-INDEX_URL = 'https://ax-llm.github.io/ax/typescript/.well-known/agent-skills/index.json'
+SOURCE_ROOT = 'upstream/ax-llm'
+INDEX_URL = 'https://axllm.dev/typescript/.well-known/agent-skills/index.json'
 NPM_URL = 'https://registry.npmjs.org/@ax-llm/ax/{version}'
 TOPICS = (
     'agent', 'agent-context', 'agent-memory-skills', 'agent-observability',
