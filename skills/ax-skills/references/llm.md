@@ -2,7 +2,7 @@
 
 Ax (`@ax-llm/ax`) is a TypeScript library for type-safe LLM signatures, streaming, and multiple providers. Use this overview for `ax()`, `ai()`, `f()`, `s()`, `agent()`, `flow()`, `AxGen`, `AxAgent`, and `AxFlow`; use the focused companion references for detailed contracts. Source API snapshot: 25.4.11.
 
-Companion guidance: [AI providers](ai.md) covers providers, routing, and adaptive balancing; [Typesafe/Jev](typesafe.md) covers decisions, criteria, and native scoring; [signatures](signature.md) covers signatures and types; [generators](gen.md) covers generator behavior. For agents, select [core agents/tools](agent.md), [runtime/RLM/delegation](agent-rlm.md), [callbacks/logs/usage](agent-observability.md), [recall/dynamic skills](agent-memory-skills.md), or [tuning/evaluation](agent-optimize.md). See [flows](flow.md) for workflows and [GEPA](gepa.md) for top-level `optimize(...)`, BootstrapFewShot-to-GEPA migration, and Pareto optimization.
+Companion guidance: [AI providers](ai.md) covers providers, routing, and adaptive balancing; [Typesafe/Jev](typesafe.md) covers focused semantic judgments, host-owned policy, criteria and native scoring; [signatures](signature.md) covers signatures and types; [generators](gen.md) covers generator behavior. For agents, select [core agents/tools](agent.md), [runtime/RLM/delegation](agent-rlm.md), [callbacks/logs/usage](agent-observability.md), [recall/dynamic skills](agent-memory-skills.md), or [tuning/evaluation](agent-optimize.md). See [flows](flow.md) for workflows and [GEPA](gepa.md) for top-level `optimize(...)`, BootstrapFewShot-to-GEPA migration, and Pareto optimization.
 
 ## Imports and Factories
 
@@ -104,7 +104,7 @@ Load only the owning section for the task, then select its module through the [e
 
 ## Forward Options
 
-Provider capabilities determine applicable outputs and options. Typesafe/Jev and OpenAI Decisions support required boolean/class/rubric score signatures. Jev additionally supports PNG/JPEG image inputs with native Box localization outputs; OpenAI Decisions supports image inputs but not Box outputs, so provider capabilities are not uniform. Use `(evidence)` or `.withEvidence()` for probabilities, scores, and native confidence through AxGen; provenance distinguishes native from elicited evidence. Use native clients for advanced request shapes and generative providers for prose or tools. Read [Typesafe/Jev](typesafe.md) before applying these general generation options to Jev.
+Provider capabilities determine applicable outputs and options. Typesafe/Jev, OpenAI Decisions and Gemini Decisions support required boolean/class/rubric score signatures. Jev additionally supports PNG/JPEG image inputs with native Box localization outputs; OpenAI Decisions and Gemini Decisions support image inputs but not Box outputs, so provider capabilities are not uniform. Use `(evidence)` or `.withEvidence()` for probabilities, scores, and provider-supplied confidence through AxGen; provenance distinguishes native from elicited evidence. Use native Ax clients for advanced request shapes and generative providers for prose or tools. Read [Native decisions](typesafe.md) for each provider's input, refusal and option limits before applying these general generation options.
 
 | Goal | Option | Example |
 | --- | --- | --- |
@@ -168,6 +168,8 @@ Runnable scope: [`02-generation/memory-few-shot`](../examples/02-generation.ts) 
 ## Common Patterns
 
 ### Classification
+
+For bounded semantic judgments, first consider [Native decisions](typesafe.md) instead of generating a label and a numeric confidence field. Use code for exact facts, arithmetic, policy and authorization; use a separate generative step when prose is needed. The example below illustrates general-generation validation, not native decision evidence.
 
 ```typescript
 const classifier = ax(

@@ -1,11 +1,11 @@
 ---
 name: ax-skills
-description: Design, implement and review @ax-llm/ax TypeScript LLM systems. Use for holistic architecture before development, execution topology and trust/state boundaries; ai() providers, routing, balancing and embeddings; s()/f() signatures; ax()/AxGen generation, streaming and validation; agent()/AxAgent tools, child delegation, clarification and resume; contextMap, contextPolicy, memories and runtime skills; RLM/AxJSRuntime; usage, tracing and cost ownership; flow()/AxFlow DAGs; AxEventRuntime events and persistence; agent.optimize(), optimize()/AxGEPA, playbook()/ACE and bestOfN/refine; AxMCPClient transports, catalogs and OAuth; audio/multimodal applications; and native Jev, OpenAI and Gemini decisions, evidence, media and Box localization.
+description: Design, implement and review @ax-llm/ax TypeScript LLM systems. Use for holistic architecture before development, execution topology and trust/state boundaries; ai() providers, routing, balancing and embeddings; s()/f() signatures; ax()/AxGen generation, streaming and validation; agent()/AxAgent tools, child delegation, clarification and resume; contextMap, contextPolicy, memories and runtime skills; RLM/AxJSRuntime; usage, tracing and cost ownership; flow()/AxFlow DAGs; AxEventRuntime events and persistence; agent.optimize(), optimize()/AxGEPA, playbook()/ACE and bestOfN/refine; AxMCPClient transports, catalogs and OAuth; audio/multimodal applications; and focused semantic judgments with Jev, OpenAI and Gemini decision models, host-owned policy, typed evidence, probabilities, media and Box localization.
 ---
 
 # Ax Skills
 
-Use one entrypoint, 19 selectively loaded references and 38 executable example modules. Markdown links resolve relative to their containing file; no separately installed Ax skill is required.
+Use one entrypoint, 19 selectively loaded references and a declared 39 executable example modules / 234 cases. Markdown links resolve relative to their containing file; no separately installed Ax skill is required. Counts describe the collection, not executed acceptance.
 
 ## Working policy
 
@@ -17,7 +17,7 @@ Use one entrypoint, 19 selectively loaded references and 38 executable example m
 ## Architectural orientation
 
 - Start with a signature-bound `AxGen`; use `AxFlow` for application-defined dependencies/branches and `AxAgent` for model-directed tool use. RLM is the agent's code/runtime strategy; child delegation is an explicit specialist boundary, not `llmQuery()`.
-- Separate native decisions from prose/tool generation; capability filtering and operational balancing do not establish semantic equivalence or application quality.
+- Prefer focused decision models for bounded semantic judgments; use separate generation for prose/tools. Code owns exact facts, policy, authority and effects; capability filtering and operational balancing do not establish semantic equivalence or application quality.
 - Keep corpus orientation (`contextMap`), within-run replay (`contextPolicy`), recalled facts, loaded runtime skills and evolving playbooks distinct. Runtime sessions and continuation snapshots are not a durable application database.
 - The application owns authenticated identity, tool authority, durable storage, retry/idempotency policy, delivery, accounting and acceptance criteria. MCP content is untrusted; event sources require explicit wake/resume routes.
 
@@ -45,7 +45,7 @@ Use Architecture to turn these alternatives into a justified design and implemen
 | `playbook()`, `AxPlaybook`, ACE, `agent.playbook()`, offline `evolve()` and online `update()` | [Playbooks](references/playbook.md) | Reusable task knowledge, not instruction/demo search or per-call sampling. |
 | `bestOfN()`, `refine()`, rewards, thresholds, native samples, serial attempts, advice/diagnostics | [Refine and best-of-N](references/refine.md) | Complete-output selection within a call, not streaming or persistent learning. |
 | `AxMCPClient`, native `mcp`, transports, catalogs, tools/prompts/resources, tasks/subscriptions, sampling/elicitation/roots, OAuth, Apps, recording/replay | [Native MCP](references/mcp.md) | Protocol ownership and trust; add Event runtime for persisted wake/resume. |
-| Jev, `openai-decisions`, `google-gemini-decisions`, `typesafe()`, `openaiDecisions()`, `googleGeminiDecisions()`, boolean/class/rubric scores, evidence/probabilities/provenance, `trueThreshold`, native questions, applicability gates, media and Box | [Native decisions](references/typesafe.md) | Atomic judgments feed host policy, not authorization. Provider inputs, confidence and refusals differ; only Jev supports native Box. |
+| Focused semantic judgments instead of general generation; Jev, `openai-decisions`, `google-gemini-decisions`, `typesafe()`, `openaiDecisions()`, `googleGeminiDecisions()`, boolean/class/rubric scores, evidence/probabilities/provenance, `trueThreshold`, native questions, applicability gates, media and Box | [Native decisions](references/typesafe.md) | Jev supplies judgments; code owns facts, policy, authority and effects. Provider inputs, confidence and refusals differ; only Jev supports native Box. |
 
 ## Working examples
 

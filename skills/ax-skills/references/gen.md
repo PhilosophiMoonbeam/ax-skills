@@ -284,6 +284,8 @@ console.log(result.thought);
 
 In TypeScript, providers advertising `requiresStructuredOutput` (for example Typesafe) automatically receive schemas even for scalar-only signatures. Ax renders JSON instructions/examples and parses objects without changing the signature. Typesafe/OpenAI Decisions support required boolean, class, and ordered rubric score outputs. Value descriptions become native criteria; conventional providers receive readable prompt/schema descriptions. See [Typesafe reference](typesafe.md) for native questions, thresholds, hybrid text generation; original resource: [ax-typesafe](https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-typesafe.md). Providers disabling native functions and `functionEmulation` reject tool-bearing programs before rendering prompts.
 
+Schema rendering and shape validation do not expand a decision provider's supported outputs. The rich structured example below needs a compatible generative provider, not Jev. A schema-valid judgment still needs a host semantic acceptance/uncertainty gate; neither schema validity nor automatic rendering authorizes an effect.
+
 ```typescript
 const sig = f()
   .input('articleText', f.string())
@@ -486,6 +488,10 @@ Generated-language status: C++ session tools using raw JSON schemas validate req
 ## Decision model outputs
 
 Boolean/class `.withEvidence()` and `f.score(levels).withEvidence()` retain probabilities/native confidence through `forward()`. String forms: `boolean(evidence)`, `score "Low, Medium, High"(evidence)`. These are normal outputs: processors, assertions, result selection, traces, caches receive decoded evidence. See [decision evidence](typesafe.md#evidence-provenance-and-reranking) for shapes, provenance, refusal policy, reranking.
+
+Decoded evidence is not an acceptance policy: host code must distinguish negative/inapplicable, unresolved and failed judgments, then check authority before effects. Result-cache reuse does not establish freshness, isolation or Jev server prompt-cache support; scope and invalidate reuse for changed evidence, questions/rubrics, model and applicable policy. Assertions enforce declared invariants, not semantic correctness or calibration; a valid middle-band judgment should not be forced into confidence by correction retries. Rewards and selection preferences likewise confer no correctness or authority. See [General decision patterns](typesafe.md#general-decision-patterns) and [Ax composition and optimization](typesafe.md#ax-composition-and-optimization) for cache and refinement boundaries.
+
+For reward-scored retries and advice, retain the provider restrictions in the [refine reference](refine.md); do not infer native Jev multi-completion support from generic selection helpers.
 
 ## Novel F1 evaluation
 

@@ -1,6 +1,6 @@
 # Ax signatures and field contracts
 
-Use for `s()`, `f()`, signature strings, field types, validation, and type-safe inputs/outputs. Source snapshot: Ax 25.4.11. Generator execution belongs in [generator reference](gen.md); native decision criteria belong in [Typesafe reference](typesafe.md).
+Use for `s()`, `f()`, signature strings, field types, validation, and type-safe inputs/outputs. Source snapshot: Ax 25.4.11. Generator execution belongs in [generator reference](gen.md); focused semantic judgments and native decision criteria belong in [Typesafe reference](typesafe.md).
 
 ## String syntax and field types
 
@@ -289,6 +289,8 @@ const cachedSig = f()
 ## Signature gallery
 
 Each contract parses with `s()`; `#` lines are captions, not signature content.
+
+These are general signature examples, not a native-decision compatibility list. Numeric confidence fields are elicited outputs, not calibrated probabilities. For focused semantic judgments, use [native decision evidence](typesafe.md#evidence-provenance-and-reranking); code still owns facts, policy, authority and effects.
 
 ```text
 # Support triage

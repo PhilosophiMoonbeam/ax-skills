@@ -1,6 +1,6 @@
 # Executable Ax Examples
 
-Pinned to `@ax-llm/ax` and `@ax-llm/ax-tools` **25.4.11**. These **38 flat modules** expose **230 cases** in actual CLI discovery. They are an executable layer beside the guides, not another skill or a replacement for API contracts; discovery is not execution acceptance. Links resolve relative to this file; run the commands below from the installed skill root.
+Pinned to `@ax-llm/ax` and `@ax-llm/ax-tools` **25.4.11**. The collection declares **39 flat modules** and **234 cases**; these counts are not an executed discovery or success claim. They are an executable layer beside the guides, not another skill or a replacement for API contracts. Links resolve relative to this file; run the commands below from the installed skill root.
 
 ## Select, then run
 
@@ -54,6 +54,8 @@ Supported APIs and exported modes describe intended scope. Only recorded command
 
 ### 2. Select mechanisms, not the whole table
 
+For bounded semantic judgments, start with [Native decisions](../references/typesafe.md), then select a decision case below; use general generation when the required output is prose or another unsupported decision output. Keep facts, policy and effects in code.
+
 | Module | Focus | Guide |
 | --- | --- | --- |
 | [04-providers.ts](04-providers.ts) | Provider/model construction, image output, Hydrogen thinking/limits, schema/tools and streaming | [Providers](../references/ai.md#gemini-4-hydrogen) |
@@ -63,6 +65,7 @@ Supported APIs and exported modes describe intended scope. Only recorded command
 | [34-vercel.ts](34-vercel.ts) | Real Vercel adapter, typed output and stream consumption | [Providers](../references/ai.md#vercel-ai-sdk-integration) |
 | [37-document-citations.ts](37-document-citations.ts) | Five native document sources, URL-less locations, block snapshots, passage attribution, local rejection and router preservation | [Document citations](../references/ai.md#anthropic-document-citations), [Logs/usage](../references/gen.md#normalized-chat-logs-and-usage) |
 | [06-decisions.ts](06-decisions.ts) | Jev, OpenAI and Gemini Decisions; provider-specific native contracts, threshold ownership and applicability/category uncertainty | [Native decisions](../references/typesafe.md), [OpenAI Decisions](../references/ai.md#openai-decisions) |
+| [39-decision-patterns.ts](39-decision-patterns.ts) | Focused semantic judgments composed with host-owned policy | [General decision patterns](../references/typesafe.md#general-decision-patterns), [Ax composition](../references/typesafe.md#ax-composition-and-optimization) |
 | [07-images.ts](07-images.ts) | Image decisions and experimental localization | [Typesafe](../references/typesafe.md), [Signatures](../references/signature.md) |
 | [08-refinement.ts](08-refinement.ts) | Complete-candidate selection and refinement | [Refine](../references/refine.md) |
 | [09-agents.ts](09-agents.ts) | Agent construction and scoped tools | [Core agents](../references/agent.md) |
@@ -97,6 +100,19 @@ Supported APIs and exported modes describe intended scope. Only recorded command
 | [26-architecture.ts](26-architecture.ts) | Five application patterns; `evidence-aware-ticket` combines atomic judgments, current/unavailable/stale authoritative facts, ordered host rules and optional outcome acknowledgement | [Architecture](../references/architecture.md#11-compose-small-patterns-and-stage-verification), [Judgment policy](../references/typesafe.md#atomic-judgments-and-host-policy) |
 
 Use `bun run --no-env-file --cwd examples list MODULE_BASENAME` to find the exact case ID. Read that case's `run(ctx)`, imports and referenced helpers—not the corpus—then run `bun run --no-env-file --cwd examples offline CASE_ID`. Return to the guide for constraints; examples demonstrate selected contracts, not every supported combination.
+
+### Focused decision case selection
+
+For provider/API/threshold contracts retain `06-decisions`; for image/Box use `07-images`; for the existing authoritative-facts composition use `26-architecture/evidence-aware-ticket`. For general patterns, read [General decision patterns](../references/typesafe.md#general-decision-patterns) and select exactly one offline-only case:
+
+| Exact case ID / module | Select when |
+| --- | --- |
+| [`39-decision-patterns/candidate-selection`](39-decision-patterns.ts) | Select among host-owned candidates; distinguish empty, singleton, ambiguous and failed outcomes without inventing values. |
+| [`39-decision-patterns/speculative-truth-table`](39-decision-patterns.ts) | Combine independent judgments over shared state in host code; dependent questions require a later request, not sibling answers. |
+| [`39-decision-patterns/rerank-and-reweight`](39-decision-patterns.ts) | Score authorized current candidates once per dimension, preserve native evidence and reweight in code; reject no-match, split or incomplete evidence. |
+| [`39-decision-patterns/verify-escalate`](39-decision-patterns.ts) | Verify a candidate, escalate uncertainty and verify a fallback again before release; errors never authorize effects. |
+
+These cases use injected I/O, not live services or model-quality evidence. Follow the same `list MODULE_BASENAME` → inspect `run(ctx)` → `offline CASE_ID` procedure above. For Flow and optimization boundaries, read [Ax composition and optimization](../references/typesafe.md#ax-composition-and-optimization), not the whole corpus.
 
 For the browser surface, run `bun run --no-env-file --cwd examples build:browser`, serve `examples/browser/` with a local static HTTP server and open `chrome-ai.html`. `check` includes this entry. Only a compatible Chrome profile can run its local model; Node fixtures and an unavailable-state rendering do not establish Gemini Nano inference. No model session or download starts on import.
 

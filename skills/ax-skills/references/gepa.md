@@ -51,6 +51,8 @@ const multiMetric = ({ prediction, example }) => ({
 
 ## Scalar classifier example
 
+This is a generative classifier: `rationale:string` is not a Jev output.
+
 ```typescript
 import { ai, ax, optimize, AxAIOpenAIModel } from '@ax-llm/ax';
 
@@ -100,7 +102,7 @@ console.log({
 
 ## Pareto flow example
 
-This independent example optimizes accuracy and rationale brevity across both flow nodes; see [flows](flow.md).
+This independent generative example optimizes accuracy and rationale brevity across both flow nodes; the freeform rationale node is not Jev-compatible. See [flows](flow.md).
 
 ```typescript
 import { ai, flow, optimize, AxAIOpenAIModel } from '@ax-llm/ax';
@@ -163,6 +165,10 @@ for (const point of result.paretoFront) {
 wf.applyOptimization(result.optimizedProgram!);
 console.log(result.optimizedProgram?.componentMap);
 ```
+
+A Jev student is possible only for a compatible decision signature; reflection and instruction proposals need an explicitly generative teacher. These examples use `sampleCount: 1`, not native Jev multi-completion sampling. Optimization changes exposed program components, not model weights, authoritative facts, host policy or approval; it does not automatically calibrate probabilities or guarantee improvement.
+
+Keep training, tuning and final held-out examples separate. Evaluate task-specific semantic labels **and host outcomes**, including negatives, ambiguity, overlap/precedence, missing/stale facts, paraphrase/negation, option order and source mismatch. Deterministic metrics suffice where labels/facts settle correctness; fixture probabilities are not evaluation targets. See [Ax composition and optimization](typesafe.md#ax-composition-and-optimization).
 
 ## Options and teacher permissions
 

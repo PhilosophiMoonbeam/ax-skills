@@ -2,6 +2,8 @@
 
 Use for TypeScript decision signatures, native questions, probabilities, rubric scores, evidence and explicit hybrid generation. Source API snapshot: 25.4.11. Jev-specific details include structured criteria and experimental images/Box. Select `name: 'typesafe'` for Jev (`jev-latest` by default); neither Jev nor the dedicated OpenAI/Gemini Decisions endpoints is a freeform generation or tool-use provider. Official Jev adapter/native clients also cover Python, Java, C++, Go and Rust; use each package's syntax and qualify target behavior rather than assuming universal parity.
 
+Jev supplies observable semantic judgments → host facts/policy/effects, not direct decision authority. Compute exact arithmetic, counts, dates and lookups in code first; ask only questions whose answers feed an explicit host rule.
+
 ## Choose an interface
 
 | Need | Interface | Result |
@@ -9,7 +11,7 @@ Use for TypeScript decision signatures, native questions, probabilities, rubric 
 | Required booleans/fixed classes | `ai({ name: 'typesafe', ... })` plus `ax(...).forward()` | Ordinary signature-shaped values |
 | PNG/JPEG images/localization (TypeScript) | `ax(...)` with `image` inputs and `box` outputs | Coordinates, optional evidence |
 | Probabilities/confidence/rubric scores | `ax(...)` evidence fields | Typed evidence in normal results |
-| Advanced structured criteria/state | `typesafe(...).systemOne(...)` | Native request features |
+| Advanced structured criteria/state | Ax native client `typesafe(...).systemOne(...)` | Native request features |
 | Decisions then prose/tools | Decision step then generative provider | Explicitly composed results |
 
 `reply:string` requests unsupported freeform text. `team:class "support, billing"` returns either label. Numeric fields, even with `min`/`max`, do not define native scoring rubrics.
@@ -59,23 +61,22 @@ import { ai, ax, f } from '@ax-llm/ax';
 const apiKey = process.env.TYPESAFE_API_KEY ?? process.env.TYPESAFE_APIKEY;
 if (!apiKey) throw new Error('Set a Typesafe API key.');
 const model = ai({ name: 'typesafe', apiKey, trueThreshold: 0.9 });
-const triage = ax(`
-  ticket:string ->
-  urgent:boolean(
-    true "Customers cannot complete a core task",
-    false "A routine request or minor inconvenience"
-  ) "Does this need immediate attention?",
-  team:class "support, billing, engineering"(
-    support "Product usage questions",
-    billing "Individual invoice or charge disputes",
-    engineering "Broken functionality or service outages"
-  ) "Which team should investigate?"
+const inspect = ax(`
+  requestText:string ->
+  replacementRequested:boolean(
+    true "The writer explicitly asks to replace existing wording",
+    false "The writer only quotes wording, asks for explanation, or requests no replacement"
+  ) "Does the writer request replacement in requestText?",
+  subject:class "wording, layout"(
+    wording "Words or phrasing",
+    layout "Spatial arrangement or formatting"
+  ) "Which supplied subject best matches requestText?"
 `);
-const decision = await triage.forward(model, {
-  ticket: 'Checkout fails for every customer. Payments cannot complete.',
+const decision = await inspect.forward(model, {
+  requestText: 'Please replace the final sentence with the shorter wording.',
 });
-// decision.urgent: boolean
-// decision.team: 'support' | 'billing' | 'engineering'
+// decision.replacementRequested: boolean; decision.subject: 'wording' | 'layout'
+// These judgments do not perform or authorize an edit.
 ```
 
 `trueThreshold` defaults to `0.5`, must be finite in `[0, 1]`, and converts scalar booleans on that provider instance using `noul >= trueThreshold` (equality included). Boolean evidence instead uses its field `threshold`, default `0.5`, independently of the provider threshold. These local policies are never sent to Typesafe; native Noul remains unthresholded. Choice returns its selected label without automatic confidence cutoff or abstention.
@@ -102,7 +103,7 @@ const result = await locate.forward(vision, {
   photo: { mimeType: 'image/png', data: imageBase64 },
 });
 // result.target.value: { top, bottom, left, right }, each in [0, 1]
-// result.target.confidence: native confidence, when supplied
+// result.target.confidence: numeric native confidence for an accepted Jev response
 // result.target.provenance.source: 'native'
 ```
 
@@ -114,48 +115,57 @@ Send still PNG/JPEG as raw base64 or matching image data URLs, never hosted URLs
 
 Native assets use `assets: { [reference]: { type: 'image', format: 'png' | 'jpg' | 'jpeg', data_base64: string } }`. Include references in state, question instructions, or criteria. References match substrings in string values; use unique long references, preferably UUIDs. Box questions are `{ type: 'box', instructions: 'The target in photo' }`, with no criteria, returning `{ type: 'box', box: { top, bottom, left, right }, confidence }`. The client does not support multipart uploads.
 
-Generative vision providers use the same Box signature with validated JSON schema; evidence has `provenance.source: 'elicited'` and no invented confidence. Jev supplies native provenance and confidence when supplied. OpenAI Decisions supports inline images for boolean/class/score questions, but has no documented native Box primitive: Ax rejects Box outputs before transport. Use a generative OpenAI vision model for Box.
+**Pinned SDK versus current OpenAPI:** Ax 25.4.11 requires nonblank Box instructions, a referenced image asset, no Box criteria, and finite numeric confidence in `[0, 1]` on the native answer. The current provider OpenAPI requires only the Box question `type` and permits nullable answer confidence. Ax rejects null or missing native Box confidence even though the provider schema permits null. The generic `AxBoxEvidence.confidence?` shape does not relax this transport validation. This is a source-backed compatibility limitation, not a reproduced live failure; do not synthesize confidence or silently substitute a region. Compare the [released declarations](https://unpkg.com/@ax-llm/ax@25.4.11/index.d.ts), [released validation source map](https://unpkg.com/@ax-llm/ax@25.4.11/index.js.map), and [current OpenAPI](https://docs.typesafe.ai/api/system-one).
+
+Generative vision providers use the same Box signature with validated JSON schema; evidence has `provenance.source: 'elicited'` and no invented confidence. Jev supplies native provenance and requires numeric native confidence in this SDK. OpenAI Decisions supports inline images for boolean/class/score questions, but has no documented native Box primitive: Ax rejects Box outputs before transport. Use a generative OpenAI vision model for Box.
 
 **Generated-language source disagreement (25.4.10):** the Typesafe source says Image/Box signatures are available in TypeScript, Python, Java, C++, Go, and Rust, with runnable localization examples in each `src/examples/<language>/generation/` directory. The signature source instead says generated-language Box support remains in the AxIR backlog. Preserve these as conflicting claims, not universal support or universal lack of support; this tutorial establishes the TypeScript contract only. See [signature scope note](signature.md#bounding-boxes) and upstream [Images](https://docs.typesafe.ai/images) / [Box](https://docs.typesafe.ai/primitives/box) contracts.
 
 ## Native questions and application decisions
 
 ```typescript
-import { typesafe } from '@ax-llm/ax';
+import { typesafe, type AxAITypesafeQuestions } from '@ax-llm/ax';
 
 const apiKey = process.env.TYPESAFE_API_KEY ?? process.env.TYPESAFE_APIKEY;
 if (!apiKey) throw new Error('Set a Typesafe API key.');
 const client = typesafe({ apiKey });
-const result = await client.systemOne({
-  state: { ticket: 'Checkout fails for every customer.', recentEvents: [] },
-  questions: {
-    urgent: {
-      type: 'noul',
-      instructions: 'Does this require immediate incident response?',
-      criteria: {
-        true: { description: 'Core task blocked', examples: ['Cannot pay'] },
-        false: 'Routine request or minor inconvenience',
-      },
-    },
-    team: {
-      type: 'choice',
-      instructions: 'Which team should investigate?',
-      criteria: {
-        support: 'Product usage questions',
-        engineering: 'Broken functionality or service outages',
-      },
-    },
-    severity: {
-      type: 'score',
-      instructions: 'How severe is the customer impact?',
-      criteria: ['Minor inconvenience', 'Feature impaired', 'Core task blocked'],
+const candidates = {
+  wording: 'Replace the final sentence with shorter wording.',
+  layout: 'Move the final paragraph above the heading.',
+} as const;
+const questions = {
+  applicable: {
+    type: 'noul',
+    instructions: 'Does either supplied candidate address the request in state.text?',
+    criteria: {
+      true: 'At least one candidate directly addresses the requested change.',
+      false: 'Neither candidate addresses the requested change.',
     },
   },
+  candidate: {
+    type: 'choice',
+    instructions: 'Which supplied candidate best addresses the request in state.text?',
+    criteria: candidates,
+  },
+  wordingSupport: {
+    type: 'score',
+    instructions: 'How directly does state.text request the wording candidate?',
+    criteria: ['No wording replacement requested', 'Related but not explicit', 'Explicit wording replacement requested'],
+  },
+} as const satisfies AxAITypesafeQuestions;
+const result = await client.systemOne({
+  state: { text: 'Please shorten the final sentence.' },
+  questions,
 });
-const escalate = result.answers.urgent.noul >= 0.9;
-const team = result.answers.team.choice; // 'support' | 'engineering'
-const severity = result.answers.severity.score; // Fractional values allowed, 0–2.
-const severityOnTen = (severity / 2) * 10; // Explicit application scale.
+const p = result.answers.applicable.noul;
+const selected = result.answers.candidate;
+// Illustrative host boundaries only, not measured recommendations.
+const outcome = p <= 0.1 ? { status: 'none' as const }
+  : p < 0.9 || selected.probabilities[selected.choice] < 0.9
+    ? { status: 'review' as const }
+    : { status: 'selected' as const, id: selected.choice, text: candidates[selected.choice] };
+const support = result.answers.wordingSupport.score; // Fractional position, 0–2.
+const supportOnTen = (support / 2) * 10; // Explicit host scale, not correctness.
 const models = await client.listModels();
 ```
 
@@ -165,15 +175,19 @@ Keep questions inline or use `as const satisfies AxAITypesafeQuestions` for reus
 - Choice returns `choice`, `probabilities`, `confidence`; Score returns `score`, `probabilities`, `legend`, `confidence`.
 - Responses also include `model` and `usage.input_tokens`/`usage.output_tokens`.
 - Choice/Score probabilities must be finite `[0, 1]` values matching criteria keys, summing to one within inclusive `0.01` tolerance. Totals `0.99` and `1.01` are accepted with floating-point summation allowance. Ax preserves probabilities without renormalizing.
-- State, instructions, and individual criteria accept text, JSON objects, arrays, or `null`. Nested JSON accepts finite numbers/booleans; bare numbers/booleans are invalid top-level entries. Instructions are optional in Ax/native types, but provide explicit questions: keys identify answers, not instructions. Choice permits 1–255 labels; Score requires 2–10 ordered levels. `null` leaves outcomes undescribed.
+- Ax 25.4.11 entries accept text, JSON objects, arrays, or `null`; nested JSON permits finite numbers/booleans, but bare numbers/booleans are invalid entries. Instructions are optional for Noul/Choice/Score; Box has the stricter requirements above. Question IDs identify answers, not instructions.
+- **SDK/schema disagreement:** Ax accepts null state and null Score criteria entries; current OpenAPI excludes both, despite provider advanced prose permitting null criteria. Ax requires Score 2–10 ordered levels; current OpenAPI permits 1–10 while Score prose requires 2–10. Choice allows 1–255 in Ax and the schema. These are distinct contracts, not permission to relax SDK validation. Use concrete non-null state/levels for portable requests; do not invent singleton Choice confidence from a formula defined for multiple options.
 
-Question design:
-- Noul asks one clear yes/no judgment; near `0.5` means uncertainty about that judgment, not degree/severity. Use Score for degree. Overlapping flags require separate Nouls composed in code; Choice selects one exclusive outcome.
-- Give similar Choice labels distinct descriptions; use an application-valid catch-all or companion applicability gate when the options do not cover all inputs.
-- For a selected-label action inspect `probabilities[choice]`. Jev Choice confidence transforms the maximum probability for a fixed option count; it is not independent evidence. For a level-specific Score action inspect that level's probability: equal mean scores can conceal different distributions.
-- Use one dimension per Score rubric and describe each level independently, without relying on “more than the previous level.” Preserve fractional zero-based position; explicitly choose rounding, normalization, and weighting in code.
-- All questions share state. Group by relevant context and identify source paths. Structured instruction fields are application-defined; simple strings remain the default. Same-request questions cannot consume another answer; dependencies require later calls.
-- Evaluate held-out representative inputs plus adversarial/irrelevant state, negation, boundaries and option-order changes. Higher confidence after a rewrite does not prove greater accuracy; confidence describes a distribution, not correctness.
+State and question craft:
+- Human test: could a person answer from this snapshot alone? Preserve attribution, relevant thread turns, corrections, negation and subject identity. Resolve known names/relationships in code. Missing, unreadable or underdetermined evidence needs a hold/clarification path, not forced certainty.
+- Native state should use relevant named JSON fields, not double-serialized JSON. The Ax signature adapter instead renders its normal prompt into native state; named signature inputs do not promise raw structured-state pass-through. Empty lists convey absence and can affect answers; irrelevant fields/distractors can also change judgments. Minimize without deleting necessary context.
+- Put shared context in state and question-specific context in that question. Name the subject, goal and exact source paths. Plain strings are sufficient; structured instruction content such as `description` or `examples` is application-defined JSON, not a special Ax schema.
+- Ask one observable dimension per question, with true meaning yes and concrete true/false criteria that distinguish confusing cases. Avoid policy verdicts, prompt preambles and output-format chatter. Noul near `0.5` expresses uncertainty, not severity; low probability supports false and is not necessarily uncertainty. Overlapping properties need separate Nouls, not one exclusive Choice.
+- Choice labels are visible to the model; native question IDs are not instructions. Give similar labels distinct descriptions. Cover plausible candidates or provide an application-valid catch-all/companion applicability Noul. Empty pools bypass inference; singleton pools still require applicability, not an invented confidence convention. A missing correct candidate cannot be recovered by Choice.
+- Inspect `probabilities[choice]` independently of applicability. Jev Choice confidence transforms the maximum probability for a fixed option count; it is not corroboration or permission. For a level-specific Score rule inspect that level's probability: equal mean scores can conceal opposite distributions.
+- Use one dimension per Score rubric; describe each level independently, not “more than the previous level.” Preserve fractional zero-based scores and distributions; choose normalization/rounding/weights in code.
+- Each sibling question must be answerable from state and its own instructions, never another sibling answer. Scoring the chosen candidate requires a later request containing that candidate. Group only sufficient relevant shared context; split interfering contexts.
+- Evaluate held-out representative inputs, adversarial/irrelevant state, negation, boundaries and option-order changes. Higher confidence after a rewrite does not prove higher accuracy; confidence describes a distribution, not correctness.
 
 Provider guidance: [Noul](https://docs.typesafe.ai/primitives/noul), [Choice](https://docs.typesafe.ai/primitives/choice), [Score](https://docs.typesafe.ai/primitives/score), [official API types](https://github.com/typesafe-ai/typesafe-sdk-js/blob/main/src/types.ts).
 
@@ -183,17 +197,58 @@ Jev supplies semantic judgments; code owns authoritative facts/calculations, ord
 
 - Send bounded, relevant structured context with explicit source/field paths; separate customer assertions from verified records. Batch narrow, answer-independent questions over that context. “Independent” means no answer dependencies, not statistical independence, invariance after edits or a calibration guarantee. Questions needing another answer require a later call.
 - Retain raw Noul probabilities through native answers or boolean evidence. Define a host-owned three-valued policy: yes above an evaluated upper boundary, no below a lower boundary, uncertain between them, with explicit inclusive/exclusive boundaries. A scalar boolean alone cannot retain that uncertainty. Missing required facts also need an explicit unresolved outcome.
-- Evaluate multi-intent rules in priority order. For example: unauthorized-charge report → human/legal request → eligible refund → retention → ordinary answer. An uncertain higher-priority rule must trigger review, clarification or a defined safe hold before any lower-priority outcome; do not silently treat uncertainty as false. Dispatch authorized effects only after policy selection, separately from judgments and explanations.
+- Evaluate rules in priority order. An unresolved higher-priority condition holds before any lower-priority outcome; known false may permit the next branch. Define precedence for overlapping positives and cover every host outcome. Dispatch separately authorized effects only after policy selection, never from a judgment alone.
 - Optional applicability gate: pair a forced Choice with a companion Noul asking whether any supplied option applies. Ignore the Choice when inapplicable; preserve review when applicability is uncertain. Independently gate the selected label's probability even when applicability is high: “some option applies” does not establish which one. Choice confidence alone establishes neither applicability nor correctness. Likewise, pair Box with a presence judgment and ignore its region unless presence passes policy.
 - Optional speculative fan-out: ask answer-independent questions together even when only some branches will matter, then ignore irrelevant answers in code. Never let an irrelevant answer override a selected branch or authorize an effect.
 - Optional composite scoring: use one Score rubric per dimension, normalize each by its own final rubric index, and apply explicit application weights in code. Preserve component scores/distributions. A weighted aggregate is an application score, not a joint-event probability; multiplying judgments does not establish one either.
 - Keep privacy-aware traces with available model identity, question IDs/versions, raw probabilities, threshold/policy versions, evaluated rule IDs/order, selected/blocked outcome and fact source IDs/versions. Redact/minimize payloads and control access/retention; do not invent unavailable identities or log secrets to obtain observability.
 - After changing wording, context, model, thresholds, rules or facts contracts, run targeted evaluation on representative labeled cases: uncertain boundaries, overlapping intents, missing/stale facts, inapplicable Choice, absent Box targets and effect denial. Re-evaluate affected judgments and end-to-end policy; no automatic correctness or calibration follows from decomposition.
-- Keep refusal, semantic uncertainty, inapplicability and missing/stale authoritative facts as distinct states. A refused judgment is not a low probability; unavailable facts are not negative semantic answers. Route each through explicit host policy.
+- Keep refusal, semantic uncertainty, inapplicability, missing/stale authoritative facts and operational failure distinct. Transport/decode/validation errors are failures, never no, low confidence or inapplicability; do not zero-fill or select a fallback candidate on error. Jev declares no per-question refusal variant.
 
 Read [Don’t Call It a Decision Model](https://typesafe.ai/blog/dont-call-it-a-decision-model), [how to build with System One](https://docs.typesafe.ai/concepts/how-to-build-with-system-one), [confidence](https://docs.typesafe.ai/confidence), and TypeSafe [patterns](https://docs.typesafe.ai/patterns) for [probability routing](https://docs.typesafe.ai/patterns/probability-routing), [speculative fan-out](https://docs.typesafe.ai/patterns/fan-out) and [composite scoring](https://docs.typesafe.ai/patterns/composite-scoring). Treat thresholds as workload-specific policies, not portable error-rate guarantees.
 
 Selected examples: [26 architecture](../examples/26-architecture.ts), `26-architecture/evidence-aware-ticket`; [06 decisions](../examples/06-decisions.ts), `06-decisions/threshold-ownership` and `06-decisions/applicability-gate`. Read the architecture case for ordered host policy, then the decision cases for threshold ownership and applicability.
+
+## General decision patterns
+
+Start with the complete ordered host truth table: accepted, negative/inapplicable, unresolved/hold, and failed/unavailable. Include conflicting signals, missing evidence and equality at every evaluated boundary. Keep a separate failure path; no pattern below authorizes external effects.
+
+| Pattern | Inputs → bounded host result | Negative, uncertain and error paths |
+|---|---|---|
+| Candidate selection/copy | Host-parsed, authorized values/spans plus request → applicability Noul and described Choice; resolve the returned label against the retained pool and copy only its original value | Empty pool → absence without inference; singleton still needs applicability. Negative applicability discards Choice; uncertain applicability or ambiguous selected-label probability holds. Invalid label/transport fails. Missing candidates remain missing. |
+| Retrieve/filter/rerank | Deterministic retrieval, authorization and freshness filters → bounded query/document pairs; score each with one model/rubric, retain IDs and sort in code | Empty authorized pool → no match, zero calls. Top rank does not imply relevance. Apply evaluated acceptance criteria; stable ties are host policy. Incomplete/ambiguous ranking holds, failed pairs stay failed, never zero-filled. Judging cannot repair retrieval recall or authorize documents. |
+| Speculative fan-out | One sufficient snapshot → multiple answer-independent fields in one Ax call; host truth table consumes only the selected branch | Ignore irrelevant speculative answers. Uncertain higher-priority conditions hold; overlapping positives follow precedence. Errors remain failures. If one answer determines new evidence/options, make a later request instead. |
+| Score once/reweight/features | Fixed evidence snapshot → separate observable rubric dimensions with preserved scores/distributions; normalize by each declared range and combine in code | Missing/failed dimensions are not zero. Split distributions need explicit review policy; their midpoint is not proof of moderate intensity. Changed weights can reuse valid judgments; changed evidence/questions/rubrics/models require reassessment. A composite is a preference score, not a correctness or joint-event probability. |
+| Verify/escalate/reverify | Host or generative candidate plus named supporting source → atomic support/contradiction judgments → accept, reject, hold or explicit handoff | Unsupported/contradicted candidates are rejected/handed off; missing evidence and uncertainty hold. Verification failure is operational failure. A fallback is another candidate: verify it in a later call before release; unresolved fallback stays unresolved. |
+| Semantic indexing at ingest | Authorized source snapshot → bounded observable labels/rubric features stored with source, model and question versions; code indexes and queries those features | Preserve absent/uncertain/failed features, not invented negatives. Reindex affected records on source/contract changes. Query-time scope/freshness filtering and applicability still apply; ingest labels are not authoritative facts or a guarantee of recall. |
+| Bounded event/UI judgment | A bounded, attributed event/window or visible UI snapshot plus explicit target → semantic flags feeding a host branch or in-memory proposal | Missing/stale snapshots hold; unrelated events are excluded. Uncertain target/presence holds; transport/decode fails separately. Exact event counts, timing and permissions stay in code. A UI label/Box never grants clicks, navigation or other effects. |
+
+Use a separate semantic screen only before genuinely different work: larger retrieval, generation or human review. Clear no takes the defined negative path; uncertain holds; errors stay unavailable. Shared-state fan-out may avoid repeated state/round trips, but extra questions still consume work and can introduce distractors. Screening adds a serial stage for positives. Bound candidates, context and concurrency; compare observed total workload including review/errors and returned usage. Neither decomposition, indexing, caching nor screening guarantees numerical savings, latency, invoice reductions or `O(log N)` retrieval.
+
+Offline composition cases in [`39-decision-patterns`](../examples/39-decision-patterns.ts):
+- `39-decision-patterns/candidate-selection`: host-owned copy, applicability, ambiguity, empty pool and failure.
+- `39-decision-patterns/speculative-truth-table`: precedence, ignored speculative answers and a true two-request dependency.
+- `39-decision-patterns/rerank-and-reweight`: authorized candidates, preserved dimensions, reweighting and incomplete/split evidence.
+- `39-decision-patterns/verify-escalate`: Flow verification, separate generative fallback and mandatory reverification.
+
+These cases use synthetic injected I/O with real Ax composition, not measured model judgments.
+
+## Ax composition and optimization
+
+- [Flow](flow.md) orchestrates compatible required flat decision nodes and host gates; its general diagrams/signatures exceed Jev capabilities. Several output fields can share one request; several Flow branches need not. Keep generation separate. There is no `flow.optimize`; use documented top-level optimization only for compatible programs.
+- [Gen caching/assertions](gen.md) receive decoded evidence. Response caching is not proof of server prompt caching, freshness, tenant isolation or automatic invalidation. Application reuse must account for evidence, questions/rubrics, model and policy/conversion semantics; do not assume every factor is in an SDK key. Reweighting stored evidence is host computation, not prompt caching.
+- Assertions validate shape/hard complete-output invariants; correction loops do not verify semantics, calibrate probabilities or roll back effects. A valid middle-band result should remain unresolved, not become an assertion that forces confidence. Jev emits completed evidence, not token-time safety.
+- [GEPA](gepa.md) can optimize compatible decision programs with deterministic outcome metrics and a compatible generative reflection teacher. A Jev student cannot produce freeform rationale. Keep train/tuning/held-out sets separate and evaluate host outcomes too. Optimization changes exposed program components, not host facts, policy, approval or Jev weights; it does not imply calibration or improvement.
+- [Playbook](playbook.md) lessons are guidance, not authoritative facts/policy. Student signatures must be supported; reflection/curation requires generative capability. Online lessons change instructions and require explicit evaluation, not self-approval.
+- [Refinement in Gen](gen.md) is complementary, not a Jev native multi-sampling recipe. Jev rejects multiple completions; AxGen `auto` selects native samples, so it is not a safe Jev default. Serial attempts are different and need evaluation. Generated advice requires compatible `feedbackAI` and exposed instruction components; advice application may otherwise be absent. Reward/early stopping is preference, not hard acceptance; account for feedback usage separately. Prefer selection when host candidates already exist.
+
+### Evaluation and operating boundaries
+
+Measure individual semantic labels and final host outcomes on held-out representative data, including negatives, absent candidates, overlap/precedence, missing/stale facts, paraphrase/negation, source mismatch, option reorder, empty lists, distractors, quoted instructions, adversarial content and split distributions. Separate tuning from final evaluation. Inspect calibration on the actual workload; choose thresholds by precision/coverage and action/review/error costs, not a universal default. Raising a threshold can change coverage without proving correctness; do not tune to synthetic fixture probabilities.
+
+Debug in order: actual payload → state sufficiency/attribution → candidate coverage → decomposition → wording. Use deterministic code for arithmetic, dates, counts and exact lookups. Limit indirection and contradictory criteria. Untrusted state can contain adversarial instructions; structured output and decomposition do not establish a security boundary. Enforce authorization, tenant isolation and effect permissions in code; minimize/redact data and traces with explicit retention/access rules.
+
+Version evaluated state/question/rubric/model/policy contracts and reassess affected judgments when they change. Preserve actual available model identity, native distributions and usage without inventing missing data. Offline fixtures prove protocol/composition only, not accuracy, calibration, privacy, security, price or latency. Any fresh live evaluation requires separate permission, disclosed data and credential use, and an explicit budget; this guide grants none.
 
 ## Models, transport, and diagnostics
 
@@ -207,7 +262,7 @@ Selected examples: [26 architecture](../examples/26-architecture.ts), `26-archit
 
 `listModels()` returns native cards (`name`, `description`, `release_date`), not changes to configured Ax model aliases. Renewable credential callbacks receive `{ profile, operation, method, url }` on each attempt; operation is `chat` for inference and `models` for discovery. Native instance/per-call cancellation signals both apply.
 
-Context limits cover combined state/instructions/criteria; consult [models](https://docs.typesafe.ai/models). Ax neither silently truncates nor claims exact local token counts. Token usage is returned; Ax assumes no model token prices.
+Context limits apply both to the complete request and to each question including shared state/instructions/criteria; consult current [models](https://docs.typesafe.ai/models), not a fixed budget copied into a prompt. Ax neither silently truncates nor claims exact local token counts. Aliases can move; pin evaluated model versions where supported and re-evaluate changes. Discovery need not enumerate every accepted versioned ID; returned model identity remains diagnostic. Token usage is returned; Ax assumes no model token prices. Read [model jaggedness](https://docs.typesafe.ai/model-jaggedness): contradictory criteria, irrelevant context, option order, indirection and adversarial input can affect judgments; more context or higher confidence is not automatically better.
 
 Adapter diagnostics use `program.getUsage()`/`program.getChatLog()`. Logs retain `providerMetadata.typesafe.answers`; direct `.chat()` responses retain the same metadata. Native calls return usage/full answers directly. No generic metadata getter or alternate forward result is needed.
 
@@ -220,6 +275,8 @@ For prose, call a second `ax()` with a generative provider and pass explicit inp
 ## Runnable examples and live checks
 
 Local offline contracts: [`06-decisions`](../examples/06-decisions.ts), cases `adapter-values`, `adapter-evidence`, `native-structured`, `native-validation`, `reranking`, `typed-generation-handoff`, and `refusal-policy`; image transport and presence gates: [`07-images`](../examples/07-images.ts), cases `native-localization`, `native-assets`, `generative-localization`, and `validation-and-absence`. Gemini contracts use `06-decisions/google-gemini-decisions-evidence`, `06-decisions/google-gemini-native-multimodal`, and `06-decisions/google-gemini-native-validation`. Injected HTTP answers establish SDK contracts, not inference quality or calibration.
+
+The four general offline cases above extend these contracts; no fixture result establishes model quality. Fresh live tests need separate permission, disclosure of transmitted data/credential use and budget approval before execution; commands below are references, not authorization.
 
 Run in the Ax repository root; `tsx` loads `.env`:
 

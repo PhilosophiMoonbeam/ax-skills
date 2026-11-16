@@ -67,6 +67,8 @@ rules before lower-priority branches. See [Atomic judgments and host policy](typ
 and [Typesafe/Jev integration](typesafe.md) for TypeScript contracts
 and the two-program hybrid pattern.
 
+The generic signatures below are broader than Jev's required flat decision outputs; freeform, optional, array, nested and ordinary numeric outputs are not Jev contracts. Independent output fields sharing sufficient state can be judged in one node call; they must not read sibling answers. A judgment needing an earlier answer to select evidence or candidates needs a later node/request. Parallel Flow branches are separate calls, not a promise of native batching or statistical independence. See [General decision patterns](typesafe.md#general-decision-patterns) and `39-decision-patterns/speculative-truth-table` in [39 decision patterns](../examples/39-decision-patterns.ts).
+
 ```typescript
 // String signature (creates AxGen automatically)
 wf.node('processor', 'sourceText:string -> processedText:string');
@@ -402,6 +404,8 @@ wf.applyOptimization(optimizedProgram);
 
 For tuning a flow, use top-level `optimize(wf, train, metric, options)` as covered in [GEPA optimization](gepa.md). There is no separate `flow.optimize(...)` helper.
 
+A compatible decision node may be a student; freeform nodes and instruction-proposing teachers require generative capability. Optimize only compatible components, leaving facts, uncertainty policy and effect authority in host code; see [Ax composition and optimization](typesafe.md#ax-composition-and-optimization).
+
 ## Chat Logs
 
 `AxFlow.getChatLog()` returns a flat `readonly AxChatLogEntry[]` after `forward()`. Each child-node entry is tagged with `entry.name` so callers can filter by node:
@@ -508,6 +512,8 @@ Render options and bindings:
 
 Every diagram below compiles with `flow(text)` as written (the while loop additionally needs its `conditions` binding).
 
+These are generic topology examples, not whole-flow Jev contracts. A class always selects an offered label; host applicability and uncertainty gates must decide whether that branch may proceed. Names such as `send` and `publish` neither perform nor authorize external effects: any real effect needs separate host authorization and current authoritative facts.
+
 Linear pipeline — three nodes auto-wired by field name:
 
 ```text
@@ -605,7 +611,7 @@ flowchart TD
   draftA & draftB & draftC --> judge
 ```
 
-Escalation ladder — a quality gate either sends the first answer or falls back to level two:
+Escalation ladder — topology only: the second answer is another candidate, not verified success. Before release or any separately authorized effect, verify the fallback against its named source in a later request; negative or uncertain verification remains rejected/held, and operational errors remain failures. The direct `l2Answer --> send` edge below omits that required application gate. See [General decision patterns](typesafe.md#general-decision-patterns) and `39-decision-patterns/verify-escalate` in [39 decision patterns](../examples/39-decision-patterns.ts).
 
 ```text
 flowchart TD

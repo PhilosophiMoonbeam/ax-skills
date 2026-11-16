@@ -36,7 +36,7 @@ Use `ai()` for standard providers, never `new AxAIOpenAI(...)` or hardcoded bran
 
 ## Typesafe / Jev (TypeScript)
 
-For Jev question design, rich criteria, native scoring, transport settings, and hybrid examples, see [Typesafe/Jev](typesafe.md). Original resource: https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-typesafe.md. Choose the interface by output contract:
+For focused semantic judgments rather than freeform generation, start with [Typesafe/Jev](typesafe.md); it covers question design, rich criteria, native scoring, transport settings and hybrid composition. Original resource: https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-typesafe.md. Choose the interface by output contract:
 
 | Need | Interface |
 |---|---|

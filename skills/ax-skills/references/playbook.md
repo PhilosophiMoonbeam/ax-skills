@@ -17,6 +17,8 @@ Playbooks complement offline instruction/demo tuning via [global GEPA optimizati
 
 ### Offline evolution
 
+The student must support the target signature. A compatible Jev decision student still needs an explicitly generative teacher for freeform reflection/curation; do not assume it can teach itself. Preserve the teacher permission gate above. See [Ax composition and optimization](typesafe.md#ax-composition-and-optimization).
+
 ```typescript
 import { type AxMetricFn, ai, ax, playbook } from '@ax-llm/ax';
 
@@ -32,7 +34,7 @@ pb.applyTo(program);
 
 ### Online feedback
 
-After a real run, feed its outcome back to retain lessons:
+After a real run, feed its outcome back to propose lessons. Lessons are program guidance, not authoritative facts, policy or approval. Applying online lessons is an explicit instruction update: evaluate changed behavior on separate held-out judgments and host outcomes before relying on it; feedback alone proves neither correctness nor improvement.
 
 ```typescript
 await pb.update({
