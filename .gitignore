@@ -17,3 +17,6 @@
 # Installed example dependencies are local build resources, not skill content.
 /skills/ax-skills/examples/node_modules/
 /skills/ax-skills/examples/browser/dist/
+
+# Research Docs
+typesafe-ai_jev.md
