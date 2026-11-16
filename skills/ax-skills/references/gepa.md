@@ -170,6 +170,8 @@ A Jev student is possible only for a compatible decision signature; reflection a
 
 Keep training, tuning and final held-out examples separate. Evaluate task-specific semantic labels **and host outcomes**, including negatives, ambiguity, overlap/precedence, missing/stale facts, paraphrase/negation, option order and source mismatch. Deterministic metrics suffice where labels/facts settle correctness; fixture probabilities are not evaluation targets. See [Ax composition and optimization](typesafe.md#ax-composition-and-optimization).
 
+For Jev user-feedback loops, use the [decision feedback lifecycle](typesafe.md#feedback-data-flywheel): distinguish evidence repair, exposed instruction/demo optimization, playbook lessons and application-owned threshold/policy tuning from model-weight training. Verify labels and feedback provenance, prevent train/tuning/test leakage, evaluate against the current baseline and promote versioned artifacts explicitly; GEPA does not collect user feedback or operate a production learning loop for the application.
+
 ## Options and teacher permissions
 
 ```typescript

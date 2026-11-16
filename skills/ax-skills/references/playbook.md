@@ -36,6 +36,8 @@ pb.applyTo(program);
 
 After a real run, feed its outcome back to propose lessons. Lessons are program guidance, not authoritative facts, policy or approval. Applying online lessons is an explicit instruction update: evaluate changed behavior on separate held-out judgments and host outcomes before relying on it; feedback alone proves neither correctness nor improvement.
 
+For a Jev decision student, use a compatible signature and generative teacher; see the [decision feedback lifecycle](typesafe.md#feedback-data-flywheel). User overrides may express preferences rather than semantic corrections; scope lessons by tenant/user and keep untrusted feedback out of authority/policy. Prefer evaluating a candidate snapshot against the current baseline before `applyTo()` on production. Program-level `update()` is not the agent-level verified `evolve()` gate and does not retrain model weights.
+
 ```typescript
 await pb.update({
   example: { review: 'Five stars, would buy again.' },
