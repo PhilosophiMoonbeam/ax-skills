@@ -3,7 +3,7 @@ import {
   ai, ax, axAIProfiles, axGetAIProfile, axGetSupportedAIModels,
   AxAIOpenAIModel, AxAIOpenAIEmbedModel, AxAIGoogleGeminiModel,
   AxAIGoogleGeminiEmbedModel, AxAIServiceAbortedError,
-  AxAIServiceAuthenticationError, AxAIAnthropicModel, AxAIMetaModel,
+  AxAIServiceAuthenticationError, AxAIAnthropicModel, AxAIMetaModel, AxAIDeepSeekModel,
   type AxChatRequest, type AxChatResponse,
 } from '@ax-llm/ax';
 import { options, scriptedAI, type Example } from './support.js';
@@ -182,25 +182,42 @@ export const examples: readonly Example[] = [
     id: '04-providers/deployment-reasoning-dialects', title: 'The deployment profile, not a DeepSeek-looking ID, owns reasoning syntax',
     features: ['deployment-profiles', 'reasoning-defaults', 'tool-choice-constraints', 'custom-endpoint'], modes: ['offline'],
     async run(ctx) {
+      const policyTool: NonNullable<AxChatRequest['functions']>[number] = {
+        name: 'lookupPolicy',
+        description: 'Read the refund policy for a product category',
+        parameters: {
+          type: 'object',
+          properties: { productCategory: { type: 'string', description: 'Product category to look up' } },
+          required: ['productCategory'],
+        },
+      };
       const sent = new Map<string, Wire>();
+      let fetchCalls = 0;
       for (const name of ['deepseek', 'together', 'openai-compatible'] as const) {
-        const model = name === 'deepseek' ? 'deepseek-v4-flash' : 'deepseek-ai/DeepSeek-V4-Flash';
-        const service = ai({ name, apiKey: 'fixture-only', apiURL: 'https://fixture.invalid/v1', config: { model }, options: { fetch: async (_url, init) => { sent.set(name, body(init)); return chatResponse('4'); } } });
-        const response = completed(await service.chat({ chatPrompt: prompt }, { stream: false, abortSignal: ctx.signal }));
+        // Omit the native model to exercise the released default, not the newer source-only name.
+        const config = name === 'deepseek' ? {} : { model: 'deepseek-ai/DeepSeek-V4-Flash' };
+        const service = ai({ name, apiKey: 'fixture-only', apiURL: 'https://fixture.invalid/v1', config, options: { fetch: async (_url, init) => { fetchCalls++; sent.set(name, body(init)); return chatResponse('4'); } } });
+        const response = completed(await service.chat({ chatPrompt: prompt, functions: [policyTool], functionCall: 'auto' }, { stream: false, abortSignal: ctx.signal }));
         assert.equal(response.results[0]?.content, '4');
         if (name === 'deepseek') {
-          const calls = sent.size;
-          await assert.rejects(() => service.chat({ chatPrompt: prompt, functions: [tool], functionCall: { type: 'function', function: { name: tool.name } } }, { stream: false }), /tool.choice|forced|function.call/i);
-          assert.equal(sent.size, calls);
+          assert.equal(sent.get(name)?.model, AxAIDeepSeekModel.DeepSeekV4Flash);
+          assert.deepEqual(sent.get(name)?.tools, [{ type: 'function', function: policyTool }]);
+          assert.equal(sent.get(name)?.tool_choice, undefined);
+          const calls = fetchCalls;
+          for (const functionCall of ['required', { type: 'function', function: { name: policyTool.name } }, { type: 'function', function: { name: '__axOutput' } }] as const) {
+            await assert.rejects(() => service.chat({ chatPrompt: prompt, functions: [policyTool], functionCall }, { stream: false, abortSignal: ctx.signal }), /tool.choice|forced|function.call/i);
+            assert.equal(fetchCalls, calls);
+          }
         }
       }
+      assert.equal(fetchCalls, 3);
       assert.deepEqual(sent.get('deepseek')?.thinking, { type: 'enabled' });
       assert.equal(sent.get('deepseek')?.reasoning_effort, 'max');
       assert.equal(sent.get('openai-compatible')?.thinking, undefined);
       assert.equal(sent.get('openai-compatible')?.reasoning_effort, undefined);
-      // Together has its own verified rule; it is not the native DeepSeek object.
-      assert.notDeepEqual(sent.get('together')?.thinking, sent.get('deepseek')?.thinking);
-      return { native: { thinking: sent.get('deepseek')?.thinking, effort: sent.get('deepseek')?.reasoning_effort }, together: sent.get('together'), customDoesNotInferReasoning: true, scope: 'wire contracts only, not equivalent model quality' };
+      assert.equal(sent.get('together')?.thinking, undefined);
+      assert.equal(sent.get('together')?.reasoning_effort, 'max');
+      return { native: { model: sent.get('deepseek')?.model, thinking: sent.get('deepseek')?.thinking, effort: sent.get('deepseek')?.reasoning_effort }, fetchCalls, together: sent.get('together'), customDoesNotInferReasoning: true, scope: 'released wire contracts only; official DeepSeekFlash/default/image additions unavailable in supplied package, no live quality or alias verification' };
     },
   },
   {

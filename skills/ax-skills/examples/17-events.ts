@@ -100,6 +100,86 @@ export const examples: readonly Example[] = [
     },
   },
   {
+    id: '17-events/invalid-envelope-before-routing',
+    title: 'Malformed envelope identifiers reject before effects; padded identifiers survive',
+    features: ['envelope-validation', 'identity', 'routing', 'stored-result', 'sink'],
+    modes: ['offline'],
+    async run(ctx) {
+      const store = new AxInMemoryEventStore();
+      let enqueueCalls = 0;
+      const enqueue = store.enqueue.bind(store);
+      store.enqueue = (...args: Parameters<typeof store.enqueue>) => {
+        enqueueCalls++;
+        return enqueue(...args);
+      };
+      let routeCalls = 0;
+      let modelCalls = 0;
+      let sinkCalls = 0;
+      const accepted = {
+        ...ingress(' padded-id ', ' padded-type ', { incident: 'Checkout is unavailable.' }),
+        event: {
+          ...ingress(' padded-id ', ' padded-type ', { incident: 'Checkout is unavailable.' }).event,
+          source: ' urn:example:padded ',
+        },
+      };
+      const model = scriptedAI(() => {
+        modelCalls++;
+        return { results: [{ index: 0, content: 'Summary: Escalate the checkout incident.' }] };
+      });
+      const expected = { summary: 'Escalate the checkout incident.' };
+      const target = eventTarget('validated-envelope').program(ax('incident:string -> summary:string')).ai(model)
+        .input(input => input.field('incident', eventPath.data('incident')))
+        .forwardOptions(options(ctx))
+        .sink({ id: 'validated-result', async write(output, context) {
+          sinkCalls++;
+          assert.deepEqual(output, expected);
+          const persisted = await store.getRun(context.run.id);
+          assert.equal(persisted?.status, 'succeeded');
+          assert.deepEqual(persisted.output, expected);
+          for (const field of ['id', 'source', 'type'] as const) {
+            assert.equal(context.eventContext.ingress.event[field], accepted.event[field]);
+          }
+        } }).build();
+      const runtime = eventRuntime({ store, workerConcurrency: 1, routes: [
+        eventRoute('validated-envelope').authenticated()
+          .authorize(({ identity }) => { routeCalls++; return identity?.tenantId === 'tenant-a'; })
+          .wake(target).build(),
+      ] });
+      try {
+        await runtime.start();
+        let rejected = 0;
+        for (const field of ['id', 'source', 'type'] as const) {
+          for (const value of ['', ' \t\n', 7, undefined]) {
+            // Deliberately untyped ingress boundary: never coerce malformed adapter input.
+            const malformed = {
+              ...accepted, event: { ...accepted.event, [field]: value },
+            } as unknown as AxEventIngress;
+            await assert.rejects(runtime.publish(malformed, ctx.signal), {
+              message: `AxEventEnvelope.${field} must be a non-empty string`,
+            });
+            rejected++;
+            assert.deepEqual({ routeCalls, enqueueCalls, modelCalls, sinkCalls },
+              { routeCalls: 0, enqueueCalls: 0, modelCalls: 0, sinkCalls: 0 });
+          }
+        }
+        assert.deepEqual(await runtime.listDeadLetters(), []);
+        const receipt = await runtime.publish(accepted, ctx.signal);
+        await runtime.waitForIdle();
+        assert.equal(receipt.deliveryIds.length, 1);
+        assert.deepEqual({ routeCalls, enqueueCalls, modelCalls, sinkCalls },
+          { routeCalls: 1, enqueueCalls: 1, modelCalls: 1, sinkCalls: 1 });
+        const delivery = await store.getDelivery(receipt.deliveryIds[0]!);
+        assert.ok(delivery?.runId);
+        const run = await runtime.getRun(delivery.runId);
+        assert.equal(run?.status, 'succeeded');
+        assert.deepEqual(run.output, expected);
+        assert.deepEqual(await runtime.listDeadLetters(), []);
+        return { rejected, routeCalls, enqueueCalls, modelCalls, sinkCalls, output: run.output,
+          proof: 'Actual TypeScript ingestion and parsed stored/sink output; no generated-language parity or model-quality claim.' };
+      } finally { await runtime.close({ drain: false }); }
+    },
+  },
+  {
     id: '17-events/invalid-input-dead-letter',
     title: 'Declarative and callback mappings reject invalid inputs before invocation',
     features: ['signature-validation', 'eventInput', 'mapInput', 'dead-letter'],

@@ -1,6 +1,6 @@
 # Context playbooks and ACE evolution
 
-Source API snapshot: `@ax-llm/ax` 25.4.11. Use for `playbook()`, `AxPlaybook`, evolving context/task knowledge, ACE (Agentic Context Engineering), `agent.playbook()`, offline `evolve()`, and online `update()`. A playbook accumulates reusable knowledge rendered into program context. Prefer `playbook(...)`, which hides ACE; use `AxACE` directly only when low-level engine access is explicitly requested.
+Source API snapshot: `@ax-llm/ax` 25.4.12. Use for `playbook()`, `AxPlaybook`, evolving context/task knowledge, ACE (Agentic Context Engineering), `agent.playbook()`, offline `evolve()`, and online `update()`. A playbook accumulates reusable knowledge rendered into program context. Prefer `playbook(...)`, which hides ACE; use `AxACE` directly only when low-level engine access is explicitly requested.
 
 Playbooks complement offline instruction/demo tuning via [global GEPA optimization](gepa.md) and [agent optimization](agent-optimize.md); they are not best/Pareto optimization artifacts or inference-time [bestOfN/refine](refine.md). Only playbooks also learn online via `update(...)`.
 

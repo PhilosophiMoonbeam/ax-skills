@@ -1,6 +1,6 @@
 # Ax event ingestion, continuations, and safe output routing
 
-Use `AxEventRuntime` to react to notifications, webhooks, timers, queues, task completion, and application events: explicitly wake or resume AxGen, AxAgent, or AxFlow, restore/persist state and results, and safely route output. Program construction belongs in [Generators](gen.md), [Agents](agent.md), and [Flows](flow.md); MCP transport/authentication belongs in [MCP](mcp.md). Sources and subscriptions alone must not invoke programs. Source API snapshot: 25.4.11.
+Use `AxEventRuntime` to react to notifications, webhooks, timers, queues, task completion, and application events: explicitly wake or resume AxGen, AxAgent, or AxFlow, restore/persist state and results, and safely route output. Program construction belongs in [Generators](gen.md), [Agents](agent.md), and [Flows](flow.md); MCP transport/authentication belongs in [MCP](mcp.md). Sources and subscriptions alone must not invoke programs. Source API snapshot: 25.4.12.
 
 ## Mental Model
 
@@ -40,6 +40,12 @@ await source.publish({ event, identity, trust: 'authenticated' });
 
 - Supply identity from authenticated adapter state, never from event data.
 - Treat events without verified identity as anonymous and untrusted.
+- Envelope `id`, `source`, and `type` must each be a primitive string containing
+  a non-whitespace character. TypeScript rejects malformed fields before route
+  matching or store enqueue, not as mapped-input dead letters. It validates
+  without trimming or coercing accepted values. These envelope identifiers are
+  distinct from authenticated `AxEventIdentity` fields such as `tenantId`;
+  nonblank identifiers do not establish authority or URI validity.
 - Map event data into signature inputs; do not synthesize a user message.
 - Use `eventPath.data('field')` and other segment-safe selectors. Do not use
   dotted JSONPath strings or repurpose `s()` as a mapping language.
@@ -147,6 +153,13 @@ does not itself authorize purchases or establish tenant isolation.
 
 The generated-language statements below describe the supplied source's scope, not runtime qualification performed by this collection.
 
+The supplied official 25.4.12 event-runtime guidance
+also specifies field-specific `id`/`source`/`type` validation before routing or
+enqueue in generated runtimes; Python dictionary envelope fields are not
+string-coerced. This is source-only guidance, not independently exercised
+generated/Python runtime parity. The TypeScript case below exercises the
+released TypeScript boundary only.
+
 Generated Python, Java, C++, Go, and Rust packages expose the same Core-owned
 single-worker event state machine plus functioning inline lifecycle dispatch,
 continuations, state restoration, cancellation, persisted outputs, isolated
@@ -175,6 +188,12 @@ Use `AxManualEventClock`, `AxInMemoryEventStore`, deterministic event IDs, and
 an output-capturing sink. Assert that unmatched or observe-only events never
 invoke the program, tenant scopes do not collide, outputs exist before sinks,
 and uncertain side effects become `outcome_unknown`.
+
+[`17-events/invalid-envelope-before-routing`](../examples/17-events.ts) rejects
+malformed envelope identifiers before route authorization, enqueue, model, or
+sink effects, then accepts a padded-string control without normalization.
+By contrast, `17-events/invalid-input-dead-letter` uses valid envelopes whose
+mapped signature inputs fail later and become dead letters.
 
 Persistent store implementations must pass
 `runAxEventStoreConformance(createStore, { clock })`. A store must not advertise

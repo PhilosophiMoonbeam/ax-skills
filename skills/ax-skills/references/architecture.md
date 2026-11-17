@@ -2,7 +2,7 @@
 
 Use this guide to choose an architecture, justify rejected alternatives and produce an implementation reading plan before writing code. For a narrow API change, use the owning reference directly.
 
-This is **authored synthesis** grounded in the collection's official `@ax-llm/ax` **25.4.11** guidance, not an additional upstream API contract. “Recommend” identifies application design guidance; statements about Ax behavior have specialist destinations below. Check the installed version and declarations before implementation. These TypeScript contracts do not establish universal generated-language parity.
+This is **authored synthesis** grounded in the collection's official `@ax-llm/ax` **25.4.12** guidance, not an additional upstream API contract. “Recommend” identifies application design guidance; statements about Ax behavior have specialist destinations below. Check the installed version and declarations before implementation. These TypeScript contracts do not establish universal generated-language parity.
 
 ## 1. Define the Design Deliverable
 
@@ -42,6 +42,8 @@ For each material choice, state **requirement → selected mechanism → rejecte
 | Notifications, webhooks, queues, timers or completion events must wake/resume programs | `AxEventRuntime` around the selected generator/agent/flow | Sources and protocol callbacks enqueue or observe; they do not invoke models directly. An explicit route chooses observe/invalidate/wake/resume. | [Event runtime: Rules](event-runtime.md#rules); [MCP: Subscriptions, events, and ownership](mcp.md#subscriptions-events-and-ownership) |
 
 AxAgent runs distiller → executor → responder, but `directResponse: 'auto'` can skip the executor for context-only answers. Static agents without executor authority are respond-only. When tools or native operations exist, direct response is constrained against live-state requests, side effects and listed tool domains. Recommend evaluating tool-required versus direct-answer cases rather than using executor skipping as an application safety boundary. See [RLM: Direct respond](agent-rlm.md#direct-respond-executor-skip).
+
+A distiller may enrich facts, not requirements: the original task governs requested work, but application authorization still owns allowed effects. This is guidance, not semantic enforcement; see [RLM fidelity and packaged-template limitations](agent-rlm.md#mental-model).
 
 ## 4. Define Data and Provider Contracts Together
 
@@ -104,6 +106,8 @@ Public `forward()`/`streamingForward()` throw `AxAgentClarificationError` on `as
 
 Recommend treating user clarification, authenticated approval and execution authority as separate application concepts. A question or model response is not proof that a purchase/message/write has been authorized. Record approval against the exact intended action and identity before dispatching an effectful tool.
 
+Separate an unexecuted generation reask from recovery after executed actor/tool code, delivery redrive and approval. Upstream advertises bounded same-turn cutoff reasks, but the supplied 25.4.12 actor source lacks that loop; see [cutoff versus replay truncation](agent-rlm.md#actor-output-cutoff-versus-runtime-replay-truncation). Neither a reask nor a cutoff authorizes whole-workflow replay or rolls back earlier effects; reconcile uncertain outcomes and own idempotency in the application.
+
 | Lifecycle concern | Ax boundary and application responsibility |
 | --- | --- |
 | Wake versus resume | Explicit routes map events to signature inputs; a resume requires an owned continuation correlation key. Do not manufacture a user message from an event payload. |
@@ -135,6 +139,8 @@ Use runtime callbacks for turn/function/context/status visibility; do not scrape
 For shared application accounting, use process-global `axGlobals.onUsage` with stable service-level attribution and per-run tenant/user/request/run context. `getUsage()` is instance-local, not centralized truth across shared agents or processes. The observer is best-effort/fail-open and not awaited: enqueue synchronously, persist and aggregate out of band in a durable shared pipeline. Fully consumed streams report once when provider usage exists; cancelled/unconsumed streams may not report. Token events are not currency cost: apply versioned pricing downstream and define reconciliation for missing events. Keep opaque IDs and low-cardinality attributes; exclude secrets and payloads. Read [Agent observability: Centralized usage observer](agent-observability.md#centralized-usage-observer) and [AI providers](ai.md) for direct-call usage.
 
 Recommend budgets that include distiller/executor/responder turns, semantic queries, context-map updates, checkpoint summaries, speech, retries, candidate selection, judges and teachers. Balancer-local metrics and routing decision state are not an accounting ledger. Choose an enforcement owner separately from fail-open telemetry; limiter failures propagate, while observer/tracer/meter failures do not.
+
+Count bounded generation reasks only when the selected release actually implements them. `maxTurns` is not a model-call budget: validation, transport and semantic subcalls have separate limits, and the advertised actor-cutoff reasks are absent from the supplied 25.4.12 source.
 
 ## 9. Choose Evaluation and Improvement Deliberately
 

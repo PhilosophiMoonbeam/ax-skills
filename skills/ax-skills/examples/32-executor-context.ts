@@ -8,14 +8,13 @@ const answer = (content: string): AxChatResponse => ({ results: [{ index: 0, con
 export const examples: readonly Example[] = [
   {
     id: '32-executor-context/prompt-detail-comparison',
-    title: 'Inspect the real executor: 25.4.11 promptLevel declaration has no effect in bundled templates',
-    features: ['promptLevel pinned-template boundary', 'liveRuntimeState', 'executor request inspection', 'distiller handoff'],
+    title: 'Reuse invoice state under both declared prompt detail settings',
+    features: ['promptLevel', 'liveRuntimeState', 'explicit stage routing', 'distiller handoff'],
     modes: ['offline'],
     async run(ctx) {
       const results: { level: string; systemChars: number; total: number }[] = [];
-      const executorPrompts: string[] = [];
       for (const level of ['default', 'detailed'] as const) {
-        let executorSystem = '', continuingPrompt = '', calls = 0;
+        let executorSystem = '', calls = 0;
         const worker = agent('task:string -> answer:string', {
           runtime: new AxJSRuntime(), promptLevel: level, maxTurns: 4, directResponse: 'off',
           contextOptions: { model: 'fixture-distiller' },
@@ -36,27 +35,21 @@ export const examples: readonly Example[] = [
           calls++;
           assert.equal(request.model, stages[index]);
           if (index === 1) executorSystem = request.chatPrompt.flatMap(message => message.role === 'system' ? [message.content] : []).join('\n');
-          if (index === 2) continuingPrompt = JSON.stringify(request.chatPrompt);
           const response = responses[index]; assert.ok(response, 'unexpected extra stage request'); return response;
         }, { structuredOutputs: true });
-        const result = await worker.forward(model, { task: 'Compute the invoice sum.' }, options(ctx));
-        assert.equal(result.answer, '13');
-        assert.equal(calls, responses.length);
-        assert.match(executorSystem, /## Executor/);
-        assert.match(continuingPrompt, /Live Runtime State/); assert.match(continuingPrompt, /amounts/);
-        const bindings = worker.getState()?.runtimeBindings;
-        assert.deepEqual(bindings?.amounts, [9, 4]);
-        const total = bindings?.sum;
-        assert.ok(typeof total === 'number');
-        assert.equal(total, 13);
-        executorPrompts.push(executorSystem);
-        results.push({ level, systemChars: executorSystem.length, total });
+        try {
+          const result = await worker.forward(model, { task: 'Compute the invoice sum.' }, options(ctx));
+          assert.equal(result.answer, '13');
+          assert.equal(calls, responses.length);
+          const bindings = worker.getState()?.runtimeBindings;
+          assert.deepEqual(bindings?.amounts, [9, 4]);
+          const total = bindings?.sum;
+          assert.ok(typeof total === 'number');
+          assert.equal(total, 13);
+          results.push({ level, systemChars: executorSystem.length, total });
+        } finally { worker.stop(); }
       }
-      // Pinned 25.4.11 source: index.js.map sourcesContent, agent/templates.generated.ts
-      // lines 8–9 contain no promptLevel branch, although agent/rlm.ts lines
-      // 658 and 866 pass the setting to both actor template renderers.
-      assert.equal(executorPrompts[1], executorPrompts[0], '25.4.11 bundled executor templates ignore promptLevel; this is a pinned boundary, not intended extra scaffolding');
-      return { results, selection: '25.4.11 accepts default/detailed but ships identical executor scaffolding; do not rely on promptLevel to reduce context or add weak-model teaching. Replay policy separately controls old-action visibility, not worker variable lifetime.', proof: 'actual executor system prompts, typed responder output and retained runtime business state under scripted code; not comparative model accuracy' };
+      return { results, selection: 'both declared settings retain the invoice amounts and computed total; replay policy separately controls old-action visibility, not worker variable lifetime', proof: 'explicit stage routes, typed responder output and actual retained runtime arithmetic under scripted code; no prompt equality or comparative model accuracy claim' };
     },
   },
   {
@@ -239,6 +232,69 @@ export const examples: readonly Example[] = [
         assert.equal(modelCalls, 2, 'the awaited callback failure prevents responder execution');
         return { runtimeCallObserverFailedOpen: true, actorTurnObserverAborted: true, reads, observedStages, modelCalls, boundary: 'catch actor-turn telemetry-sink failures in the application when observability must not abort execution' };
       } finally { worker.stop(); }
+    },
+  },
+  {
+    id: '32-executor-context/actor-cutoff-no-execution',
+    title: 'Never execute length-rejected actor code or roll back an earlier completed effect',
+    features: ['actor cutoff safety', 'bounded generation attempts', 'maxRetries', 'host effect ledger', 'stage isolation'],
+    modes: ['offline'],
+    async run(ctx) {
+      const results: { stage: string; cutoffCalls: number; effects: string[]; error: string }[] = [];
+      for (const stage of ['distiller', 'executor'] as const) {
+        const effects: string[] = [];
+        let cutoffCalls = 0, distillerCalls = 0, executorCalls = 0, priorTurnCompleted = false;
+        const worker = agent('task:string -> answer:string', {
+          runtime: new AxJSRuntime(), directResponse: 'off', maxTurns: 2,
+          contextOptions: { model: 'fixture-distiller', maxRetries: 0 },
+          executorOptions: { model: 'fixture-executor', maxRetries: 0 },
+          responderOptions: { model: 'fixture-responder', maxRetries: 0 },
+          functions: [
+            fn('record').namespace('billing').description('Record a fixture invoice read').returns(f.number()).handler(() => { effects.push('prior-read'); return 17; }).build(),
+            fn('forbidden').namespace('billing').description('A fixture effect that rejected code must never invoke').returns(f.number()).handler(() => { effects.push('forbidden'); return 99; }).build(),
+          ],
+          actorTurnCallback: turn => { assert.equal(turn.isError, false); priorTurnCompleted = true; },
+        });
+        const model = scriptedAI(request => {
+          if (request.model === 'fixture-distiller') {
+            distillerCalls++;
+            if (stage === 'executor') {
+              assert.equal(distillerCalls, 1, 'a cutoff must not restart the pipeline');
+              return code('await final("Read and report the fixture invoice amount", {})');
+            }
+          } else if (request.model === 'fixture-executor') {
+            assert.equal(stage, 'executor', 'no executor after distiller cutoff');
+            executorCalls++;
+            if (executorCalls === 1) return code('const observedAmount = await billing.record({}); console.log(observedAmount)');
+            assert.equal(priorTurnCompleted, true);
+            assert.deepEqual(effects, ['prior-read']);
+          } else {
+            assert.fail('no responder or other model request is allowed after cutoff');
+          }
+          cutoffCalls++;
+          assert.ok(cutoffCalls <= 4, 'finite cutoff fixture allows initial generation plus at most three advertised reasks');
+          // Empty actor output avoids malformed-JSON correction in the distiller.
+          // The executor variant has valid code that must still never execute.
+          return { results: [{ index: 0, content: stage === 'distiller' ? '' : JSON.stringify({ javascriptCode: 'await billing.forbidden({}); await final("Report forbidden effect", {})' }), finishReason: 'length' }] };
+        }, { structuredOutputs: true });
+        let terminal = '';
+        try {
+          await assert.rejects(() => worker.forward(model, { task: 'Read the fixture invoice amount once and report it.' }, { ...options(ctx), maxRetries: 0 }), error => {
+            terminal = error instanceof Error ? `${error.message}\n${String(error.cause ?? '')}` : String(error);
+            return /max tokens reached before completion/i.test(terminal);
+          });
+          assert.ok(cutoffCalls >= 1 && cutoffCalls <= 4);
+          assert.deepEqual(effects, stage === 'executor' ? ['prior-read'] : []);
+          if (stage === 'distiller') {
+            assert.equal(executorCalls, 0);
+            assert.equal(priorTurnCompleted, false);
+          } else {
+            assert.equal(priorTurnCompleted, true);
+          }
+          results.push({ stage, cutoffCalls, effects, error: terminal });
+        } finally { worker.stop(); }
+      }
+      return { results, boundary: 'consumer safety only, not positive cutoff recovery; actual request counts are observations, not an exact-one contract. Earlier effects are not rolled back and no new failure snapshot is promised.' };
     },
   },
 ];

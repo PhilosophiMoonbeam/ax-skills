@@ -1,6 +1,6 @@
 # AxAgent RLM Runtime, Context Policy, and Semantic Queries
 
-Source API snapshot: `@ax-llm/ax` 25.4.11. Use for RLM code execution, `AxJSRuntime`, `contextFields`, `contextPolicy`, `liveRuntimeState`, `promptLevel`, stage prompts, `executorModelPolicy`, `maxRuntimeChars`, `agent.test(...)`, `llmQuery(...)`, `recursionOptions`, and long-running runtime behavior. Not ordinary setup: see [agent setup](agent.md) for child agents, tool namespaces, clarification, and `bubbleErrors`; [observability](agent-observability.md) for callbacks/logs; [memory and skills](agent-memory-skills.md) for persistent orientation, retrieval, and skill loading.
+Source API snapshot: `@ax-llm/ax` 25.4.12. Use for RLM code execution, `AxJSRuntime`, `contextFields`, `contextPolicy`, `liveRuntimeState`, `promptLevel`, stage prompts, `executorModelPolicy`, `maxRuntimeChars`, `agent.test(...)`, `llmQuery(...)`, `recursionOptions`, and long-running runtime behavior. Not ordinary setup: see [agent setup](agent.md) for child agents, tool namespaces, clarification, and `bubbleErrors`; [observability](agent-observability.md) for callbacks/logs; [memory and skills](agent-memory-skills.md) for persistent orientation, retrieval, and skill loading.
 
 ## Use These Defaults
 
@@ -21,9 +21,19 @@ Source API snapshot: `@ax-llm/ax` 25.4.11. Use for RLM code execution, `AxJSRunt
 distiller (RLM actor) -> executor (RLM actor) -> responder (synthesizer)
 ```
 
-- **distiller** always runs first. It sees all original inputs so it can understand and normalize the task; declared `contextFields` stay runtime-only when present. It distils relevant evidence by writing runtime-language code in a multi-turn loop, then calls the runtime-exposed `final(request, evidence)` primitive. The request becomes the executor's `inputs.executorRequest`; it must be self-contained and restate the concrete action, target, and constraints, not vague wording like "do it". The distiller should expand the original user task with facts found in context, including follow-ups like "yes, do it". When no `contextFields` are configured, it still performs request normalization over the original inputs with `contextFields: []`. **The distiller has no tools and is not a capability gate.**
-- **executor** runs unless the distiller skipped it (below). It receives non-context inputs plus `inputs.executorRequest`, a compact `distilledContextSummary` prompt field, and the real evidence live as `inputs.distilledContext` from the distiller's `final(request, evidence)` payload. Declared or auto-promoted context fields stay runtime-readable as `inputs.<field>` when `contextMetadata` lists them, but their raw contents are not pasted into the executor prompt. The executor owns tool use, decides whether to call its available functions or finish directly from distilled evidence, and reports actual tool results or failures.
+- **distiller** always runs first, with original inputs and runtime-only context fields. It gathers evidence through code, then calls `final(request, evidence)` to populate `inputs.executorRequest` and live evidence. Preserve the user's instructions and conditions in their original wording; add only contextual facts needed to resolve references or follow-ups such as “yes, do it.” Do not invent checks, steps, deliverables, reports or completion conditions. With no context fields, normalization still runs with `contextFields: []`. Metadata/skills discovery can be available, but external callable execution is blocked; the distiller is not a capability gate.
+- **executor** receives non-context original inputs, `inputs.executorRequest`, a compact `distilledContextSummary` and live `inputs.distilledContext`. Declared/auto-promoted fields remain runtime-readable when listed by `contextMetadata`, not pasted in full into its prompt. When distillation adds or omits requirements, resolve the requested work against original task inputs. Execute only host-authorized actions and report actual tool outcomes; original user wording does not grant authority.
 - **responder** always runs last. It synthesizes the user's output signature from whichever upstream actor finished the run and must not contradict tool evidence gathered upstream.
+
+**Upstream guidance versus packaged templates:** the fidelity rules above come from [official RLM guidance](https://github.com/ax-llm/ax/blob/7db1c3b5a2a144b93b46cb649258bb52b26bd5a8/src/ax/skills/references/ax-agent-rlm.md). The supplied [25.4.12 source map](https://unpkg.com/@ax-llm/ax@25.4.12/index.js.map), `../agent/templates.generated.ts:8–9`, still bundles older wording: decoded distiller lines 9–11 say to “Expand” the task; decoded executor lines 7–15 prioritize distilled evidence. Neither template contains the new fidelity/precedence clauses. Handoff in `../agent/agentInternal/pipelineForward.ts:540–593` does not validate semantic equivalence or restore excluded fields. These are authoring rules, not runtime semantic enforcement or permission to treat untrusted context as instructions.
+
+### Actor output cutoff versus runtime replay truncation
+
+Official RLM guidance advertises reasking an unexecuted output-limit turn up to **three extra model calls**, first unchanged and then with smaller-step guidance, preserving the original error on exhaustion. **That recovery loop is absent from the supplied 25.4.12 actor source:** `../agent/agentInternal/actorLoopTurn.ts:328–341` awaits one forward call; `:481–486` executes code only after generation returns. `../agent/agentInternal/actorLoop.ts:500–515` is the outer actor-turn loop, not same-turn cutoff recovery. `../dsp/response/nonStreaming.ts:243–247` throws the cutoff error; generic validation/transport retries are different mechanisms, not proof of this advertised recovery.
+
+A generation exception cannot execute the rejected ordinary actor-code result, even if its JSON envelope contains valid code. It does not roll back earlier host effects, promise a new resumable failure snapshot, or authorize replaying the workflow. Native function dispatch can precede the length check (`nonStreaming.ts:125–155`), so do not generalize this to “no effects from any length-tagged response.” Reconcile uncertain external effects in the application.
+
+The [actor-cutoff-no-execution safety case](../examples/32-executor-context.ts) bounds injected cutoff responses and checks rejected code versus prior effects, **not positive recovery**. Positive distiller/executor recovery requires separate installed-package evidence; source inspection and this safety case do not establish it. Runtime replay truncation below (`maxRuntimeChars`) only shortens visible output after execution; it is neither a model cutoff nor an execution retry.
 
 ### Direct respond (executor skip)
 
@@ -48,7 +58,7 @@ Use these rules when generating actor JavaScript for RLM in `AxJSRuntime` stdout
 - Inspect what already exists before recomputing it. If a prior turn successfully created a value, prefer reusing that runtime value.
 - If you need to inspect a value, compute it or read it, `console.log(...)` it, and stop immediately after that `console.log(...)`.
 - On the next turn, continue from the existing runtime state and use the logged result from `Action Log` only as evidence for what happened.
-- If the prompt contains `Live Runtime State`, treat it as the canonical view of current variables.
+- If the prompt contains `Live Runtime State`, use it as the prompt-facing state summary, subject to the bounded 25.4.12 export limitation below; resolve a suspected mismatch with an actual runtime read.
 - Errors from child-agent or tool calls appear in `Action Log`; inspect them and fix the code on the next turn.
 - Non-final turns should contain exactly one `console.log(...)`.
 - Final turns should call `await final(outputGenerationTask, context)` or `await askClarification(...)` without `console.log(...)`.
@@ -57,6 +67,10 @@ Use these rules when generating actor JavaScript for RLM in `AxJSRuntime` stdout
 - Inside actor-authored JavaScript, `await final(...)` and `await askClarification(...)` end the current turn immediately; code after them is dead code.
 - Do not re-declare or recompute values just because older turns are summarized; only rebuild after an explicit runtime restart or when you intentionally want a new value.
 - Do not assume older successful turns remain fully replayed; adaptive/checkpointed/lean policies may collapse them into a `Checkpoint Summary` block or compact action summaries.
+
+The 25.4.12 lightweight scanner masks terminated single-line regex literals in unambiguous expression positions and preserves division after literals, updates and property reads. It is not a full JS parser (closing delimiters, contextual keywords and template interpolation remain conservative), nor a sandbox proof. See `../util/jsAnalysis.ts:5–7,197–208,243–280` in the [source map](https://unpkg.com/@ax-llm/ax@25.4.12/index.js.map) and the [regex-completion-boundaries / division-state-boundaries cases](../examples/12-runtime.ts). These authoring rules are stronger than enforcement: runtime policy checks are not proof of exactly one statement or all semantic console/final combinations.
+
+**Observed 25.4.12 export-versus-live limitation:** in a public Node `AxJSRuntime` session, `let units = 24` followed by `const quotient = units++ / 3` logged `{ units: 25, quotient: 8 }` both on that turn and the next, while `snapshotGlobals().bindings` exported `{ units: 24, quotient: 8 }`. The worker copies each snippet's declared names to `globalThis` (`../funcs/worker.runtime.ts:839–847,2057–2083`), while inspection/snapshots enumerate global own-property values (`:2285–2330,2351–2420`); a later lexical update need not refresh that copied property. `AxAgent` exports `runtimeBindings` from this snapshot (`../agent/agentInternal/runtimeExecutionSession.ts:327–349` in the [25.4.12 source map](https://unpkg.com/@ax-llm/ax@25.4.12/index.js.map)). The division case therefore asserts a fresh live-derived binding and reports the original export separately, without requiring it to remain stale. This is one observed mutable-binding pattern, not a claim that all primitive snapshots are stale or that restoring exported state preserves the live value.
 
 Small reuse example:
 
@@ -106,9 +120,9 @@ Important:
 | Earlier compression of older successful work while live runtime state remains visible | `adaptive + balanced` |
 | Very long, character-constrained work that can continue from current runtime state plus compact summaries; strong model | `lean` |
 
-Use `promptLevel: 'default'` normally. **25.4.11 packaged-template limitation (also observed in 25.4.9):** the coordinator forwards `promptLevel` to both actors and both definition builders pass it to their template renderer, but neither shipped `rlm/distiller.md` nor `rlm/executor.md` template reads it. Consequently, `'detailed'` does not add anti-pattern examples or extra scaffolding in those bundled templates. This is not an executor-only option, nor a guarantee about custom templates or other releases. See the version-pinned [packaged source map](https://unpkg.com/@ax-llm/ax@25.4.11/index.js.map): `agent/agentInternal/coordinator.ts:102–132`, `agent/rlm.ts:658,866`, and `agent/templates.generated.ts:8–9`.
+Use `promptLevel: 'default'` normally. **25.4.12 source-observed packaged-template limitation (historically observed in 25.4.9/25.4.11):** the coordinator forwards `promptLevel` to both actors and both definition builders pass it to their template renderer, but neither shipped `rlm/distiller.md` nor `rlm/executor.md` template reads it. Consequently, `'detailed'` does not add anti-pattern examples or extra scaffolding in those bundled templates. This is not an executor-only option, nor a guarantee about custom templates or other releases. See the [25.4.12 source map](https://unpkg.com/@ax-llm/ax@25.4.12/index.js.map): `../agent/agentInternal/coordinator.ts:102–129`, `../agent/agentInternal/signatureBuilders.ts:273–285`, `../agent/rlm.ts:654–658,861–866`, and `../agent/templates.generated.ts:8–9`.
 
-The [executor comparison](../examples/32-executor-context.ts) routes through `directResponse: 'off'`, a distiller `final(...)` handoff, actual executor requests, and the final responder; it also checks retained runtime state and the same invoice result for both settings. Inspect the selected stage rather than assuming the first request belongs to the executor. For weaker/cheaper models, retain `full` replay when exact prior evidence is needed; do not rely on this pinned version's `'detailed'` setting to supply additional teaching, or on `'default'` to reduce context usage. Use replay policy—not `promptLevel`—when planning context budgets in 25.4.11.
+The [executor comparison](../examples/32-executor-context.ts) routes through `directResponse: 'off'`, a distiller `final(...)` handoff, explicit stage model IDs and the final responder; it checks retained runtime state and the same invoice result under both settings, not prompt equality. The template limitation is source evidence, not an inference from that fixture. For weaker/cheaper models, retain `full` replay when exact prior evidence is needed; do not rely on this release's `'detailed'` setting to supply additional teaching, or on `'default'` to reduce context usage. Use replay policy—not `promptLevel`—when planning context budgets.
 
 For a cheap default actor, prefer `executorModelPolicy` over upgrading the whole agent when exploration—not synthesis—is the bottleneck: upgrade only the executor after repeated error turns, discovery in specific namespaces, growing context, or thrashing, while keeping the responder cheap.
 
@@ -120,7 +134,7 @@ Top-level controls:
 - `recursionOptions.model`, `modelConfig`, and other forward options: tune the AxGen call used by `llmQuery(...)`.
 - `maxSubAgentCalls`: shared `llmQuery(...)` sub-query budget across the whole run. Default is `100`.
 - `maxBatchedLlmQueryConcurrency`: caps batched `llmQuery([...])` concurrency.
-- `maxRuntimeChars`: runtime/output truncation ceiling for console logs, tool results, and interpreter output replay. The effective limit is computed dynamically each turn based on remaining context budget.
+- `maxRuntimeChars`: runtime/output truncation ceiling for console logs, tool results, and interpreter output replay. The republished guide states a `12000` default, but released 25.4.12 still initializes `DEFAULT_RLM_MAX_RUNTIME_CHARS` to `3000` in `agent/config.ts`. Set the ceiling explicitly; the remaining context budget can reduce it each turn.
 - `summarizerOptions`: default model/options for the internal checkpoint summarizer.
 - `contextPolicy`: replay/checkpointing/compression policy.
 - `contextMap`: optional persistent orientation cache injected into the distiller and updated once after each successful run. `AxAgentContextMap` evolves indefinitely by default; use `{ infiniteEvolve: false, evolveSteps: N }` on the map object for finite warmup followed by reuse.
@@ -141,7 +155,7 @@ const researchAgent = agent('query:string -> answer:string', {
   recursionOptions: {
     model: 'gpt-6-luna',
   },
-  maxRuntimeChars: 3000,
+  maxRuntimeChars: 12000,
   summarizerOptions: {
     model: 'gpt-6-luna',
     modelConfig: { temperature: 0.1, maxTokens: 180 },

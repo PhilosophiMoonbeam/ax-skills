@@ -1,14 +1,14 @@
 # Executable Ax Examples
 
-Pinned to `@ax-llm/ax` and `@ax-llm/ax-tools` **25.4.11**. The collection declares **39 flat modules** and **234 cases**; these counts are not an executed discovery or success claim. They are an executable layer beside the guides, not another skill or a replacement for API contracts. Links resolve relative to this file; run the commands below from the installed skill root.
+Pinned to `@ax-llm/ax`, `@ax-llm/ax-tools` and `@ax-llm/ax-ai-sdk-provider` **25.4.12**. The collection declares **39 flat modules** and **238 cases**; these counts are not a complete-suite success claim. They are an executable layer beside the guides, not another skill or a replacement for API contracts. Links resolve relative to this file; run the commands below from the installed skill root.
 
 ## Select, then run
 
 For design or mechanism selection, start with [Architecture](../references/architecture.md), choose the smallest topology, then read the owning guide and one selected module. For a narrow change, go directly to its guide/module below. Progress **core contracts → selected mechanisms → compositions**; do not preload the example corpus. CLI discovery imports metadata from all numbered modules without running cases; this is not an instruction to load all source into an agent’s context.
 
-Run these commands from the installed `ax-skills` directory containing `SKILL.md`. No original `upstream/` fixtures, Ax checkout, repository scripts or additional skill installation is required. Use **Bun 1.4.4** for package management and **Node >=22.18.0** for the SDK scripts; Node 24 is verified. Bun runs the existing Node scripts, not a forced Bun runtime. The authoritative `bun.lock` pins Zod 4.1.11, TypeScript 5.9.3, tsx 4.20.6 and Node types 22.18.6.
+Run these commands from the installed `ax-skills` directory containing `SKILL.md`. No original `upstream/` fixtures, Ax checkout, repository scripts or additional skill installation is required. Use **Bun 1.4.4** for package management and **Node >=22.18.0** for the SDK scripts; Node 24 has recorded baseline verification. Bun runs the existing Node scripts, not a forced Bun runtime. The authoritative `bun.lock` pins Zod 4.1.11, TypeScript 5.9.3, tsx 4.20.6 and Node types 22.18.6.
 
-The package also pins the Ax Vercel provider 25.4.11, `ai` 7.0.2, esbuild 0.25.12 and overrides `@ai-sdk/provider`/`@ai-sdk/provider-utils` to 4.0.0/5.0.0. The Flow telemetry case uses real OpenTelemetry API 1.9.0 and trace SDK 2.0.1; the latter is registry-deprecated but included for compatibility with this collection.
+The package also pins `ai` 7.0.2, esbuild 0.25.12 and overrides `@ai-sdk/provider`/`@ai-sdk/provider-utils` to 4.0.0/5.0.0. The Ax Vercel provider retains its nested Zod 3.25.76 alongside root Zod 4.1.11. The Flow telemetry case uses real OpenTelemetry API 1.9.0 and trace SDK 2.0.1; the latter is registry-deprecated but included for compatibility with this collection.
 
 ```sh
 bun install --no-env-file --cwd examples --frozen-lockfile
@@ -58,7 +58,7 @@ For bounded semantic judgments, start with [Native decisions](../references/type
 
 | Module | Focus | Guide |
 | --- | --- | --- |
-| [04-providers.ts](04-providers.ts) | Provider/model construction, image output, Hydrogen thinking/limits, schema/tools and streaming | [Providers](../references/ai.md#gemini-4-hydrogen) |
+| [04-providers.ts](04-providers.ts) | Provider/model construction, image output, Hydrogen thinking/limits, schema/tools and streaming; released DeepSeek default, capability-gated native V4 function-only structured mode and forced-choice rejection | [Providers](../references/ai.md#gemini-4-hydrogen), [DeepSeek boundaries](../references/ai.md#deepseek-notes) |
 | [05-provider-routing.ts](05-provider-routing.ts) | Capability routing and operational balancing | [Providers](../references/ai.md) |
 | [27-provider-replay.ts](27-provider-replay.ts) | Provider replay and cache boundaries | [Providers](../references/ai.md) |
 | [33-browser-ai.ts](33-browser-ai.ts) | Chrome-only adapter fixtures and [browser entry](browser/chrome-ai.html); model inference remains unqualified | [Providers](../references/ai.md#chrome-built-in-ai-typescriptjavascript-only) |
@@ -71,13 +71,13 @@ For bounded semantic judgments, start with [Native decisions](../references/type
 | [09-agents.ts](09-agents.ts) | Agent construction and scoped tools | [Core agents](../references/agent.md) |
 | [10-agent-delegation.ts](10-agent-delegation.ts) | Explicit child-agent boundaries | [Core agents](../references/agent.md) |
 | [11-clarification.ts](11-clarification.ts) | Clarification and continuation state | [Core agents](../references/agent.md) |
-| [12-runtime.ts](12-runtime.ts) | RLM and JavaScript runtime execution | [RLM](../references/agent-rlm.md) |
+| [12-runtime.ts](12-runtime.ts) | RLM execution, regex completion/retained-variable analysis and division controls; live reads versus exported snapshots | [RLM actor code rules](../references/agent-rlm.md#rlm-actor-code-rules) |
 | [36-custom-runtime.ts](36-custom-runtime.ts) | Real structured-plan runtime, host tools and retained state | [RLM](../references/agent-rlm.md#custom-code-runtimes) |
 | [13-context.ts](13-context.ts) | Context orientation versus within-run policy | [Context chooser](../references/agent-context.md), [RLM](../references/agent-rlm.md) |
 | [14-memory-skills.ts](14-memory-skills.ts) | Recall and runtime skill discovery | [Memory and skills](../references/agent-memory-skills.md) |
 | [15-observability.ts](15-observability.ts) | Usage, callbacks and attribution | [Observability](../references/agent-observability.md) |
-| [32-executor-context.ts](32-executor-context.ts) | Executor/context boundaries, repeated-reference versus true-cycle serialization and observer failure contracts | [RLM](../references/agent-rlm.md#shared-references-are-not-cycles-25411), [Observability](../references/agent-observability.md) |
-| [17-events.ts](17-events.ts) | Explicit event routes and lifecycle | [Event runtime](../references/event-runtime.md) |
+| [32-executor-context.ts](32-executor-context.ts) | Executor/context and prompt-detail boundaries, rejected cutoff code versus prior effects; repeated-reference versus true-cycle serialization and observer failures | [RLM cutoff boundary](../references/agent-rlm.md#actor-output-cutoff-versus-runtime-replay-truncation), [Shared references](../references/agent-rlm.md#shared-references-are-not-cycles-25411), [Observability](../references/agent-observability.md) |
+| [17-events.ts](17-events.ts) | Explicit routes/lifecycle; malformed string envelopes reject before routing/enqueue, valid padded strings remain unchanged | [Event rules](../references/event-runtime.md#rules), [Consumer checks](../references/event-runtime.md#testing) |
 | [18-event-resume.ts](18-event-resume.ts) | Correlated continuation and delivery | [Event runtime](../references/event-runtime.md) |
 | [30-event-storage.ts](30-event-storage.ts) | Event persistence and local storage | [Event runtime](../references/event-runtime.md) |
 | [35-ucp.ts](35-ucp.ts) | Verified commerce webhooks, single-member freshness binding and native UCP inheritance | [Event runtime](../references/event-runtime.md#ucp-adapter), [Flows](../references/flow.md#native-mcpucp) |
@@ -116,9 +116,22 @@ These cases use injected I/O, not live services or model-quality evidence. Follo
 
 For the browser surface, run `bun run --no-env-file --cwd examples build:browser`, serve `examples/browser/` with a local static HTTP server and open `chrome-ai.html`. `check` includes this entry. Only a compatible Chrome profile can run its local model; Node fixtures and an unavailable-state rendering do not establish Gemini Nano inference. No model session or download starts on import.
 
+## 25.4.12 source changes and released SDK boundaries
+
+Select one owning guide and exact case; these four families do not require loading all modules.
+
+| Family | Owning guide and exact case IDs | Released-package boundary |
+| --- | --- | --- |
+| Original-task fidelity and unexecuted actor cutoff | [Core constraints](../references/agent.md#defaults-and-execution-constraints), [RLM stages](../references/agent-rlm.md#mental-model) and [cutoff](../references/agent-rlm.md#actor-output-cutoff-versus-runtime-replay-truncation); new [`32-executor-context/actor-cutoff-no-execution`](32-executor-context.ts), amended `32-executor-context/prompt-detail-comparison` | Official guidance preserves original instructions, allows factual enrichment only and describes at most three extra calls on the same unexecuted cutoff turn. Released templates retain older wording and the described reask loop is absent. Both actual scripted stage probes failed without consuming queued valid replacements; rejected code produced no forbidden ledger effect, while an earlier executor effect remained. These are bounded observations, not recovery or general effect-safety proof. Prompt-detail comparison is wiring, not semantic-fidelity acceptance. |
+| Lightweight regex versus division analysis | [RLM actor rules](../references/agent-rlm.md#rlm-actor-code-rules); new [`12-runtime/regex-completion-boundaries`](12-runtime.ts) and `12-runtime/division-state-boundaries` | Limited scanner, not a full parser or sandbox proof. The public-runtime postfix probe read live `units: 25` but exported stale `units: 24`; arithmetic/read behavior and snapshot restoration are different contracts. |
+| DeepSeek names, default, images and tool choice | [DeepSeek](../references/ai.md#deepseek-notes); amended [`04-providers/deployment-reasoning-dialects`](04-providers.ts) | Official guidance names `DeepSeekFlash` / `deepseek-flash` V4.1 text+image, deprecated old server alias and retained V4-Pro. Released declarations instead retain `DeepSeekV4Flash` / `deepseek-v4-flash` as default, no new enum or advertised images. Native exact V4 rules are function-only when structured handling is selected; ordinary singleton signatures need not select a structured rung. Forced choices reject for matching released rules; no matching new-ID rule or live image/alias quality is established. |
+| Event envelope validation | [Event rules](../references/event-runtime.md#rules); new [`17-events/invalid-envelope-before-routing`](17-events.ts) | TypeScript requires actual nonblank strings for `id`/`source`/`type` before route/enqueue; accepted values are not normalized. Envelope validity is not authenticated identity. Generated-runtime/Python source descriptions are not runtime parity evidence. |
+
+These are four new IDs and two amended existing IDs; the other 232 case bodies are unchanged. Body identity alone does not transfer runtime acceptance across SDK/helper/lock changes. Preserve the retained decision-pattern and feedback routes above.
+
 ## Exact Release and Source-Backed Cases
 
-These IDs bind the 25.4.11 release additions and source-backed interaction contracts, including six final protocol cases and the extended existing `teacher-permission` case. A listed contract is not a recorded execution result; inspect current `list` metadata before running it. Each case below is scoped to offline scripted/injected I/O, not live provider quality. Select its guide section and module only; no extra skill installation is required.
+These retained **25.4.11 baseline** IDs bind that release's additions and source-backed interaction contracts, including six final protocol cases and the extended existing `teacher-permission` case; they are not new 25.4.12 additions. A listed contract is not a recorded execution result; inspect current `list` metadata before running it. Each case below is scoped to offline scripted/injected I/O, not live provider quality. Select its guide section and module only; no extra skill installation is required.
 
 | Exact case ID / module | Contract to inspect |
 | --- | --- |
@@ -154,4 +167,4 @@ The protocol/playbook rows need only the pinned Node package, scripted AI and ow
 
 ## Observed acceptance boundary
 
-The integration owner recorded strict TypeScript and all **224 offline cases in 37 modules** passing before the final protocol additions, with **zero remote model HTTP requests**. That baseline does not certify subsequent cases or amended documentation. Exported modes and this route map are not gate results; current execution and semantic/disclosure evidence belong in the [examples audit](../assets/examples-audit.json) and [coverage audit](../assets/coverage-audit.json), bound to their recorded hashes. The authorized producer self-check is not independent review.
+Current 25.4.12 receipts record **238 offline cases in 39 modules** passing on **2026-11-17**, with zero model HTTP requests, plus strict TypeScript, exact-source/structural checks and skill validation/discovery. The full invocation also recorded 197 fixture HTTP requests and 53 loopback connections; zero model HTTP is not zero network traffic. Root integration task `ax-skills-otb`, the [examples audit](../assets/examples-audit.json) and [coverage audit](../assets/coverage-audit.json) bind actual receipts, current input hashes and their scope; the historical 234-case baseline remains separate. These observations are not whole-root semantic acceptance. Exported modes, actor/model separation and producer self-checks establish neither independent review nor live quality.

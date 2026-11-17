@@ -1,6 +1,6 @@
 # Core AxAgent Construction and Runtime Contracts
 
-Use for `agent(...)`, ordinary tool-using assistants, identity, child delegation, namespaced functions, discovery, `bubbleErrors`, host-side completion, clarification, and public run/state APIs. Generate the smallest correct factory-based shape and copyable code; do not add tutorial prose unless requested. Source API snapshot: `@ax-llm/ax` 25.4.11.
+Use for `agent(...)`, ordinary tool-using assistants, identity, child delegation, namespaced functions, discovery, `bubbleErrors`, host-side completion, clarification, and public run/state APIs. Generate the smallest correct factory-based shape and copyable code; do not add tutorial prose unless requested. Source API snapshot: `@ax-llm/ax` 25.4.12.
 
 ## Choose the Agent Shape
 
@@ -26,9 +26,10 @@ For Typesafe/Jev decisions, keep a generative model for the actor's tools, code,
 - Prefer namespaced functions, e.g. `utils.search(...)` and `kb.find(...)`.
 - Delegate through explicit child agents in `functions`, not recursive `llmQuery(...)`.
 - Actor responses must contain one executable program. Multiple fenced code blocks reject the entire turn without executing any block; the runtime asks for one program. This applies to text and structured JSON responses, with LF or CRLF line endings.
-- Actor code stages require structured generation with the exact `javascriptCode` wire key. Native-capable providers retain strict `json_schema`; providers such as DeepSeek use validated `json_object` and need no provider-visible tools for runtime execution.
+- JavaScript actor code uses structured generation with the `javascriptCode` wire key; other runtimes derive their own code field. Native-capable deployments retain strict `json_schema`. A singleton string/code output uses validated `json_object` only when structured handling is selected and the model advertises that mode; the released 25.4.12 native DeepSeek V4 profiles advertise function-only structured output, not a tool-free JSON-object actor path. See [DeepSeek Notes](ai.md#deepseek-notes) for the official-guidance/package disagreement.
 - Upstream reports `validation_retries` with one correction attempt by default for generated Go, Python, Java, C++, and Rust actor stages (`0` fails immediately). These generated-package contracts are not verified by the TypeScript package; check the target release before using them.
 - Do not combine actor `console.log(...)` with `final(...)`.
+- Preserve original task instructions and conditions; enrich only contextual facts, not requirements. Original inputs define requested work, while host authorization defines allowed effects. This is authoring guidance, not semantic enforcement; see the [packaged-template limitation](agent-rlm.md#mental-model).
 
 ### Direct-response default
 
@@ -294,6 +295,8 @@ const askForOrderId = fn('askForOrderId')
 - Both successful `final(...)` forms continue through the responder in public flows.
 - `askClarification(...)` requests missing user information and bypasses the responder. It accepts a string or `{ question, type?, choices? }`; normalization and failures are specified below.
 
+Lightweight JavaScript analysis masks regex literals in unambiguous expression positions so later completion calls remain visible, while preserving division after literals, updates and property reads. It is not a full JS parser or security proof; see `12-runtime/regex-completion-boundaries` and `12-runtime/division-state-boundaries` in the [runtime cases](../examples/12-runtime.ts).
+
 ## Clarification and Resume State
 
 Public `forward()` and `streamingForward()` throw `AxAgentClarificationError` on `askClarification(...)`. Prefer the error's captured continuation state, restore it with `setState(...)`, then call `forward(...)` with the user's answer:
@@ -427,10 +430,10 @@ The `tools` path requires function discovery; the `skills` path requires `onSkil
 - `discover({ tools: ['kb'], skills: ['release-checklist'] })`: tool docs and skill bodies in one turn.
 - Call one batched `discover(...)` with all needed modules, callables, and skills. Do not split calls, loop discovery, or wrap it in `Promise.all(...)`.
 - Read the next prompt's "Discovered Tool Docs" and "Loaded Skills". Do not assign or inspect `await discover(...)`'s result.
-- Discover before using callables whose docs are absent from the prompt. The responder has no discovery. In 25.4.11, the distiller can discover metadata and skills, but external callable execution is blocked; leave tool effects to the executor.
+- Discover before using callables whose docs are absent from the prompt. The responder has no discovery. In 25.4.12, the distiller can discover metadata and skills, but external callable execution is blocked; leave tool effects to the executor.
 - After a guessed call fails, stop guessing nearby names; discover the module/function and use only the exact discovered qualified name.
 
-Source: [25.4.11 source map](https://unpkg.com/@ax-llm/ax@25.4.11/index.js.map), `agentInternal/coordinator.ts` (`SHARED_KNOB_KEYS`), `initialization.ts` (catalog-backed search), `signatureBuilders.ts` (`skillsDiscoveryMode`), and `runtimeGlobals.ts` (independent tool/skill gates and distiller callable stubs). This implementation boundary supersedes the upstream blanket ban on distiller discovery.
+Source: [25.4.12 source map](https://unpkg.com/@ax-llm/ax@25.4.12/index.js.map), `../agent/agentInternal/coordinator.ts:114–127`, `initialization.ts:87–97` (catalog-backed search), and `runtimeGlobals.ts:284–324,480–487` (callable stubs and independently gated discovery). These sibling files share the `../agent/agentInternal/` prefix. This implementation boundary supersedes the upstream blanket ban on distiller discovery.
 
 ## Core Configuration
 
@@ -507,7 +510,7 @@ Construction-time `playbook` and `citations` both default off. The TypeScript co
 
 ### Stage guidance and generated-language spellings
 
-In TypeScript 25.4.9, the pipeline returned by `agent(...)` has **no `setInstruction` method**. Use `assistant.executor.setInstruction(text)` to **replace** that executor's stage-owned instruction; `assistant.addActorInstruction(text)` **appends** an executor-only standing rule. Neither changes distiller/responder guidance or grants tool authority.
+In TypeScript 25.4.12 (still applicable from 25.4.9), the pipeline returned by `agent(...)` has **no `setInstruction` method**. Use `assistant.executor.setInstruction(text)` to **replace** that executor's stage-owned instruction; `assistant.addActorInstruction(text)` **appends** an executor-only standing rule. Neither changes distiller/responder guidance or grants tool authority.
 
 Keep the canonical rules in application state and explicitly reapply the replacement after changing the signature:
 
@@ -529,7 +532,7 @@ assistant.executor.setInstruction(executorRule); // reassert application policy
 
 Inspect `assistant.executor.getInstruction()` and that stage's `getOptimizableComponents()`, not the first matching instruction key in the pipeline aggregate: default IDs can collide across stages. The executable [stage-instructions case](../examples/09-agents.ts) changes the actual schema, records the pre-reapplication boundary, explicitly reapplies the canonical rule, and checks before/after system prompts, single-copy append, absent prior replacement, stage isolation, real stock reads, and typed proposals. Its deterministic replies prove wiring and arithmetic, not model reasoning quality.
 
-Pinned implementation: [25.4.9 source map](https://unpkg.com/@ax-llm/ax@25.4.9/index.js.map), `agent/AxAgent.ts` (`setInstruction`, `setSignature`, local instruction component), `agent/agentInternal/coordinator.ts` (pipeline signature routing, aggregate components, additive instruction), and `agent/agentInternal/signatureBuilders.ts` (prompt composition); [25.4.9 public types](https://unpkg.com/@ax-llm/ax@25.4.9/index.d.ts). Generated-language names below follow their own APIs; they do not imply a TypeScript pipeline setter or identical retention boundaries.
+Current implementation: [25.4.12 source map](https://unpkg.com/@ax-llm/ax@25.4.12/index.js.map), `../agent/AxAgent.ts:570–609` (inner-program rebuild), `../agent/agentInternal/coordinator.ts:901–911,959–975` (retained stage objects and process-local addenda), and `../agent/agentInternal/signatureBuilders.ts:253–270` (prompt composition); [public types](https://unpkg.com/@ax-llm/ax@25.4.12/index.d.ts). Generated-language names below follow their own APIs; they do not imply a TypeScript pipeline setter or identical retention boundaries.
 
 The generated-language spellings below are upstream-reported navigation, not verified cross-language API, persistence, or observer-failure guarantees. Check the target package's versioned declarations/examples before porting.
 

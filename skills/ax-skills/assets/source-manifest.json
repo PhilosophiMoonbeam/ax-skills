@@ -3,11 +3,11 @@
   "source_root": "upstream/ax-llm",
   "upstream": {
     "package": "@ax-llm/ax",
-    "version": "25.4.11",
-    "git_commit": "007ab8366e5bfa98d871feb1af188cc029295c58",
+    "version": "25.4.12",
+    "git_commit": "fa693cd4b94c3bcaeff81ad5d5e327ada4405723",
     "index_url": "https://axllm.dev/typescript/.well-known/agent-skills/index.json",
     "archive_url": "https://axllm.dev/typescript/.well-known/agent-skills/ax-llm/skill.tar.gz",
-    "archive_sha256": "7a0352003bd15688a0806e8e372e1ece50681ed15eedf27f6f749b2461eb87b8"
+    "archive_sha256": "093e4a293e8bac94edf718c21249f963cbf7eacba502de3fa0768d25748b8b79"
   },
   "sources": [
     {
@@ -16,7 +16,7 @@
         "SKILL.md",
         "references/llm.md"
       ],
-      "sha256": "c2eeb6c6a97f9002765b632adf7cae1029dd12fbb3c88d8d74469c1cbb25a417",
+      "sha256": "8d0b9a0d58f89fb029e868ece6a1c17ea2fdea21910ec31a009283f282e6d616",
       "original_bytes": 3360,
       "original_lines": 54
     },
@@ -61,27 +61,27 @@
       "destinations": [
         "references/agent-rlm.md"
       ],
-      "sha256": "fcd74eb9e1b826e251faf219661f2ba4c3d1646745e9312c6b290ef9e9ea0499",
-      "original_bytes": 32899,
-      "original_lines": 498
+      "sha256": "56dd9742a0b018fe90316872bbbb202f1220109d805e0d312684b86958b595e8",
+      "original_bytes": 33746,
+      "original_lines": 499
     },
     {
       "source": "upstream/ax-llm/references/ax-agent.md",
       "destinations": [
         "references/agent.md"
       ],
-      "sha256": "c63f73adb7ee5ea60121b7ef712df2caeb9156fc2ac331e311a2887077df59c9",
-      "original_bytes": 36548,
-      "original_lines": 704
+      "sha256": "17a02e7308e74e1882104fb95775be383935422d8767fd1aade9c8483063d1ee",
+      "original_bytes": 36859,
+      "original_lines": 705
     },
     {
       "source": "upstream/ax-llm/references/ax-ai.md",
       "destinations": [
         "references/ai.md"
       ],
-      "sha256": "8f343695024d826a4162ad5dd7af3d8f02d9f1f1139118019ae7accc524bc36e",
-      "original_bytes": 70318,
-      "original_lines": 1345
+      "sha256": "07394e3a57f0ff570ad62fb9469cc0782594f70bf4f2391905bafb9a79f31eb5",
+      "original_bytes": 70533,
+      "original_lines": 1348
     },
     {
       "source": "upstream/ax-llm/references/ax-audio.md",
@@ -97,9 +97,9 @@
       "destinations": [
         "references/event-runtime.md"
       ],
-      "sha256": "c8d0d19cd11653f3b41f7b02ab34975baf0b9123ad1806d0b937f13c23c76711",
-      "original_bytes": 6671,
-      "original_lines": 146
+      "sha256": "003d8e61b1b3b6264f829ed3e923ed383aaa4363b5b2d7bc3a73d0c6abb3cb14",
+      "original_bytes": 6983,
+      "original_lines": 150
     },
     {
       "source": "upstream/ax-llm/references/ax-flow.md",

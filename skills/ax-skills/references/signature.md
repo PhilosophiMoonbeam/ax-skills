@@ -1,6 +1,6 @@
 # Ax signatures and field contracts
 
-Use for `s()`, `f()`, signature strings, field types, validation, and type-safe inputs/outputs. Source snapshot: Ax 25.4.11. Generator execution belongs in [generator reference](gen.md); focused semantic judgments and native decision criteria belong in [Typesafe reference](typesafe.md).
+Use for `s()`, `f()`, signature strings, field types, validation, and type-safe inputs/outputs. Source snapshot: Ax 25.4.12. Generator execution belongs in [generator reference](gen.md); focused semantic judgments and native decision criteria belong in [Typesafe reference](typesafe.md).
 
 ## String syntax and field types
 

@@ -1,6 +1,6 @@
 # AxGen execution, streaming, and validation
 
-Use for `ax()`, `AxGen`, `forward()`, `streamingForward()`, structured outputs, assertions, processors, hooks, and self-tuning. Source snapshot: Ax 25.4.11. Prefer short, modern, copyable code; add tutorial prose only when requested. Use [signature reference](signature.md) for field contracts, [AI reference](ai.md) for providers, [refine reference](refine.md) for reward-scored selection, [MCP reference](mcp.md) for MCP construction/transports/prompts/resources/tools/tasks/subscriptions/authentication/events, and [event runtime reference](event-runtime.md) for wake/resume routing.
+Use for `ax()`, `AxGen`, `forward()`, `streamingForward()`, structured outputs, assertions, processors, hooks, and self-tuning. Source snapshot: Ax 25.4.12. Prefer short, modern, copyable code; add tutorial prose only when requested. Use [signature reference](signature.md) for field contracts, [AI reference](ai.md) for providers, [refine reference](refine.md) for reward-scored selection, [MCP reference](mcp.md) for MCP construction/transports/prompts/resources/tools/tasks/subscriptions/authentication/events, and [event runtime reference](event-runtime.md) for wake/resume routing.
 
 ## Construction and execution defaults
 

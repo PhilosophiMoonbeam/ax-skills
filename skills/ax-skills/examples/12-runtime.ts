@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { agent, AxJSRuntime, AxJSRuntimePermission, type AxChatResponse } from '@ax-llm/ax';
+import { agent, AxJSRuntime, AxJSRuntimePermission, f, fn, type AxChatResponse } from '@ax-llm/ax';
 import { options, scriptedAI, type Example } from './support.js';
 
 // Scripted model code is a deterministic fixture, not a claim of model quality.
@@ -166,6 +166,118 @@ console.log({ reviews, merged, overBudget });`, undefined, { ai: scriptedAI(() =
       assert.doesNotMatch(requests[0] ?? '', /identity team/);
       assert.match(requests[2] ?? '', /Urgent: customer login unavailable/);
       return { calls: requests.length, output: String(result), capability: 'semantic AxGen only; no parent tools, discovery, inputs or runtime variables implicitly inherited' };
+    },
+  },
+  {
+    id: '12-runtime/regex-completion-boundaries',
+    title: 'Keep real completion visible after regexes and reject regex-only fake completion',
+    features: ['regex masking', 'normal forward', 'completion policy', 'host effect ledger', 'retained runtime state'],
+    modes: ['offline'],
+    async run(ctx) {
+      const results: { scenario: string; answer: string; reads: number; errors: boolean[] }[] = [];
+      for (const scenario of ['clean-label', 'fake-completion'] as const) {
+        const reads: number[] = [], errors: boolean[] = [];
+        const worker = agent('task:string -> answer:string', {
+          runtime: new AxJSRuntime(), directResponse: 'off', maxTurns: 3,
+          contextOptions: { model: 'fixture-distiller' },
+          executorOptions: { model: 'fixture-executor' },
+          responderOptions: { model: 'fixture-responder' },
+          functions: [fn('read').namespace('billing').description('Read the in-memory invoice amount').returns(f.number()).handler(() => { reads.push(17); return 17; }).build()],
+          actorTurnCallback: turn => { errors.push(turn.isError); },
+        });
+        const expected = scenario === 'clean-label' ? 'INV42' : '17';
+        const responses = scenario === 'clean-label' ? [
+          code(`await final("Clean the invoice identifier", { label: "INV'\\\"/42" })`),
+          code(String.raw`const cleanedId = inputs.distilledContext.label.replace(/['"\/]/g, ""); await final("Report the cleaned invoice identifier", { cleanedId })`),
+          answer(expected),
+        ] : [
+          code('await final("Read the current invoice amount", {})'),
+          code('const pattern = /final(x)/; await billing.read({});'),
+          code('const observedAmount = await billing.read({}); await final("Report the observed invoice amount", { observedAmount })'),
+          answer(expected),
+        ];
+        const stages = scenario === 'clean-label'
+          ? ['fixture-distiller', 'fixture-executor', 'fixture-responder']
+          : ['fixture-distiller', 'fixture-executor', 'fixture-executor', 'fixture-responder'];
+        let calls = 0;
+        const model = scriptedAI((request, index) => {
+          calls++;
+          assert.equal(request.model, stages[index]);
+          if (scenario === 'fake-completion' && index === 2) assert.deepEqual(reads, [], 'policy rejection must precede the host read');
+          if (request.model === 'fixture-responder') assert.ok(JSON.stringify(request.chatPrompt).includes(expected), 'actual final evidence must reach synthesis');
+          const response = responses[index]; assert.ok(response, 'finite regex fixture exhausted'); return response;
+        }, { structuredOutputs: true });
+        try {
+          const result = await worker.forward(model, { task: scenario === 'clean-label' ? 'Remove quotes and slashes from the supplied invoice label.' : 'Read the current invoice amount.' }, options(ctx));
+          assert.equal(result.answer, expected);
+          assert.equal(calls, responses.length);
+          const bindings = worker.getState()?.runtimeBindings;
+          if (scenario === 'clean-label') {
+            assert.equal(bindings?.cleanedId, 'INV42');
+            assert.deepEqual(reads, []);
+            assert.deepEqual(errors, [false]);
+          } else {
+            assert.equal(bindings?.observedAmount, 17);
+            assert.deepEqual(reads, [17]);
+            assert.deepEqual(errors, [true, false]);
+          }
+          results.push({ scenario, answer: result.answer, reads: reads.length, errors });
+        } finally { worker.stop(); }
+      }
+      return { results, boundary: 'scripted decisions; real worker completion, pre-execution policy rejection and in-memory effects, not full JavaScript parsing or model quality' };
+    },
+  },
+  {
+    id: '12-runtime/division-state-boundaries',
+    title: 'Preserve invoice division and reuse the quotient on a later actor turn',
+    features: ['division lexical boundaries', 'persistent runtime values', 'postfix update', 'property reads', 'normal forward'],
+    modes: ['offline'],
+    async run(ctx) {
+      const rows = [
+        { name: 'string', expression: '"24" / 3' },
+        { name: 'template', expression: '`24` / 3' },
+        { name: 'postfix', expression: 'units++ / 3' },
+        { name: 'dot-keyword', expression: 'amounts.return / 3' },
+        { name: 'optional-keyword', expression: 'amounts?.return / 3' },
+      ];
+      const results: { name: string; quotient: unknown; units: unknown; exportedUnits: unknown; exportMatchesLive: boolean }[] = [];
+      for (const row of rows) {
+        const errors: boolean[] = [];
+        const worker = agent('task:string -> answer:string', {
+          runtime: new AxJSRuntime(), directResponse: 'off', maxTurns: 3,
+          contextOptions: { model: 'fixture-distiller' },
+          executorOptions: { model: 'fixture-executor' },
+          responderOptions: { model: 'fixture-responder' },
+          actorTurnCallback: turn => { errors.push(turn.isError); },
+        });
+        const responses = [
+          code('await final("Compute and retain the invoice quotient", { numerator: 24, divisor: 3 })'),
+          code('const amounts = { return: inputs.distilledContext.numerator }; let units = amounts.return; console.log({ amounts, units })'),
+          code(`const quotient = ${row.expression}; console.log(quotient)`),
+          code('const reusedTotal = quotient * inputs.distilledContext.divisor; const observedUnits = units; await final("Report the invoice quotient", { quotient, reusedTotal, units: observedUnits })'),
+          answer('8'),
+        ];
+        const stages = ['fixture-distiller', 'fixture-executor', 'fixture-executor', 'fixture-executor', 'fixture-responder'];
+        let calls = 0;
+        const model = scriptedAI((request, index) => {
+          calls++; assert.equal(request.model, stages[index]);
+          const response = responses[index]; assert.ok(response, 'finite division fixture exhausted'); return response;
+        }, { structuredOutputs: true });
+        try {
+          const result = await worker.forward(model, { task: `Compute the invoice quotient with ${row.name} division and retain its reused total.` }, options(ctx));
+          assert.equal(result.answer, '8'); assert.equal(calls, responses.length);
+          assert.deepEqual(errors, [false, false, false]);
+          const bindings = worker.getState()?.runtimeBindings;
+          assert.deepEqual(bindings?.amounts, { return: 24 });
+          assert.equal(bindings?.quotient, 8); assert.equal(bindings?.reusedTotal, 24);
+          // A fresh binding captures the live worker value; the original mutable export can lag.
+          const units = bindings?.observedUnits;
+          assert.equal(units, row.name === 'postfix' ? 25 : 24);
+          const exportedUnits = bindings?.units;
+          results.push({ name: row.name, quotient: bindings?.quotient, units, exportedUnits, exportMatchesLive: exportedUnits === units });
+        } finally { worker.stop(); }
+      }
+      return { results, boundary: 'bounded literal/update/property division fixtures, not arbitrary grammar support; fresh retained arithmetic is primary evidence, mutable exports are diagnostic only, not restoration proof' };
     },
   },
 ];
