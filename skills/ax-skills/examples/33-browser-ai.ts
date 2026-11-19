@@ -24,7 +24,7 @@ export const examples: readonly Example[] = [
       const saved = new Map(['LanguageModel', 'ai'].map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
       try {
         for (const key of saved.keys()) Object.defineProperty(globalThis, key, { configurable: true, writable: true, value: undefined });
-        // 25.4.9 does not probe Chrome in the constructor: the first chat rejects.
+        // Construction is lazy; the first chat rejects without LanguageModel.
         const service = ai({ name: 'chrome-ai', options: { fetch: noNetwork } });
         assert.equal(service.getFeatures().functions, false);
         assert.equal(service.getFeatures().streaming, true);

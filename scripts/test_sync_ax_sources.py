@@ -17,7 +17,7 @@ from unittest.mock import patch
 import sync_ax_sources as sync
 
 
-def source_members(version='25.4.3'):
+def source_members(version='25.4.13'):
     members = {name: f'# {name}\nSource fixture.\n'.encode() for name in sync.DESTINATIONS}
     members['SKILL.md'] = f'---\nname: ax-llm\nversion: "{version}"\n---\n# Ax\n'.encode()
     return members
@@ -133,10 +133,11 @@ class ArchiveIntegrityTests(unittest.TestCase):
 
     def test_archive_version_must_match_exact_npm_identity(self):
         members = source_members()
+        version = sync.master_version(members['SKILL.md'])
         for metadata in (
-            dict(name='wrong-package', version='25.4.3', gitHead='a' * 40),
-            dict(name='@ax-llm/ax', version='25.4.4', gitHead='a' * 40),
-            dict(name='@ax-llm/ax', version='25.4.3', gitHead='short'),
+            dict(name='wrong-package', version=version, gitHead='a' * 40),
+            dict(name='@ax-llm/ax', version=f'{version}-fixture', gitHead='a' * 40),
+            dict(name='@ax-llm/ax', version=version, gitHead='short'),
         ):
             with self.subTest(metadata=metadata):
                 with self.assertRaises(sync.SyncError):

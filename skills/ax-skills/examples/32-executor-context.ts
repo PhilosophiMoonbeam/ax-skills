@@ -185,7 +185,7 @@ export const examples: readonly Example[] = [
   {
     id: '32-executor-context/shared-reference-serialization',
     title: 'Preserve sibling shared values in real agent replay while marking a genuine cycle',
-    features: ['25.4.11 PR893', 'AxJSRuntime return mode', 'actorTurnCallback raw versus replay', 'sibling shared references', 'true cycle'],
+    features: ['PR #893', 'AxJSRuntime return mode', 'actorTurnCallback raw versus replay', 'sibling shared references', 'true cycle'],
     modes: ['offline'],
     async run(ctx) {
       const turns: { result: unknown; output: string; error: boolean }[] = [];

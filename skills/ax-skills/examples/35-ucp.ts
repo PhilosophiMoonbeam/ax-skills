@@ -201,8 +201,8 @@ async function merchant() {
   }
 }
 
-// 25.4.9 verifyOrderEvent checks Webhook-Id/Timestamp, but does not require
-// either to be signed, and recreates its signature verifier on each call.
+// The pinned SDK's verifyOrderEvent checks Webhook-Id/Timestamp, but does
+// not require either to be signed and recreates its verifier on each call.
 // Host policy binds them to signed request-id / created, and requires signed
 // signer profile. This supplements, never replaces, real client verification.
 // Published sources: @ax-llm/ax/index.js.map → ../ucp/client.ts

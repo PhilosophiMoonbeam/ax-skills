@@ -308,7 +308,7 @@ async function withLegacySSE<T>(fixture: OAuthFixture, run: (client: AxMCPClient
       signal: requestSignal ? AbortSignal.any([requestSignal, hostClose.signal]) : hostClose.signal });
   };
   let streamDone: Promise<PromiseSettledResult<void>> | undefined;
-  // Ax25.4.10's legacy binding exposes the existing connection through
+  // The legacy SSE transport exposes the existing connection through
   // startListening(). Own its promise immediately; close() aborts its reader.
   const legacy = new (class extends AxMCPHTTPSSETransport {
     override async connect(): Promise<void> {
@@ -486,7 +486,7 @@ export const examples: readonly Example[] = [
         finally { await secured.close(); }
         assert.equal(f.grants.length, 0, 'Rejected authorization never exchanges a code');
         return { rejected, tokenExchanges: 0,
-          scope: 'TypeScript controls only. Real mTLS requires a certificate-presenting host fetch; signed JAR/JWT auth requires an approved signer. Revocation/introspection are not exercised: the public Ax25.4.10 HTTP transport and OAuth options expose no corresponding methods.' };
+          scope: 'TypeScript controls only. Real mTLS requires a certificate-presenting host fetch; signed JAR/JWT auth requires an approved signer. This case does not call OAuth token revocation or introspection endpoints.' };
       });
     },
   },

@@ -122,8 +122,8 @@ export const examples: readonly Example[] = [
         contextFields: [], functions: [stock], directResponse: 'off', maxTurns: 3,
         executorOptions: { description: baseline },
       });
-      // The pipeline has no setInstruction method in 25.4.9: the public
-      // executor stage owns this replaceable rule, not every agent stage.
+      // Set this replaceable rule on the public executor stage, not on the
+      // agent pipeline or across every stage.
       // Keep the canonical rule in application state, not an optimizer snapshot.
       let executorRule = initial;
       assistant.executor.setInstruction(executorRule);

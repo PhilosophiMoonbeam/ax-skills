@@ -120,7 +120,7 @@ async function deterministicTuning(ctx: ExampleContext) {
   assert.deepEqual(fresh.ledger, ['lookup:SKU-1']);
   return { baseline: result.baselineScore, selected: result.bestScore,
     componentKeys: Object.keys(restored.componentMap ?? {}),
-    bootstrap: 'Explicitly disabled: 25.4.9 pipeline trace filtering/routing is covered by bootstrap-boundaries, not hidden behind an automatic fallback.',
+    bootstrap: 'Explicitly disabled: bootstrap-boundaries covers pipeline trace filtering and routing separately; there is no automatic fallback.',
     optimizationLookups: ledger.length, replay, replayLedger: fresh.ledger,
     comparison: 'Train and held-out selection tasks are disjoint. The offline student already obeys the action policy: this real component artifact proves portability, not a quality gain or demonstration training. Public BootstrapFewShot demonstration training and restore are exercised separately in 23-optimize. Reward depends on this dataset, action policy, and cost rubric.' };
 }
@@ -162,7 +162,7 @@ async function bootstrapBoundaries(ctx: ExampleContext) {
     defaultBootstrapDemos: result.optimizedProgram.demos?.length ?? 0,
     explicitAllDescriptorsRejected: true,
     lookupCounts: [filtered.ledger.length, unroutable.ledger.length],
-    boundary: '25.4.9 default pipeline targets filter out raw trace IDs; selecting every descriptor exposes incompatible context-demo routing instead. Neither is a working agent bootstrap recipe. Use the explicit bootstrap:false component-artifact case, or public BootstrapFewShot training in 23-optimize for supported generator demonstrations.',
+    boundary: 'Default pipeline targets filter out raw trace IDs; selecting every descriptor exposes incompatible context-demo routing instead. Neither is a working agent bootstrap recipe. Use the explicit bootstrap:false component-artifact case, or public BootstrapFewShot training in 23-optimize for supported generator demonstrations.',
   };
 }
 

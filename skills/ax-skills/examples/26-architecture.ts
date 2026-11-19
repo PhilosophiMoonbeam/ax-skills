@@ -505,7 +505,7 @@ export const examples: readonly Example[] = [
         assert.equal(delivered.length, 1);
         const deliveredRun = await store.getRun(resumedDelivery.runId);
         assert.equal(deliveredRun?.status, 'succeeded', deliveredRun?.error);
-        // In 25.4.9, redrive awaits the sink and removes its dead letter but
+        // Redrive awaits the sink and removes its dead letter but
         // does not rewrite run.sinks (the original dispatch attempt snapshot).
         // Completion is the accepted business output plus cleared failed work,
         // not a fabricated successful status in that historical snapshot.

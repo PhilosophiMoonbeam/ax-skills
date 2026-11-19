@@ -5,8 +5,8 @@ import {
 } from '@ax-llm/ax';
 import { type Example } from './support.js';
 
-// Protocol frames mirror the pinned SDK's openai/realtime.ts,
-// google-gemini/live_audio.ts and x-grok/api.ts (25.4.9 sourcesContent).
+// Protocol frames mirror the pinned SDK sources: openai/realtime.ts,
+// google-gemini/live_audio.ts and x-grok/api.ts.
 // This is a transport seam, not a replacement for Ax's session or parser logic.
 function fixtureSocket(onSend: (socket: Socket, frame: Record<string, unknown>) => void) {
   const sockets: Socket[] = [];
@@ -169,8 +169,8 @@ export const examples: readonly Example[] = [
           ] }, turnComplete: true }, usageMetadata: { promptTokenCount: 2, responseTokenCount: 3, totalTokenCount: 5 } }, true);
         }
       });
-      // Unlike the other providers, 25.4.9 Gemini Live does NOT read
-      // options.webSocket. Own this global replacement for the awaited call only;
+      // Gemini Live uses globalThis.WebSocket, not options.webSocket.
+      // Own this global replacement for the awaited call only;
       // run sequentially and always restore it, even on error. No live credentials.
       const original = Object.getOwnPropertyDescriptor(globalThis, 'WebSocket');
       Object.defineProperty(globalThis, 'WebSocket', { value: fixture.Socket, configurable: true, writable: true });

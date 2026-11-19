@@ -404,7 +404,7 @@ const myAgent = agent('query:string -> answer:string', {
 - Do not list expected recoverable tool errors; let the actor handle `[ERROR] ...`.
 - `AxAgentClarificationError` and `AxAIServiceAbortedError` always bubble unconditionally.
 
-**Go release boundary (25.4.6):** agent `Forward` and `StreamingForward` preserve the concrete `AxGenerateError` and nested provider causes through generation and agent error conversions. Use `errors.As` for `AxGenerateError` / `AxError` and `errors.Unwrap` for the cause chain; provider status, code, retryability, response payload, URL, and request body remain available. This fixes error identity and metadata preservation, not `bubbleErrors` policy or a cross-language parity claim. See [PR #866's Go error boundary](https://github.com/ax-llm/ax/blob/a2780f9a10acf6576765092153c7604babf277c3/tools/axir/internal/axir/templates/go/goRuntime.go.txt).
+**Go error boundary (historical):** [PR #866](https://github.com/ax-llm/ax/blob/a2780f9a10acf6576765092153c7604babf277c3/tools/axir/internal/axir/templates/go/goRuntime.go.txt) changed agent `Forward` and `StreamingForward` to preserve the concrete `AxGenerateError` and nested provider causes through generation and agent error conversions. At that boundary, use `errors.As` for `AxGenerateError` / `AxError` and `errors.Unwrap` for the cause chain; provider status, code, retryability, response payload, URL, and request body remain available. The change addressed error identity and metadata preservation, not `bubbleErrors` policy or cross-language parity.
 
 ## Discovery Mode
 

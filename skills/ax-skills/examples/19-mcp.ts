@@ -200,8 +200,8 @@ export const examples: readonly Example[] = [
         assert.notEqual(serverTool.description, description);
 
         // Compatibility feature only: native integrations keep using `mcp`.
-        // In Ax 25.4.9 these overrides affect toFunction() wrappers, not the
-        // raw catalog or callTool() names; the wrapper also flattens content.
+        // These overrides affect toFunction() wrappers, not the raw catalog
+        // or callTool() names; the wrapper also flattens content.
         const wrappers = client.toFunction();
         const checkStock = wrappers.find((tool) => tool.name === 'checkStock');
         assert(checkStock);
@@ -539,7 +539,7 @@ export const examples: readonly Example[] = [
         assert.equal(peer.requests.length, 0); assert.equal(peer.notifications.length, 0);
         assert(!peer.closed, 'Failed optimization preserves the caller-owned client');
         return { rejected: true, modelCalls, metricCalls, progressCalls, protocolRequests: peer.requests.length,
-          boundary: 'Ax 25.4.11 requires replay-mode MCP for default optimization; MCP sandbox is also rejected. UCP sandbox acceptance is a separate rule. This case never opts into live evaluation or opens runtime sessions.' };
+          boundary: 'The pinned Ax SDK requires replay-mode MCP for default optimization; MCP sandbox is also rejected. UCP sandbox acceptance is a separate rule. This case never opts into live evaluation or opens runtime sessions.' };
       } finally { await client.close(); assert(peer.closed); }
     },
   },

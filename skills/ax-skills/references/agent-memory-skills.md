@@ -70,15 +70,15 @@ When `onMemoriesSearch` or a non-empty `memoriesCatalog` is configured, the dist
 
 The responder stage does not receive memories.
 
-### 25.4.11 JavaScript worker visibility
+### JavaScript worker visibility
 
-The worker visibility limitation observed in 25.4.9 and [25.4.11](https://unpkg.com/@ax-llm/ax@25.4.11/index.js.map) remains in the 25.4.13 source. `noteLoadedMemories` updates host-owned inputs, while `runActorTurn` calls `syncRuntimeInputsToSession` only when an `inputUpdateCallback` is configured. Without that synchronization, a same-stage worker can still hold its pre-recall memory array even though `onLoadedMemories` fired and the next model prompt includes the loaded content. Loaded-memory analytics and prompt visibility are therefore not proof that actor JavaScript can read the new entries.
+`noteLoadedMemories` updates host-owned inputs, while `runActorTurn` calls `syncRuntimeInputsToSession` only when an `inputUpdateCallback` is configured. Without that synchronization, a same-stage worker can still hold its pre-recall memory array even though `onLoadedMemories` fired and the next model prompt includes the loaded content. Loaded-memory analytics and prompt visibility are therefore not proof that actor JavaScript can read the new entries.
 
 Distiller-to-executor handoff merges the host snapshot into the executor's worker inputs. Recall in the distiller, hand off without reading its stale worker array, then consume `inputs.memories` in the executor. Alternatively, preload application-owned memories at forward time. Do not add a dummy update callback merely to hide this version-bound limitation.
 
 The finite [`catalog-recall-discover` control](../examples/14-memory-skills.ts) separately asserts host-loaded/prompt visibility, the distiller worker's pre-handoff snapshot, and the executor worker's post-handoff memory read before creating a real proposal. It does not simulate memory retrieval or substitute hardcoded memory content for that read.
 
-Exact release source: [`@ax-llm/ax@25.4.13/index.js.map`](https://unpkg.com/@ax-llm/ax@25.4.13/index.js.map), embedded `../agent/agentInternal/runtimeGlobals.ts:696–815` (discovery/recall pause), `runtimeExecutionNotes.ts:108–134` (host snapshot), `actorLoopTurn.ts:472–474` (worker sync condition), `runtimeExecutionSession.ts:380–398` (input sync) and `pipelineForward.ts:568–593` (executor handoff).
+Exact release source: [`@ax-llm/ax@25.4.13/index.js.map`](https://unpkg.com/@ax-llm/ax@25.4.13/index.js.map), embedded under `../agent/agentInternal/`: `runtimeGlobals.ts:795–815` (recall pause), `runtimeExecutionNotes.ts:115–134` (host snapshot), `actorLoopTurn.ts:472–474` (worker sync condition), `runtimeExecutionSession.ts:380–398,419–428` (input sync), and `pipelineForward.ts:577–593` (executor handoff).
 
 
 ### Enabling

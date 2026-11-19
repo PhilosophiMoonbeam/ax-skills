@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { ai, AxAIMetaModel, axAIOpenAIAudioDefaultConfig, type AxChatRequest } from '@ax-llm/ax';
 import { type Example } from './support.js';
 
-// A local transport for the exact 25.4.9 Meta ASR grammar. Ax owns upload
+// A local transport for the Meta ASR protocol in the pinned SDK's meta/realtime.ts. Ax owns upload
 // pacing, turn ordering, caption snapshots, errors and cancellation. No server,
 // microphone or account exists; synthetic PCM proves no recognition quality.
 function metaFixture(mode: 'captions' | 'delta' | 'cancel' | 'early-close' | 'error') {

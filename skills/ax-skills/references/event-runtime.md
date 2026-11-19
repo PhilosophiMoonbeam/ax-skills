@@ -80,7 +80,7 @@ await source.publish({ event, identity, trust: 'authenticated' });
 
 ## Sink redrive reliability
 
-In TypeScript **25.4.11**, successful sink-only `runtime.redrive(deadLetterId)`
+In TypeScript, successful sink-only `runtime.redrive(deadLetterId)`
 awaits the sink callback with the already-persisted output and removes that
 dead letter, without invoking the program again. It does **not** rewrite
 `run.sinks`: that array remains the original dispatch-attempt snapshot and can
@@ -89,8 +89,9 @@ delivery ledger. Establish completion from the accepted business output in the
 sink callback, current delivery/run state, and removal of the sink dead letter;
 a succeeded run alone does not establish successful sink delivery.
 
-See the pinned [`runtime.ts` sink-redrive branch](https://github.com/ax-llm/ax/blob/007ab8366e5bfa98d871feb1af188cc029295c58/src/ax/event/runtime.ts#L301-L344)
-and the wake → pause → resume → sink-redrive composition in
+See the [released TypeScript source map](https://unpkg.com/@ax-llm/ax@25.4.13/index.js.map)
+(embedded `../event/runtime.ts`, `redrive`, lines 301–344) and the
+wake → pause → resume → sink-redrive composition in
 [`26-architecture.ts`](../examples/26-architecture.ts). This does not add durability
 to the in-memory store or guarantee cross-system exactly-once effects.
 
@@ -120,7 +121,7 @@ only their own subscriptions on close. Identity must come from the
 application's authenticated client or token mapping; a bare MCP session is
 anonymous. Add `...axMCPEventRoutes({ client })` for catalog invalidation,
 progress/log observation, and task resume. Resource notifications never get an
-implicit wake route. Upstream subscription policy resource: [MCP subscription lifecycle](https://github.com/ax-llm/ax/blob/007ab8366e5bfa98d871feb1af188cc029295c58/docs/MCP_SUBSCRIPTIONS.md).
+implicit wake route. Historical upstream reference: [MCP subscription lifecycle](https://github.com/ax-llm/ax/blob/007ab8366e5bfa98d871feb1af188cc029295c58/docs/MCP_SUBSCRIPTIONS.md).
 
 ## UCP Adapter
 
@@ -130,9 +131,9 @@ profile, RFC 9421 signature, digest, freshness and key rotation before enqueue.
 Resolve tenant/account identity from trusted application registration after
 verification; never copy authority from the business payload.
 
-**25.4.11 replay qualification:** `AxUCPClient.verifyOrderEvent` creates a new
-signature verifier per request; its persistent process-local replay check uses
-`Webhook-Id`, while that header and `Webhook-Timestamp` need not be signed.
+**Replay qualification:** `AxUCPClient.verifyOrderEvent` creates a new
+signature verifier per request. Its client-local replay check uses
+`Webhook-Id`, but neither that header nor `Webhook-Timestamp` must be signed.
 Bind them to the signed `request-id` and `created` before ingestion, and require
 the signed signer-profile header. Parse exactly one verified signature member
 with unique parameters; bind metadata to that member, not a separately selected
@@ -142,9 +143,10 @@ fresh `created`-last control and rejects old or ambiguous metadata before enqueu
 The [verified webhook example](../examples/35-ucp.ts) also covers real client
 verification, key rotation, tamper/replay rejection and host-bound tenant routing.
 Its volatile replay state is not restart durability; production hosts need
-durable replay/idempotency policy. Source:
-[`25.4.11 client and signing code`](https://unpkg.com/@ax-llm/ax@25.4.11/index.js.map),
-embedded `../ucp/client.ts` (`verifyOrderEvent`) and `../ucp/signing.ts`.
+durable replay/idempotency policy. See the
+[released TypeScript source map](https://unpkg.com/@ax-llm/ax@25.4.13/index.js.map):
+embedded `../ucp/client.ts` (`verifyOrderEvent`) and `../ucp/signing.ts`
+(`verifyRequest`).
 
 Native UCP attachment is independent of transport. The same example carries
 UCP through Flow → Agent/Gen and preserves structured results; MCP-backed UCP
@@ -153,12 +155,11 @@ does not itself authorize purchases or establish tenant isolation.
 
 The generated-language statements below describe the supplied source's scope, not runtime qualification performed by this collection.
 
-The supplied official 25.4.12 event-runtime guidance
-also specifies field-specific `id`/`source`/`type` validation before routing or
-enqueue in generated runtimes; Python dictionary envelope fields are not
-string-coerced. This is source-only guidance, not independently exercised
-generated/Python runtime parity. The TypeScript case below exercises the
-released TypeScript boundary only.
+The supplied official event-runtime guidance specifies field-specific
+`id`/`source`/`type` validation before routing or enqueue in generated runtimes;
+Python dictionary envelope fields are not string-coerced. This describes source
+scope, not independently exercised generated-runtime parity. The TypeScript case
+below exercises only the released TypeScript boundary.
 
 Generated Python, Java, C++, Go, and Rust packages expose the same Core-owned
 single-worker event state machine plus functioning inline lifecycle dispatch,

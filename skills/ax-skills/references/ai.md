@@ -201,7 +201,7 @@ In TypeScript, `capabilities.requiresAudioOutput` or `modelConfig.audio.output.e
 
 Generated provider routers expose `get_compatibility_report` (Python, C++, Rust), `GetCompatibilityReport` (Go), and `getCompatibilityReport` (Java). Reports count requested audio input and output independently and include ranked provider names, scores, missing/supported capabilities, and a summary for request-compatible providers. These are capability-compatibility scores, not semantic-quality evaluations.
 
-For 25.4.5, [PR #862](https://github.com/ax-llm/ax/pull/862) records generated-provider coverage for independent audio input/output routing, output-format unions restricted to output-capable children, and separate counts in native compatibility reports. This is bounded provider-side parity evidence, not a guarantee for unrelated capabilities or the Jev image/Box source disagreement above.
+[PR #862](https://github.com/ax-llm/ax/pull/862) records historical generated-provider coverage for independent audio input/output routing, output-format unions restricted to output-capable children, and separate counts in native compatibility reports. It does not establish coverage for unrelated capabilities such as Jev image/Box.
 
 Adaptive balancing is operational routing, not semantic prompt-to-model routing. Every provider model behind an alias must be an acceptable substitute for that application. Keep quality evaluation and content-aware model selection outside the balancer.
 
@@ -619,7 +619,7 @@ For GPT-5.6 and GPT-6 (Astra, Sol, Luna, GPT-6.1 Sol), these map to `none`, `low
 - Opus 4.5: budget_tokens + effort levels (capped at `'high'`)
 - Other thinking models: budget tokens only
 
-For assistant replay, empty visible text (`content: ''`) adds no synthetic text block. Cache markers attach only to text or tool-use blocks, never to signed or redacted thinking. See the [25.4.9 replay mapper](https://github.com/ax-llm/ax/blob/3ad7b69947e05f1770b1bd6cb1316a8ec7fcd106/src/ax/ai/anthropic/api.ts#L1871-L2013).
+For assistant replay, empty visible text (`content: ''`) adds no synthetic text block. Cache markers attach only to text or tool-use blocks, never to signed or redacted thinking.
 
 Anthropic `modelConfig.effort` can be set directly on a request. Fast mode and task budgets are Anthropic-only opt-ins; `taskBudget.total` must be at least 20,000 tokens.
 
@@ -720,9 +720,9 @@ Provider behavior:
 
 ### Gemini system instructions and cache migration
 
-Gemini cache creation retains every system message in order, including messages after the content breakpoint; their contents are joined with a space, matching ordinary requests. [Release 25.4.4](https://github.com/ax-llm/ax/releases/tag/25.4.4) and [PR #851](https://github.com/ax-llm/ax/pull/851) fixed the TypeScript path, which previously overwrote earlier system instructions with the last one. Existing pre-fix caches must expire or be recreated to receive the complete instructions; upgrading the SDK alone does not repair cached content.
+Gemini cache creation retains every system message in order, including messages after the content breakpoint; their contents are joined with a space, matching ordinary requests. [PR #851](https://github.com/ax-llm/ax/pull/851) records the fix for the TypeScript path, which previously overwrote earlier system instructions with the last one. Existing pre-fix caches must expire or be recreated to receive the complete instructions; upgrading the SDK alone does not repair cached content.
 
-For 25.4.5, [PR #862](https://github.com/ax-llm/ax/pull/862) reports regression verification that the existing generated Gemini mapper also retains all ordered system messages, including those after the content breakpoint. That coverage required no further mapper runtime change. This is upstream verification evidence, not a claim that this guide executed the generated packages.
+[PR #862](https://github.com/ax-llm/ax/pull/862) records historical regression verification that the generated Gemini mapper also retained all ordered system messages, including those after the content breakpoint. That coverage required no further mapper runtime change. This guide did not execute the generated packages.
 
 ### OpenAI prompt cache keys
 
@@ -779,7 +779,7 @@ const bedrock = ai({
 });
 ```
 
-On this profile, 25.4.6 verifies native JSON Schema and mapped `thinkingTokenBudget` support for these Bedrock IDs, including geographic prefixes such as `us.` and `global.`:
+This profile supports native JSON Schema and maps `thinkingTokenBudget` for these Bedrock IDs, including geographic prefixes such as `us.` and `global.`:
 
 | Models / IDs | Reasoning and function tools on `amazon-bedrock` |
 | --- | --- |
@@ -788,7 +788,7 @@ On this profile, 25.4.6 verifies native JSON Schema and mapped `thinkingTokenBud
 
 For these models, the public `thinkingTokenBudget` levels map as follows: `minimal` → `low`; `low`, `medium`, and `high` retain their names; `highest` → `xhigh`; `none` disables reasoning only where permitted above. Requests omit `temperature`, `top_p`, and `stop`. Standard service tier is accepted; unsupported Flex/Priority requests fail locally before transport. GPT-OSS and unknown-model defaults are unchanged; do not extend these verified rules to every Bedrock ID.
 
-For complex signatures, AxGen defaults to native schema output (`response_format: json_schema`), not a function tool. Schema-only output therefore does not require disabling reasoning, including on Astra and GPT-6.1 Sol. For reasoning **and function tools**, use `name: 'openai-responses'` with the same Bedrock base URL instead. These are deployment-profile rules, not native AWS `Converse` rules. Source: [25.4.6 profile declarations (PR #866)](https://github.com/ax-llm/ax/blob/a2780f9a10acf6576765092153c7604babf277c3/ir/axcore/data/provider-profiles.json).
+For complex signatures, AxGen defaults to native schema output (`response_format: json_schema`), not a function tool. Schema-only output therefore does not require disabling reasoning, including on Astra and GPT-6.1 Sol. For reasoning **and function tools**, use `name: 'openai-responses'` with the same Bedrock base URL instead. These are deployment-profile rules, not native AWS `Converse` rules. See [PR #866](https://github.com/ax-llm/ax/pull/866) for the original profile change.
 
 To reach OpenAI's GPT models on those endpoints through the `openai` or `openai-responses` provider, name them with Bedrock's IDs: `openai.gpt-6-sol` on bedrock-mantle, or a cross-Region inference profile such as `us.openai.gpt-6-sol` or `global.openai.gpt-6-astra` on bedrock-runtime. Ax applies the named model's contracts: its built-in model info (so `temperature` and `top_p` are not sent), the GPT-5.6 and GPT-6 effort ladders, the reasoning rules of Astra and GPT-6.1 Sol, and, on `openai`, routing the GPT-6 family to `<apiURL>/responses`. It leaves off what Bedrock does not serve: prompt-cache breakpoints on Chat Completions (Bedrock caches these models on the Responses API only) and Astra chat sessions, since async tools, steering, and reasoning updates are not available there.
 
@@ -815,7 +815,7 @@ const bedrock = new AxAIBedrock({
 
 The native client uses Bedrock `Converse` and `ConverseStream`. Claude models advertise native functions, streaming, image/document input, prompt-cache breakpoints, and their verified thinking modes. GPT-6 Sol, Luna, Astra, and GPT-6.1 Sol (`AxAIBedrockModel.Gpt6Sol`, `Gpt6Luna`, `Gpt6Astra`, `Gpt61Sol`) advertise native functions, streaming, image input, and reasoning effort. Structured-output and service-tier support remain model-specific; query `bedrock.getFeatures(model)` instead of assuming every Bedrock model has the same capabilities. The AWS SDK remains a dependency of `@ax-llm/ax-ai-aws-bedrock` only and is not pulled into `@ax-llm/ax`.
 
-In the AWS package, 25.4.6 adds `AxAIBedrockModel.ClaudeHaiku55` (`us.anthropic.claude-haiku-5-5`). Haiku 5.5 uses adaptive thinking by default but permits `thinkingTokenBudget: 'none'`. It omits `temperature` and `topP` even with thinking disabled, and advertises both native and function structured-output modes (`['native', 'function']`). This is bounded native AWS support, not a generated-package or other-profile parity claim. Source: [PR #865 capabilities](https://github.com/ax-llm/ax/blob/55cea37e37ab5f35a7191ddc3fd91c502f56a620/src/aws-bedrock/info.ts) and [model enum](https://github.com/ax-llm/ax/blob/55cea37e37ab5f35a7191ddc3fd91c502f56a620/src/aws-bedrock/types.ts).
+In the separate AWS package, `AxAIBedrockModel.ClaudeHaiku55` is `us.anthropic.claude-haiku-5-5`. Haiku 5.5 uses adaptive thinking by default but permits `thinkingTokenBudget: 'none'`. It omits `temperature` and `topP` even with thinking disabled, and advertises both native and function structured-output modes (`['native', 'function']`). This applies to the native AWS client, not to generated packages or other profiles. See [PR #865](https://github.com/ax-llm/ax/pull/865) for the original model addition.
 
 Use `contextCache.ttlSeconds` for a 5-minute or supported 1-hour cache point, and `thinkingTokenBudget` for legacy budget thinking or the corresponding adaptive-thinking effort on current Claude models:
 
@@ -856,9 +856,9 @@ const result = await generateText({
 });
 ```
 
-The tested [integration cases](../examples/34-vercel.ts) pin `@ax-llm/ax-ai-sdk-provider@25.4.11` with `ai@7.0.2` on Node ≥22.18. Keep their shared provider types coherent; the example package pins `@ai-sdk/provider@4.0.0` and `@ai-sdk/provider-utils@5.0.0` through overrides.
+The package for the [integration examples](../examples/34-vercel.ts) pins `@ax-llm/ax-ai-sdk-provider@25.4.13` with `ai@7.0.2` on Node ≥22.18. Keep their shared provider types coherent; the example package pins `@ai-sdk/provider@4.0.0` and `@ai-sdk/provider-utils@5.0.0` through overrides.
 
-This adapter's `createChatRequest` drops `abortSignal`, `providerOptions` and `responseFormat`; sampling fields are not forwarded through Ax's `modelConfig`. Vercel typed-output validation is client-side, not native schema enforcement. Do not assume transport cancellation or provider-option forwarding from the higher-level call. See the [pinned adapter implementation](https://unpkg.com/@ax-llm/ax-ai-sdk-provider@25.4.11/index.js). The examples use actual adapter/SDK algorithms with explicitly scripted model I/O, not live cross-provider qualification.
+This adapter's `createChatRequest` drops `abortSignal`, `providerOptions` and `responseFormat`; sampling fields are not forwarded through Ax's `modelConfig`. Vercel typed-output validation is client-side, not native schema enforcement. Do not assume transport cancellation or provider-option forwarding from the higher-level call. See the [pinned adapter implementation](https://unpkg.com/@ax-llm/ax-ai-sdk-provider@25.4.13/index.js). The examples use actual adapter/SDK algorithms with explicitly scripted model I/O, not live cross-provider qualification.
 
 ## MCP transport and event ingestion
 
@@ -960,7 +960,7 @@ The response preserves answer order, model, full usage, and per-question `{ type
 
 The standalone [OpenAI Decisions wire case](../examples/06-decisions.ts) uses the real adapter with synthetic HTTP answers. It preserves native selection, fractional score and ordered evidence; it does not measure inference quality or calibration.
 
-**Ax 25.4.10 client limitations:** native `input` is text or an array of user messages with text and inline image parts: `{ role: 'user', content: [{ type: 'input_text', text }, { type: 'input_image', image_url: 'data:image/png;base64,...', detail?: 'auto' }] }`. There are at most 128 images per request; hosted image URLs, file IDs, audio, non-user roles, and tool items are unsupported by this pinned client, not necessarily by the current upstream endpoint. The signature adapter preserves Ax's text prompt/history as role-labelled evidence in a user message and passes inline images through. It does not give those labels native role authority. Current [OpenAI endpoint documentation](https://developers.openai.com/api/docs/guides/decisions) describes a broader API; inspect the installed client before using those additions.
+**Native Ax client limitations:** `openaiDecisions().create()` accepts `input` as text or an array of user messages. Each message contains a string or an array of text and/or inline image parts: `{ role: 'user', content: [{ type: 'input_text', text }, { type: 'input_image', image_url: 'data:image/png;base64,...', detail: 'auto' }] }`. There are at most 128 images per request; hosted image URLs, file IDs, audio, non-user roles, and tool items are unsupported by the [Ax client](https://unpkg.com/@ax-llm/ax@25.4.13/index.d.ts) and its [request validator](https://unpkg.com/@ax-llm/ax@25.4.13/index.js.map) (`ai/openai-decisions/validate.ts`). The signature adapter preserves Ax's text prompt/history as role-labelled evidence in a user message and passes inline images through without giving the labels native role authority. The [OpenAI endpoint documentation](https://developers.openai.com/api/docs/guides/decisions) describes a broader API; do not assume the Ax Decisions client accepts all of its inputs or shares the ordinary `openai-responses` client's contract.
 
 Both interfaces accept `apiURL` including `/v1` (default `https://api.openai.com/v1`) and renewable credentials. Native and adapter transport options support fetch, timeout, retry, and cancellation. Both instance and per-call cancellation apply to native requests. Credential-provider headers override static credentials and native custom headers regardless of header-name capitalization. Native requests can include `safety_identifier`; adapter instances accept `safetyIdentifier`. Unsupported requests are excluded from router/balancer selection and fallbacks.
 

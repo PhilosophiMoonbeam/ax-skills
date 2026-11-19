@@ -15,7 +15,7 @@ function complete(response: AxChatResponse | ReadableStream<AxChatResponse>): Ax
 const textPrompt: AxChatRequest['chatPrompt'] = [{ role: 'user', content: 'What department owns an invoice refund?' }];
 const transient = () => new AxAIServiceStatusError(503, 'Service unavailable', 'https://fixture.invalid', {}, { error: 'isolated provider outage' });
 
-// AxMockAIService 25.4.9 hardcodes caching=false and omits configured image detail levels.
+// AxMockAIService reports caching as unsupported and omits configured image detail levels.
 // This fixture explicitly advertises the native contract needed by the cached high-detail input.
 class CachedVisionFixture extends AxMockAIService<string> {
   override getFeatures(): AxAIFeatures {
@@ -71,7 +71,7 @@ export const examples: readonly Example[] = [
       const validation = await strict.validateRequest(request);
       assert.equal(validation.canHandle, false);
       assert.ok(validation.issues.some((issue) => /no.*provider|file.*not supported|unsupported.*file/i.test(issue)));
-      // Ax 25.4.9 wraps provider-selection failures in public Error, not a stable media-error subclass.
+      // The router wraps provider-selection failures in a plain Error.
       await assert.rejects(() => strict.chat(request, { stream: false }), /no.*provider|file.*not supported|unsupported.*file/i);
       assert.equal(conversions, 1, 'Strict selection must not invoke a degradation processor');
       assert.equal(calls, 1);

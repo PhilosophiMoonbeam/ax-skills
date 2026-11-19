@@ -21,7 +21,7 @@ class CollectionDiscoveryTests(unittest.TestCase):
         entries = []
         destinations = set(validate.AUTHORED_REFERENCES)
         for source, targets in validate.EXPECTED.items():
-            content = (b'---\nname: ax-llm\nversion: "25.4.9"\n---\n# Official\n'
+            content = (b'---\nname: ax-llm\nversion: "25.4.13"\n---\n# Official\n'
                        if source.endswith('/SKILL.md') else b'# Official reference\n')
             path = self.repo / source
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -36,7 +36,7 @@ class CollectionDiscoveryTests(unittest.TestCase):
         self.write('SKILL.md', '---\nname: ax-skills\ndescription: Collection fixture.\n---\n# Ax\n' + links)
         self.write('assets/source-manifest.json', json.dumps(dict(
             schema_version=2, source_root=validate.SOURCE_ROOT,
-            upstream=dict(package='@ax-llm/ax', version='25.4.9', git_commit='a' * 40,
+            upstream=dict(package='@ax-llm/ax', version='25.4.13', git_commit='a' * 40,
                           index_url='https://fixture.invalid/index.json',
                           archive_url='https://fixture.invalid/skill.tar.gz', archive_sha256='b' * 64),
             sources=entries, authored_references=sorted(validate.AUTHORED_REFERENCES),

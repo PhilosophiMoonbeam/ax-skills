@@ -121,7 +121,7 @@ Boolean/class evidence opt-in is `.withEvidence()` or `(evidence)`. `score "Low,
 
 Jev 1.14 supports native PNG/JPEG localization with the required experimental header supplied by Ax. Box always returns a region, not a presence judgment: pair it with a boolean if the target may be absent and consume the box only when present. Generative vision providers use validated structured output with `elicited` provenance and no invented native confidence. OpenAI Decisions and Gemini Decisions support images but reject Box outputs before transport; use a generative vision model instead. This exclusion concerns decision APIs, not those providers' generative vision paths. See [Typesafe image/Box transport and preparation](typesafe.md#image-inputs-and-box-outputs).
 
-**Source scope disagreement (25.4.10):** the signature source says generated-language Box support remains in the AxIR backlog, while the Typesafe source says Image/Box signatures are available in TypeScript, Python, Java, C++, Go, and Rust, with per-language examples. These statements disagree; this reference documents the TypeScript contract and does not establish universal generated-language Box availability.
+**Upstream source scope:** The [signature guide](https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-signature.md) documents TypeScript Box fields and describes generated-language Box support as AxIR backlog work. The [Typesafe guide](https://github.com/ax-llm/ax/blob/main/src/ax/skills/ax-typesafe.md#image-inputs-and-box-outputs) describes Jev localization examples in TypeScript, Python, Java, C++, Go, and Rust. The guides disagree about generated-language scope; the localization examples do not establish which general Box field forms each generated package supports. This reference documents the TypeScript contract.
 
 
 ## Four construction forms
@@ -150,7 +150,7 @@ const sig = f()
 
 ### Standard Schema: Zod
 
-`.input()` / `.output()` accept Zod schemas exposing [Standard Schema v1](https://standardschema.dev) without wrappers/adapters. Although the official guide also names Valibot and ArkType, the Ax 25.4.11 converter rejects vendors other than Zod; Standard Schema conformance alone does not establish compatibility. Per-field schemas and whole-object schemas work; whole objects decompose in declaration order. Companion `AxFieldOptions` carry Ax-only hints: `{ cache: true }` for input prefix-cache breakpoints; `{ internal: true }` for hidden output scratchpads.
+`.input()` / `.output()` accept Zod schemas exposing [Standard Schema v1](https://standardschema.dev) without wrappers/adapters. Although the official guide also names Valibot and ArkType, Ax's [released converter](https://unpkg.com/@ax-llm/ax@25.4.13/index.js.map) (`dsp/standardSchema.ts`) accepts only Zod among external vendors; Standard Schema conformance alone does not establish compatibility. Per-field schemas and whole-object schemas work; whole objects decompose in declaration order. Companion `AxFieldOptions` carry Ax-only hints: `{ cache: true }` for input prefix-cache breakpoints; `{ internal: true }` for hidden output scratchpads.
 
 ```typescript
 import { z } from 'zod';

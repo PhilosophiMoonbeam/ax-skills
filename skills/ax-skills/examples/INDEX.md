@@ -137,7 +137,7 @@ Read [RLM stage limits](../references/agent-rlm.md#mental-model) before treating
 
 ## Exact Release and Source-Backed Cases
 
-These retained **25.4.11 baseline** IDs bind that release's additions and source-backed interaction contracts, including six final protocol cases and the extended existing `teacher-permission` case. A listed contract is not a recorded execution result; inspect current `list` metadata before running it. Each case below is scoped to offline scripted/injected I/O, not live provider quality. Select its guide section and module only; no extra skill installation is required.
+These case IDs route to source-backed SDK and interaction contracts, including the protocol and playbook cases below. A listed contract is not a recorded execution result; inspect current `list` metadata before running it. Each case is scoped to offline scripted/injected I/O, not live provider quality. Select its guide section and module only; no extra skill installation is required.
 
 | Exact case ID / module | Contract to inspect |
 | --- | --- |
@@ -149,7 +149,7 @@ These retained **25.4.11 baseline** IDs bind that release's additions and source
 | [`37-document-citations/generation-passage-associations`](37-document-citations.ts) | Forward/stream logs retain passage associations and result indices; flat usage retains sources, not passage maps. |
 | [`37-document-citations/local-validation`](37-document-citations.ts) | Invalid source shapes, mixed citation enablement and enabled-citation/native-JSON conflicts reject before transport. |
 | [`37-document-citations/router-preservation`](37-document-citations.ts) | Native documents/cited PDFs survive routing without lossy media degradation. |
-| [`32-executor-context/shared-reference-serialization`](32-executor-context.ts) | Real return-mode worker repeats sibling references; only ancestor cycles become `[Circular]` in executor replay. |
+| [`32-executor-context/shared-reference-serialization`](32-executor-context.ts) | Real return-mode worker repeats sibling references; [only ancestor cycles](../references/agent-rlm.md#shared-references-are-not-cycles) become `[Circular]` in executor replay. |
 | [`32-executor-context/observer-failure-boundaries`](32-executor-context.ts) | Function-observer failures do not block tools; actor-turn callback failures propagate before responder execution. |
 | [`03-tools-streaming/standard-schema-fields`](03-tools-streaming.ts) | Per-name Zod arguments mixed with native fields, optional argument/hint, returned array and original-validator rejection. |
 | [`23-optimize/flow-tree-components`](23-optimize.ts) | Optimize two-node Flow, serialize/restore/apply full stable child component keys and observe child requests. |
@@ -165,7 +165,7 @@ These retained **25.4.11 baseline** IDs bind that release's additions and source
 | [`38-mcp-events/managed-subscriptions`](38-mcp-events.ts) | Concrete-resource selection/diff, selector/transition failure recovery, manual/two-source ownership and reconnect; no implicit model wake. |
 | [`38-mcp-events/owned-task-resume`](38-mcp-events.ts) | Real task notifications resume only a trusted identity's namespace/task-correlated continuation; reject foreign ownership and duplicate effects. |
 | [`25-playbooks/automatic-failure-harvesting`](25-playbooks.ts) | Construction-time attachment harvests real recoverable failures, calls `onUpdate`, persists/restores lessons and leaves clean runs unchanged. |
-| [`25-playbooks/teacher-permission`](25-playbooks.ts) | Existing case extended: program reflector/curator permission plus distinct agent weakness-miner and proposal-application teacher options, with pre-HTTP denial. |
+| [`25-playbooks/teacher-permission`](25-playbooks.ts) | Program reflector/curator permission and distinct agent weakness-miner and proposal-application teacher options, with pre-HTTP denial. |
 
 For citations, native provenance is attribution, not truth; document indices belong to the matching request. For all cases retain the [mode/effect/cleanup rules](#modes-prerequisites-and-effects): scripted HTTP/SSE does not imply external networking, return-mode workers must stop, and owned Flow/event/tool barriers and temporary state must close. No citation fixture requires a real PDF upload, hosted file, credential or billed call. The interaction rows specify bounded contracts, not promises of quality improvement, rollback or generated-language acceptance.
 
@@ -173,6 +173,6 @@ The protocol/playbook rows need only the pinned Node package, scripted AI and ow
 
 ## Observed acceptance boundary
 
-For root task `ax-skills-b6v`, **2026-11-19 UTC** CLI discovery listed **242 cases in 39 modules**; the separate full offline run executed all 242 and exited 0. It recorded **zero model HTTP requests**, 197 fixture HTTP requests and 53 loopback connections. Strict TypeScript and the browser build also exited 0; the build does not qualify browser inference. See the [examples audit](../assets/examples-audit.json) and [coverage audit](../assets/coverage-audit.json) for exact receipts and applicability. None of these results establishes live quality, independent review, generated-language parity or whole-root semantic acceptance.
+The exact [examples audit](../assets/examples-audit.json) and [coverage audit](../assets/coverage-audit.json) receipts for root task `ax-skills-b6v` cover the published 25.4.13 integration at `8488a0f9afea4af0ca482a0eb8503cb3e7ba7b34`, not subsequent text edits. On **2026-11-19 UTC**, CLI discovery listed **242 cases in 39 modules**; the separate full offline run executed all 242 and exited 0. It recorded **zero model HTTP requests**, 197 fixture HTTP requests and 53 loopback connections. Strict TypeScript and the browser build also exited 0; the build does not qualify browser inference. None of these results establishes live quality, independent review, generated-language parity or whole-root semantic acceptance.
 
-Historical **25.4.12** receipts separately record **238 offline cases in 39 modules** passing on **2026-11-17**, with zero model HTTP requests, 197 fixture HTTP requests and 53 loopback connections. Zero model HTTP is not zero network traffic. See the archived [examples audit](https://github.com/PhilosophiMoonbeam/ax-skills/blob/58063332e6433ad46c73bc5237478cb58eab68f2/skills/ax-skills/assets/examples-audit.json) and [coverage audit](https://github.com/PhilosophiMoonbeam/ax-skills/blob/58063332e6433ad46c73bc5237478cb58eab68f2/skills/ax-skills/assets/coverage-audit.json).
+Earlier receipts at `58063332e6433ad46c73bc5237478cb58eab68f2` separately record **238 offline cases in 39 modules** passing on **2026-11-17**, with zero model HTTP requests, 197 fixture HTTP requests and 53 loopback connections. Zero model HTTP is not zero network traffic. See the archived [examples audit](https://github.com/PhilosophiMoonbeam/ax-skills/blob/58063332e6433ad46c73bc5237478cb58eab68f2/skills/ax-skills/assets/examples-audit.json) and [coverage audit](https://github.com/PhilosophiMoonbeam/ax-skills/blob/58063332e6433ad46c73bc5237478cb58eab68f2/skills/ax-skills/assets/coverage-audit.json).

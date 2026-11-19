@@ -274,7 +274,7 @@ export const examples: readonly Example[] = [
       assert.equal(reads, 1);
       assert.equal(promptRequests, 1);
       assert.equal(streamedPrice, undefined);
-      // In 25.4.9 the emulated assistant update follows the tool result, ending continuation.
+      // Streaming prompt emulation updates the assistant message after the tool result, so the loop does not continue.
       let priceUsd: number | undefined;
       let toolResultSeen = false;
       const ai = scriptedAI((request, index) => {
@@ -301,7 +301,7 @@ export const examples: readonly Example[] = [
       assert(toolResultSeen);
       return { result: { priceUsd }, reads, toolResultSeen, parsedPromptCalls: parsedCalls.length, promptRequests,
         nonStreamingPromptExecutionMissing: true, streamingPromptContinuationMissing: true,
-        proof: '25.4.9 records non-streaming prompt calls without execution; streaming executes and correlates its result but does not continue. Native functions execute the same handler and produce the grounded final price.' };
+        proof: 'Non-streaming prompt emulation records the call without executing it. Streaming prompt emulation runs the handler and records its result under the call ID, but makes no follow-up request. Native streaming runs the same handler and uses its result to produce the final price.' };
     },
   },
   {

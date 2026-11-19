@@ -129,7 +129,7 @@ const result = await assistant.optimize(tasks, { bootstrap: false });
 assistant.applyOptimization(result.optimizedProgram!);
 ```
 
-`target` defaults to actor; `metric` defaults to the built-in LLM judge. These recipes explicitly disable pipeline bootstrap: the 25.4.11 source retains the trace filtering/routing boundaries below. Do not treat an empty demo artifact as successful demonstration training. The separate generic `BootstrapFewShot` path is supported; see [GEPA and demonstration training](gepa.md) and [`23-optimize`](../examples/23-optimize.ts).
+`target` defaults to actor; `metric` defaults to the built-in LLM judge. These recipes explicitly disable pipeline bootstrap because of the trace filtering and routing boundaries below. Do not treat an empty demo artifact as successful demonstration training. The separate generic `BootstrapFewShot` path is supported; see [GEPA and demonstration training](gepa.md) and [`23-optimize`](../examples/23-optimize.ts).
 
 `maxMetricCalls` bounds GEPA task evaluations, not tool/model calls or the separate bootstrap budget. Reserve the original baseline and, when demos are installed, seeded validation passes; see [budget semantics](gepa.md#baseline-and-bootstrap-budgets). `apply` defaults to true; set `apply: false` to inspect/persist before changing the running agent.
 
@@ -244,18 +244,18 @@ Tell the actor child-input fields and local-only tasks. For synthesis, state the
 - Serialized JSON can be stored in localStorage, IndexedDB, or a backend for browser-safe persistence.
 - Use fresh eval-safe tool state separately for baseline, optimize, and restored replay to prevent side-effect leakage. To demonstrate improvement, run a held-out task before tuning and replay it on a freshly restored optimized agent.
 
-### TypeScript 25.4.11 bootstrap trace-ID boundary
+### TypeScript bootstrap trace-ID boundary
 
-Source evidence in the released 25.4.11 package's `index.js.map`:
+Source evidence in the [25.4.13 source map](https://unpkg.com/@ax-llm/ax@25.4.13/index.js.map):
 
-- `../agent/optimize.ts`, `resolveAgentOptimizeTargetIds`, makes `'all'` select staged actor/responder IDs, excluding their container descriptors.
-- `../agent/agentInternal/optimizer.ts`, `createOptimizationProgram`, removes its trace-ID filter only when **every** descriptor is selected. Otherwise it filters `getTraces()` by those selected, stage-prefixed IDs.
-- `../agent/agentInternal/coordinator.ts` prefixes descriptors with `ctx.`/`task.`, but its evaluation fallback aggregates raw stage trace IDs. Thus switching from `'actor'` to `'all'` does not itself fix this mismatch.
-- `../dsp/optimizers/gepaBootstrap.ts` snapshots trace-object identities before each training rollout, scores it, then retains only fresh traces from successful runs, capped by `maxBootstrapDemos`. Demos are grouped from those real traces, not copied from expected outputs or merely inferred from successful scores.
+- `../agent/optimize.ts:416–423`: `resolveAgentOptimizeTargetIds` makes `'all'` select staged actor/responder IDs, excluding their container descriptors.
+- `../agent/agentInternal/optimizer.ts:187–193,225–235`: `createOptimizationProgram` removes its trace-ID filter only when **every** descriptor is selected. Otherwise it filters `getTraces()` by those selected, stage-prefixed IDs.
+- `../agent/agentInternal/coordinator.ts:584–594,606–616`: the coordinator prefixes descriptors with `ctx.`/`task.`, but its evaluation fallback aggregates raw stage trace IDs. Thus switching from `'actor'` to `'all'` does not itself fix this mismatch.
+- `../dsp/optimizers/bootstrapTraces.ts:3–27` and `../dsp/optimizers/gepaBootstrap.ts:34–52,89–137`: bootstrap snapshots trace-object identities before each training rollout, scores it, then retains only fresh traces from successful runs, capped by `maxBootstrapDemos`. Demos are grouped from those real traces, not copied from expected outputs or merely inferred from successful scores.
 
 Selecting every public descriptor, including containers, removes the filter:
 `target: assistant.namedPrograms().map(({ id }) => id)`. **This is not a working
-bootstrap correction.** Bootstrap immediately calls `program.setDemos(...)`.
+bootstrap correction.** Bootstrap installs collected demos via `program.setDemos(...)` (`../dsp/optimizers/gepa.ts:400–413`).
 The coordinator routes raw unprefixed context traces to the task side, whose
 program validates IDs before accepting demos. With distinct public actor IDs,
 the reported execution rejects `stock-context.actor`, listing only
@@ -276,15 +276,15 @@ the public generator `BootstrapFewShot` training path exercised by
 [`23-optimize`](../examples/23-optimize.ts), rather than manufacturing an agent
 artifact or representing an empty demo list as successful bootstrap.
 
-### TypeScript 25.4.11 component-and-demo restoration limitation
+### TypeScript component-and-demo restoration limitation
 
-Implementation evidence: the published `index.js.map` source
-`../agent/agentInternal/coordinator.ts`, `AxAgent.applyOptimization`, first calls
+In the [25.4.13 source map](https://unpkg.com/@ax-llm/ax@25.4.13/index.js.map),
+`../agent/agentInternal/coordinator.ts:919–924`, `AxAgent.applyOptimization` first calls
 `applyOptimizedComponents(optimizedProgram?.componentMap ?? {})` and delegates to
 `primaryAgent.applyOptimization(...)` only when `componentMap` is absent.
 Consequently, a GEPA artifact containing both `componentMap` and valid `demos`
 would not automatically restore both through that coordinator method.
-`agent.setDemos(...)` is a separate public operation, but it is not a blanket fix
+`agent.setDemos(...)` is a separate public operation (`coordinator.ts:618–651`), but it is not a blanket fix
 for the earlier bootstrap compile failure. Its context router requires a `ctx.`
 prefix, strips it, and matches underlying context IDs; unprefixed demos go to
 the task side, which rejects unknown IDs.

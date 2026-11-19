@@ -24,7 +24,7 @@ export const examples: readonly Example[] = [
     features: ['AxSQLiteEventStore', 'retention', 'persisted-result', 'sink-redrive', 'idempotencyKey', 'restart', 'deduplication'],
     modes: ['offline'],
     async run(ctx) {
-      // Published 25.4.9 uses better-sqlite3: its native addon must be installed
+      // The published Ax SQLite adapter uses better-sqlite3: its native addon must be installed
       // for this Node/ABI. node:sqlite alone is not the required driver.
       const directory = await mkdtemp(join(tmpdir(), 'ax-events-restart-'));
       const filename = join(directory, 'events.sqlite');

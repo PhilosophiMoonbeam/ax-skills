@@ -338,7 +338,7 @@ export const examples: readonly Example[] = [
       assert.match(JSON.stringify(bodies[0]), /prompt_cache_breakpoint/);
       assert.equal(response.modelUsage?.tokens?.serviceTier, 'standard');
       const azure = ai({ name: 'azure-openai', apiKey: 'fixture-only', resourceName: 'fixture', deploymentName: 'gpt56-review', config: { model: AxAIOpenAIModel.GPT56Sol }, options: { fetch: fixture } });
-      // Ax 25.4.9 does not enable OpenAI's context-cache contract on Azure deployments.
+      // The Azure OpenAI adapter rejects contextCache before sending a request.
       await assert.rejects(() => azure.chat({ chatPrompt: [{ role: 'system', content: 'Arithmetic only.', cache: true }, ...prompt] }, { stream: false, thinkingTokenBudget: 'none', contextCache: {} }), /context caching is not supported/i);
       assert.equal(bodies.length, 1, 'Unsupported Azure caching must reject before transport');
       return { requestedTier: 'standard', servedTier: response.modelUsage?.tokens?.serviceTier, cacheKey: bodies[0]?.prompt_cache_key, azureCacheRejectedBeforeTransport: true };
@@ -393,7 +393,7 @@ export const examples: readonly Example[] = [
     async run(ctx) {
       let sent: Wire | undefined;
       const service = ai({ name: 'google-gemini', apiKey: 'fixture-only', config: { model: AxAIGoogleGeminiModel.Gemini25Flash }, models: [{ key: 'reason', model: AxAIGoogleGeminiModel.Gemini38Flash, description: 'Explicitly chosen Gemini 3.8 reasoning task' }], options: { fetch: async (_url, init) => { sent = body(init); return Response.json({ candidates: [{ content: { role: 'model', parts: [{ text: '{"answer":4}' }] }, finishReason: 'STOP' }] }); } } });
-      // Ax 25.4.9 rejects explicit maxTokens with Gemini thinkingLevel; retain thinking and schema.
+      // This Gemini model rejects explicit maxTokens with thinkingLevel. Omit maxTokens to keep thinking and JSON Schema.
       await assert.rejects(() => service.chat({ model: 'reason', chatPrompt: prompt, modelConfig: { maxTokens: 128 } }, { stream: false, thinkingTokenBudget: 'minimal' }), /cannot set maxTokens.*thinkingLevel/i);
       assert.equal(Boolean(sent), false, 'The unsupported combination must reject before transport');
       const response = completed(await service.chat({ model: 'reason', chatPrompt: prompt, responseFormat: { type: 'json_schema', schema: { type: 'object', properties: { answer: { type: 'number' } }, required: ['answer'] } } }, { stream: false, thinkingTokenBudget: 'minimal', showThoughts: false, serviceTier: 'flex', abortSignal: ctx.signal }));

@@ -67,7 +67,7 @@ For custom runtimes, follow `getUsageInstructions()`, primitive overrides and ca
 
 The 25.4.13 lightweight scanner masks terminated single-line regex literals in unambiguous expression positions and preserves division after literals, updates and property reads. This is neither a full parser nor a sandbox proof (`../util/jsAnalysis.ts:5–7,197–208,243–280`); static checks do not require a console call (`../agent/runtime.ts:1074–1099`). See `12-runtime/regex-completion-boundaries` and `12-runtime/division-state-boundaries` in the [runtime cases](../examples/12-runtime.ts).
 
-**Live/export discrepancy:** first observed on 25.4.12, this was also observed in the offline 25.4.13 `12-runtime/division-state-boundaries` case linked above: after `let units = 24` and `const quotient = units++ / 3`, the live binding showed `units: 25` while the exported binding showed `units: 24`; `quotient` was `8` in both. The worker copies declarations to globals and snapshots own-property values (`../funcs/worker.runtime.ts:838–847,2182–2197,2213–2239,2507–2539`); `runtimeExecutionSession.ts:327–349` exports those bindings. A later lexical update need not refresh a copied property. This is a bounded observation for that case, not a general guarantee about postfix restoration.
+**Live/export discrepancy:** in the offline `12-runtime/division-state-boundaries` case linked above, after `let units = 24` and `const quotient = units++ / 3`, the live binding showed `units: 25` while the exported binding showed `units: 24`; `quotient` was `8` in both. The worker copies declarations to globals and snapshots own-property values (`../funcs/worker.runtime.ts:838–847,2182–2197,2213–2239,2507–2549`); `../agent/agentInternal/runtimeExecutionSession.ts:327–349` exports those bindings. A later lexical update need not refresh a copied property. This is a bounded observation for that case, not a general guarantee about postfix restoration.
 
 Two executor turns with an already documented inspection tool:
 
@@ -218,13 +218,13 @@ The `full` preset applies the fixed `maxRuntimeChars` ceiling each turn. Other p
 
 See the [25.4.13 source map](https://unpkg.com/@ax-llm/ax@25.4.13/index.js.map), `../agent/config.ts:22,493–499`, `agentInternal/runtimeExecution.ts:157–170`, `runtimeExecutionHelpers.ts:128–138`, `actorLoopTurn.ts:549–561`, `discoveryHelpers.ts:162–174`, `turnObservations.ts:11–24,309–388`, `truncate.ts:29–48`; `32-executor-context/dynamic-output-truncation` in the [executor/context cases](../examples/32-executor-context.ts) distinguishes omitted versus explicit ceilings and `full` versus non-`full` replay.
 
-### Shared references are not cycles (25.4.11)
+### Shared references are not cycles
 
 Object-valued runtime returns pass through Ax's `formatInterpreterOutput` → `smartStringify` before replay truncation. [PR #893](https://github.com/ax-llm/ax/pull/893) makes cycle detection ancestor-scoped: `{ primary: shared, backup: shared }` and `{ first: [shared], second: [shared] }` retain both copies; a true ancestor back-reference becomes `[Circular]`. Depth and character limits still apply. This is replay serialization, not a promise to encode arbitrary graphs losslessly or preserve object identity in JSON.
 
 Default stdout-mode `console.log(...)` already returns text and bypasses this object serializer. The [`shared-reference-serialization` case](../examples/32-executor-context.ts) deliberately uses `new AxJSRuntime({ outputMode: 'return' })`, whose usage instructions permit `return` or a trailing expression. It checks real worker identity, both serialized sibling paths, the true-cycle marker, and the next executor requests; no replacement serializer is used.
 
-Exact [25.4.11 source map](https://unpkg.com/@ax-llm/ax@25.4.11/index.js.map): `agent/truncate.ts:159–210`, `agent/runtime.ts:678–695`, `agent/agentInternal/runtimeExecutionHelpers.ts:68–110`, and `funcs/jsRuntime.ts:39,210–225`.
+Exact [25.4.13 source map](https://unpkg.com/@ax-llm/ax@25.4.13/index.js.map): `../agent/truncate.ts:159–210`, `../agent/runtime.ts:678–696`, `../agent/agentInternal/runtimeExecutionHelpers.ts:176–181`, and `../funcs/jsRuntime.ts:160–162,210–225`.
 
 [PR #896's Core source](https://github.com/ax-llm/ax/blob/6b9807f9722dfc1852ff65f1961f0a08958aa09d/ir/axcore/agent.axir#L2314-L2420) carries the same ancestor-only rule into `agent_depth_limited_value` / `agent_smart_stringify`. Its native identity primitives use Python `is`, Java reference `==`, C++ shared-pointer identity, Rust `Rc::ptr_eq`, and Go pointer identity (plus slice length). This is source-observed generated-port design, not executed generated-package acceptance; the local regression executes TypeScript only.
 

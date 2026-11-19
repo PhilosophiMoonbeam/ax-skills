@@ -100,7 +100,7 @@ export const examples: readonly Example[] = [
       assert.equal(requests[1]?.functions?.some((tool) => tool.name === 'readPolicy') ?? false, false);
       assert.match(result.answerText, /30 days/);
       return { result, models: requests.map((request) => request.model), hookOrder,
-        proof: 'afterFunctionExecution mutations apply on next call; beforeStep mutations in 25.4.9 are applied before that same call' };
+        proof: 'Changes from afterFunctionExecution affect the next model call; changes from beforeStep affect the model call in that step.' };
     },
   },
   {
@@ -267,7 +267,7 @@ export const examples: readonly Example[] = [
       assert.equal(requests[1]?.modelConfig?.temperature, 0.1);
       assert.equal(result.summaryText, 'Final');
       return { result, requests: requests.map((request) => ({ model: request.model, temperature: request.modelConfig?.temperature })),
-        proof: 'Pinned TypeScript 25.4.9 behavior contradicts the official guide blanket next-step wording' };
+        proof: 'The first request uses the model and temperature set by beforeStep; the second uses those set by afterStep.' };
     },
   },
   {
@@ -396,7 +396,7 @@ export const examples: readonly Example[] = [
       assert.equal(stoppedGen.getChatLog().length, 1);
       return { requestsBeforeStop: requests, preAbortedRejected: true, completed, stopped,
         beforeStepStopRejected: true, hostStopValuesIgnored: true,
-        proof: 'Actual aborts and normal completion are distinct; afterStep stop retains generated values, while beforeStep stop/result overrides are broken in 25.4.9' };
+        proof: 'Aborts reject with AxAIServiceAbortedError. beforeStep stop makes no model request but rejects with a max-steps error. afterStep stop keeps the generated answer instead of using the supplied stop values.' };
     },
   },
 ];

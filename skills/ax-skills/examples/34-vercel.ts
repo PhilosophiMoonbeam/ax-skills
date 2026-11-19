@@ -5,7 +5,7 @@ import { generateText, NoObjectGeneratedError, Output, streamText } from 'ai';
 import { z } from 'zod';
 import { scriptedAI, type Example } from './support.js';
 
-// Pin @ax-llm/ax-ai-sdk-provider@25.4.9 with ai@7.0.2 (Node >=22).
+// Pin @ax-llm/ax-ai-sdk-provider@25.4.13 with ai@7.0.2 (Node >=22).
 // Only model I/O is scripted: AxAIProvider and Vercel generation/parsing are real.
 // Replace the scripted Ax service with a configured Ax ai(...) service in an app.
 // This adapter does NOT forward providerOptions, responseFormat or abortSignal.
@@ -82,7 +82,7 @@ export const examples: readonly Example[] = [
       let requests = 0;
       const model = new AxAIProvider(scriptedAI((request, index) => {
         requests++;
-        // AxAIProvider 25.4.9 omits the Vercel responseFormat when constructing this request.
+        // AxAIProvider omits the Vercel responseFormat when constructing this request.
         assert.equal(request.responseFormat, undefined);
         return reply(index === 0
           ? '{"orderId":"AX-42","itemCount":2,"paid":true}'

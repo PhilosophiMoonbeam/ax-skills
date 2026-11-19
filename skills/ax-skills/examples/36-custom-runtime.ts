@@ -174,7 +174,7 @@ class JsonPlanSession implements AxCodeSession {
 }
 
 class JsonPlanRuntime implements AxCodeRuntime {
-  // Whitespace separates language tokens: 25.4.9 derives jsonPlanCode, NOT
+  // Whitespace separates language tokens: Ax derives jsonPlanCode, not
   // javascriptCode (a single token "JSONPlan" would derive jsonplanCode).
   readonly language = 'JSON Plan';
   readonly sessions: JsonPlanSession[] = [];

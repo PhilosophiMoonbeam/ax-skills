@@ -451,7 +451,7 @@ export const examples: readonly Example[] = [
           return session;
         }
       }
-      // `flow` is the public typed builder; there is no typedFlow export in 25.4.9.
+      // Use the public `flow` builder for typed input and output.
       const typedFlow = flow<{ releaseNote: string }, { baselineText: string; reviewText: string; archiveText: string }>()
         .node('baseline', ax('releaseNote:string -> baselineText:string'))
         .node('review', ax('baselineText:string -> reviewText:string'))

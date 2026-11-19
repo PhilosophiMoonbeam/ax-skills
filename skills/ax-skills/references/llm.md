@@ -6,7 +6,7 @@ Companion guidance: [AI providers](ai.md) covers providers, routing, and adaptiv
 
 ## Imports and Factories
 
-Prefer `ax()`, `ai()`, `agent()`, and `flow()` over class constructors. The Ax 25.4.11 Standard Schema v1 converter supports Zod only, with synchronous validators; Zod is optional when using native signature fields. Valibot/ArkType compatibility claims in older quickstarts do not describe this converter.
+Prefer `ax()`, `ai()`, `agent()`, and `flow()` over class constructors. The [Standard Schema v1 converter](gen.md#standard-schema-signatures-and-tools) supports Zod only, with synchronous validators; Zod is optional when using native signature fields. Valibot/ArkType compatibility claims in older quickstarts do not describe this converter.
 
 ```typescript
 import { ax, ai, f, s, fn, agent, flow, AxMemory, AxMCPClient } from '@ax-llm/ax';
@@ -91,7 +91,7 @@ Programs use `forward(ai, values, options?)` and `streamingForward(ai, values, o
 - `AxAgent.getFunction()` exposes a child-agent tool and requires `agentIdentity` at construction. See [agents](agent.md).
 - `AxFlow` defines nodes with `.node(...)`, runs them with `.execute(...)`, and selects outputs with `.returns(...)`. See [flows](flow.md).
 
-## Selected 25.4.11 Contracts
+## Selected Contracts
 
 Load only the owning section for the task, then select its module through the [examples index](../examples/INDEX.md):
 
@@ -100,7 +100,7 @@ Load only the owning section for the task, then select its module through the [e
 | Preserve text accompanying streamed tool calls in later model history | [Generator streaming](gen.md#streaming-output-and-replacement-versions); `03-tools-streaming/mixed-tool-text-history`. |
 | Configure Hydrogen thinking levels, schema/tools and bounded output | [Gemini 4 Hydrogen](ai.md#gemini-4-hydrogen); the two Hydrogen cases in `04-providers`. |
 | Supply citable documents, reject incompatible native JSON, retain request-local source/passage associations | [Anthropic document citations](ai.md#anthropic-document-citations), then [normalized logs/usage](gen.md#normalized-chat-logs-and-usage) only for generation accounting; `37-document-citations`. Native citation provenance records attribution, not answer truth. |
-| Distinguish repeated object references from real ancestor cycles | [Shared-reference serialization](agent-rlm.md#shared-references-are-not-cycles-25411); `32-executor-context/shared-reference-serialization`. |
+| Distinguish repeated object references from real ancestor cycles | [Shared-reference serialization](agent-rlm.md#shared-references-are-not-cycles); `32-executor-context/shared-reference-serialization`. |
 
 ## Docker session fixes (25.4.13)
 
@@ -341,7 +341,7 @@ Select [`18-event-resume/owned-pause-resume`](../examples/18-event-resume.ts) fo
 
 ## Resources
 
-Prefer the bundled [examples index](../examples/INDEX.md) for version-pinned runnable cases. The upstream resources below preserve the original quickstart's working-example routes; `main` is moving source, not part of the pinned 25.4.11 execution evidence:
+Prefer the bundled [examples index](../examples/INDEX.md) for version-pinned runnable cases and their evidence. The upstream resources below preserve the original quickstart's working-example routes; `main` is moving source, not pinned execution evidence:
 
 - [Standard Schema (zod)](https://raw.githubusercontent.com/ax-llm/ax/refs/heads/main/src/examples/standard-schema.ts): zod with `f()` and `fn()`.
 - [Chat Log](https://raw.githubusercontent.com/ax-llm/ax/refs/heads/main/src/examples/chat-log.ts): conversation history and multi-step tool calls.
