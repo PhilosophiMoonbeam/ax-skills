@@ -1,16 +1,16 @@
 # AxAgent Observability
 
-Use for AxAgent runtime visibility, progress, callbacks, telemetry, centralized or multi-tenant usage accounting, chat logs, and traces in `@ax-llm/ax`. Source API snapshot: 25.4.12. For setup see [agent authoring](agent.md); for runtime policy see [RLM](agent-rlm.md); for memories and dynamic skills see [memory and skills](agent-memory-skills.md). This is not general application logging.
+Use for AxAgent runtime visibility, progress, callbacks, telemetry, centralized or multi-tenant usage accounting, chat logs, and traces in `@ax-llm/ax`. Source API snapshot: 25.4.13. For setup see [agent authoring](agent.md); for runtime policy see [RLM Context Policy Presets](agent-rlm.md#context-policy-presets); for memories and dynamic skills see [memory and skills](agent-memory-skills.md). This is not general application logging.
 
 ## Choose the smallest hook
 
 | Need | Surface |
 | --- | --- |
 | Development prompt/runtime trace | `debug: true` |
-| Structured per-turn code, raw results, replay output, provider thoughts, actor stage | `actorTurnCallback` |
+| Structured per-turn submitted code, runtime result, observation/replay output, provider thoughts, actor stage | `actorTurnCallback` |
 | Context pressure and compaction | `onContextEvent` |
 | Actor-emitted real-time task progress | `agentStatusCallback` |
-| Every JS runtime function call before execution | `onFunctionCall` |
+| Calls that reach a host runtime binding, before handler execution | `onFunctionCall` |
 | Model prompts/responses after a run | `getChatLog()` |
 | Centralized chat/embedding usage across APIs, users, agents, services | `axGlobals.onUsage` with `usageContext` |
 | Actor/responder token usage | `getUsage()`, `resetUsage()` |
@@ -95,8 +95,8 @@ actorTurnCallback?: (turn: {
 }) => void | Promise<void>;
 ```
 
-- `code` is normalized actor-generated JavaScript; `stage` identifies distiller/executor.
-- `result` is the raw untruncated runtime return, before type-aware serialization and budget-proportional truncation. `output` is the normalized/truncated action-log replay string, not raw stdout. In 25.4.11, object replay preserves values shared by sibling keys/arrays; only references back to an ancestor become `[Circular]`. See the [serialization regression](../examples/32-executor-context.ts).
+- `code` is normalized actor-generated JavaScript, not a record of executed statements; `stage` identifies distiller/executor. A pause can leave part of the submitted code unexecuted.
+- `result` is the raw runtime return when available. On a pause it can be `undefined` or carry the runtime's pause value; it is not the last successful tool result. `output` is the processed action-log text, including bounded observations on a pause, not raw stdout. A recognized observation pause is not itself an error. In 25.4.11, object replay preserves values shared by sibling keys/arrays; only references back to an ancestor become `[Circular]`. See the [serialization regression](../examples/32-executor-context.ts).
 - `executorResult` is the full current-stage actor payload; the historical name remains for compatibility.
 - `isError` marks execution paths treated as errors; `usage` covers this actor turn only. `model` is populated when explicitly set by `executorModelPolicy`.
 - `thought` exists only if the underlying `AxGen` call enabled `showThoughts` and the provider returned that field.
@@ -132,12 +132,15 @@ const supportAgent = agent('query:string -> answer:string', {
 | `budget_check` | Character-based pressure before an actor turn; detailed metrics stay out of the actor prompt |
 | `checkpoint_created`, `checkpoint_cleared` | Lifecycle, covered turns, reason |
 | `tombstone_created` | Compact resolved-error summary creation |
+| `action_compacted` | An action rendered in less space in replay; `stage`, action `turn`, `mode: 'distill' \| 'compact'`, `reason`, `originalChars`, `renderedChars`. `mode: 'compact'` with `reason: 'older_observation'` describes an older paused observation replayed as an excerpt, not tool-result deletion or a new call. |
 | `relevance_ranking` | Once per ranked domain per forward when `relevanceRanking` is enabled; `domain: 'modules' \| 'skills' \| 'memories'`, most-relevant-first `shortlist: { id, score }[]`, `suppressed` true if the low-confidence guard emitted no hint |
 | `field_auto_promoted` | Once per field/run when `autoUpgrade` keeps an oversized undeclared input runtime-only; `fieldName`, `originalChars`, `promptPreviewChars` (undefined if no inline preview was kept) |
 
 Measure advisory-hint usefulness by joining each forward's `relevance_ranking.shortlist` IDs to subsequent loads: modules use internal `discover` calls (`onFunctionCall`, `kind: 'internal'`, `name: 'discover'`, `args.request`) plus module parts of external `qualifiedName`s; skills use `onLoadedSkills` / `used(id)`; memories use `onLoadedMemories` / `used(id)`.
 
-Prompt `contextPressure` is intentionally only `ok`, `watch`, or `critical` plus one short instruction. Character-based metrics are provider-neutral and exposed through the callback; do not scrape actor prompts. Callback errors are swallowed so telemetry cannot break the run. See [context policy](agent-context.md) for behavior configuration.
+Prompt `contextPressure` is intentionally only `ok`, `watch`, or `critical` plus one short instruction. Character-based metrics are provider-neutral; read the callback rather than scraping actor prompts. Compaction events describe replay rendering, not a once-per-action audit log. `onContextEvent` is fail-open; do not treat it as a durable trace. See [RLM Context Policy Presets](agent-rlm.md#context-policy-presets) for behavior configuration.
+
+Exact source: [25.4.13 package source map](https://unpkg.com/@ax-llm/ax@25.4.13/index.js.map), embedded `../agent/contextEvents.ts:35–48` (event), `../agent/contextManager.ts:766–813,1828–1853` (older replay), `../agent/agentInternal/actorLoopTurn.ts:269–278,566–590` (emission and turn payload), and `../agent/agentInternal/runtimeExecutionHelpers.ts:98–139,160–189` (pause result).
 
 ```typescript
 const supportAgent = agent('query:string -> answer:string', {
@@ -177,7 +180,7 @@ agentStatusCallback?: (
 
 ## Runtime function calls
 
-Agent `onFunctionCall` fires once before each actor JS-runtime function executes. It is independent of DSP-layer `AxProgramForwardOptions.onFunctionCall`, which observes LLM tool calls and never fires under AxAgent because functions are injected as runtime globals.
+Agent `onFunctionCall` observes host runtime calls before their handler executes. It is independent of DSP-layer `AxProgramForwardOptions.onFunctionCall`, which observes LLM tool calls and does not observe AxAgent's injected runtime functions.
 
 ```typescript
 const supportAgent = agent('query:string -> answer:string', {
@@ -199,6 +202,8 @@ onFunctionCall?: (call: {
 ```
 
 `name` is bare (`'lookupOrder'`); `qualifiedName` is actor-visible/namespaced (`'tools.lookupOrder'`) or equals `name` for unnamespaced globals. `args` is the resolved positional/named argument object. The source classifies caller-registered `functions` as `'external'` and agent-injected globals (child agents, `discover`, `recall`, `used`) as `'internal'`. Callback exceptions are swallowed and cannot break the actor loop. Do not use the DSP hook for runtime calls or let telemetry-hook failures break runs.
+
+Compare turn `code` with `output` and observed calls to diagnose a pause. The observation gate blocks subsequent tool/child calls before dispatch, so their presence in submitted code does not count as a call. Paused replay omits submitted code and uses recorded call names where available. `onFunctionCall` alone does not prove success, a side effect, or complete telemetry. Source: the [25.4.13 package source map](https://unpkg.com/@ax-llm/ax@25.4.13/index.js.map), embedded `../agent/agentInternal/runtimeGlobals.ts:156–161,203–244,696–815` and `../agent/contextManager.ts:468–479,1759–1767`.
 
 ## Chat logs, usage, and traces
 

@@ -1,6 +1,6 @@
 # AxAgent Optimization and Evaluation
 
-Use for `agent.optimize(...)`, task datasets, judge options, optimization targets, evaluation semantics, delegation tuning, and saved `optimizedProgram` artifacts in `@ax-llm/ax`. Source API snapshot: 25.4.12. Configure a runnable agent first; see [agent authoring](agent.md). Generic `ax(...)`/`flow(...)` tuning with top-level `optimize(program, train, metric, options)` belongs in [GEPA](gepa.md), not this agent workflow. Keep examples short and copyable; repeat general agent guidance only when needed.
+Use for `agent.optimize(...)`, task datasets, judge options, optimization targets, evaluation semantics, delegation tuning, and saved `optimizedProgram` artifacts in `@ax-llm/ax`. Source API snapshot: 25.4.13. Configure a runnable agent first; see [agent authoring](agent.md). Generic `ax(...)`/`flow(...)` tuning with top-level `optimize(program, train, metric, options)` belongs in [GEPA](gepa.md), not this agent workflow. Keep examples short and copyable; repeat general agent guidance only when needed.
 
 ## Defaults and target selection
 
@@ -24,6 +24,7 @@ Use eval-safe tools or in-memory mocks because tasks replay many times, especial
 - Declare needed parent values in each child signature and pass them explicitly; never expect children to infer hidden parent state.
 - For synthesis, specify narrowed context and fields extracted before a child call. Tell the actor which work stays local.
 - Keep `maxSubAgentCalls` small unless testing broad fan-out.
+- Allow enough actor `maxTurns` for expected inspection, any discovery/retrieval, and later action or completion. A [fresh observation pause](agent-rlm.md#context-policy-presets) can require another actor turn; don't score that required evidence-reading turn as needless work.
 - JS-runtime agents must emit raw runnable JavaScript only: no `javascript:` prefixes, mixed prose/code, or multiple snippets in one turn.
 - Good setup combines exact tool fields, an exact entity, explicit child-input extraction, and scoring that penalizes tool misuse/unnecessary delegation. Underspecified JSON, overloaded names, implicit child inputs, and prose mixed into code undermine tuning.
 
@@ -136,6 +137,10 @@ assistant.applyOptimization(result.optimizedProgram!);
 
 Use for crisp correctness plus cost/behavior tradeoffs, including exact actions, tool/child-call counts, and turn budgets.
 
+`prediction.functionCalls` contains recorded tool and child-call attempts, not dispatch counts. For example, a batch member can be recorded when reauthorization fails after `onFunctionCall` but before its handler runs. Use handler-side evidence to verify dispatch, and verify actual effects in the application when they matter; a matching `qualifiedName` establishes only a recorded attempt ([25.4.13 source map](https://unpkg.com/@ax-llm/ax@25.4.13/index.js.map), `../agent/agentInternal/runtimeGlobals.ts:203–259,632–668`, `pipelineForwardForEvaluation.ts:201–214`).
+
+For model cost, use observed provider usage rather than action counts: a cutoff re-ask can spend another model request without adding an action-log turn. In the two-actor pipeline `prediction.turnCount` is the executor action-log count when the executor runs, otherwise the distiller's; it is not the total provider request count. See [usage and traces](agent-observability.md#chat-logs-usage-and-traces).
+
 ```typescript
 const result = await assistant.optimize(tasks, {
   target: 'actor',
@@ -146,6 +151,7 @@ const result = await assistant.optimize(tasks, {
 
     let score = 0;
     if (prediction.output.answer.includes('Jim')) score += 0.4;
+    // Score the recorded attempt here, not whether the email was sent.
     if (
       prediction.functionCalls.some(
         (call) => call.qualifiedName === 'email.sendEmail'
@@ -217,8 +223,10 @@ const result = await optimizer.compile(program, train, metric, {
 - Action traces expose qualified MCP/UCP operations, approvals, task transitions, raw protocol errors, and business outcomes to judges/custom metrics.
 - Each rollout starts from clean continuation state; saved `getState()`/`setState(...)` runtime state is not used.
 - During optimize/eval, `askClarification(...)` is a scored outcome, not routed through the responder. Custom metrics receive `prediction.completionType === 'askClarification'`, populated `prediction.clarification`, and absent `prediction.output`.
-- Final outcomes have `prediction.completionType === 'final'` and populated `prediction.output`.
+- Final outcomes have `prediction.completionType === 'final'` and populated `prediction.output`. This can include [fallback synthesis after the actor exhausts its turn budget](agent-rlm.md#mental-model), not just explicit actor completion; verify required evidence or effects separately.
 - Responder targets still work but are usually low-signal for clarification-heavy tasks.
+
+Exact source: [25.4.13 package source map](https://unpkg.com/@ax-llm/ax@25.4.13/index.js.map), embedded `../agent/agentInternal/runtimeGlobals.ts:156–161,226–266` (dispatch and recording), `../agent/agentInternal/pipelineForwardForEvaluation.ts:114–163` (evaluation calls and turn count), and `../agent/agentInternal/cutOffReply.ts:39–59` (re-asks within one actor turn).
 
 ## Delegation tuning
 

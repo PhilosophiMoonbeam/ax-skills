@@ -1,6 +1,6 @@
 # Ax Library Quick Reference
 
-Ax (`@ax-llm/ax`) is a TypeScript library for type-safe LLM signatures, streaming, and multiple providers. Use this overview for `ax()`, `ai()`, `f()`, `s()`, `agent()`, `flow()`, `AxGen`, `AxAgent`, and `AxFlow`; use the focused companion references for detailed contracts. Source API snapshot: 25.4.12.
+Ax (`@ax-llm/ax`) is a TypeScript library for type-safe LLM signatures, streaming, and multiple providers. Use this overview for `ax()`, `ai()`, `f()`, `s()`, `agent()`, `flow()`, `AxGen`, `AxAgent`, and `AxFlow`; use the focused companion references for detailed contracts. Source API snapshot: 25.4.13.
 
 Companion guidance: [AI providers](ai.md) covers providers, routing, and adaptive balancing; [Typesafe/Jev](typesafe.md) covers focused semantic judgments, host-owned policy, criteria and native scoring; [signatures](signature.md) covers signatures and types; [generators](gen.md) covers generator behavior. For agents, select [core agents/tools](agent.md), [runtime/RLM/delegation](agent-rlm.md), [callbacks/logs/usage](agent-observability.md), [recall/dynamic skills](agent-memory-skills.md), or [tuning/evaluation](agent-optimize.md). See [flows](flow.md) for workflows and [GEPA](gepa.md) for top-level `optimize(...)`, BootstrapFewShot-to-GEPA migration, and Pareto optimization.
 
@@ -101,6 +101,15 @@ Load only the owning section for the task, then select its module through the [e
 | Configure Hydrogen thinking levels, schema/tools and bounded output | [Gemini 4 Hydrogen](ai.md#gemini-4-hydrogen); the two Hydrogen cases in `04-providers`. |
 | Supply citable documents, reject incompatible native JSON, retain request-local source/passage associations | [Anthropic document citations](ai.md#anthropic-document-citations), then [normalized logs/usage](gen.md#normalized-chat-logs-and-usage) only for generation accounting; `37-document-citations`. Native citation provenance records attribution, not answer truth. |
 | Distinguish repeated object references from real ancestor cycles | [Shared-reference serialization](agent-rlm.md#shared-references-are-not-cycles-25411); `32-executor-context/shared-reference-serialization`. |
+
+## Docker session fixes (25.4.13)
+
+`AxDockerSession` is exported from core `@ax-llm/ax`, not `@ax-llm/ax-tools`.
+
+- [`stopContainers(...)` (#907)](https://github.com/ax-llm/ax/pull/907) uses the Docker list response's string `State === 'running'`; inspection responses still use the `State.Status` object field. Use an explicit, approved daemon endpoint and scope stop/remove to tags you own: omitting `tag` targets every listed container.
+- [`pullImage(...)` (#909)](https://github.com/ax-llm/ax/pull/909) rejects in-band `error` or `errorDetail` records in Docker's NDJSON progress response, even after HTTP success. When `createContainer(...)` pulls the image, it awaits the pull, so a rejected pull prevents the create request.
+
+Source: [25.4.13 core package source map](https://unpkg.com/@ax-llm/ax@25.4.13/index.js.map), embedded `../funcs/docker.ts:3–10,44–45,56–99,202–243`. These fixes do not establish daemon reachability or permissions.
 
 ## Forward Options
 

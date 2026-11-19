@@ -398,24 +398,42 @@ export const examples: readonly Example[] = [
           .execute('readCart', (state) => ({ query: state.query }))
           .execute('checkCart', (state) => ({ cart: state.readCartResult.cart }))
           .returns((state) => ({ cart: state.readCartResult.cart, amount: state.checkCartResult.amount }));
-        const actorReplies = [
-          { results: [{ index: 0, content: JSON.stringify({ javascriptCode: 'await final("Read the owned cart through ucp.merchant.get_cart; retain its structured value", {id:"cart-35"})' }) }] },
-          { results: [{ index: 0, content: JSON.stringify({ javascriptCode: 'const cart = await ucp.merchant.get_cart({id:"cart-35"}); await final("Return cart unchanged", {cart});' }) }] },
-          { results: [{ index: 0, content: `Cart: ${JSON.stringify(cart)}` }] },
+        const executorReplies = [
+          'await final("Read the owned cart through ucp.merchant.get_cart; retain its structured value", {id:"cart-35"})',
+          'const cart = await ucp.merchant.get_cart({id:"cart-35"});',
+          'await final("Return the observed cart unchanged", {cart});',
         ];
+        const responderIndex = executorReplies.length;
         const model = scriptedAI((request, index) => {
           if (index === 2) {
-            const prompt = JSON.stringify(request.chatPrompt);
-            assert(prompt.includes('1250') && prompt.includes('USD'), 'Native UCP structured result reaches the Agent synthesizer');
+            const actionLog = request.chatPrompt
+              .find((message) => message.role === 'user' && typeof message.content === 'string' && /^Action Log: /m.test(message.content))?.content;
+            assert(typeof actionLog === 'string', 'The next executor request must include its action log');
+            const observed = actionLog.slice(actionLog.search(/^Action Log: /m))
+              .match(/^ucp\.merchant\.get_cart: (\{[^\n]*\}|\{\n[\s\S]*?\n\})\n\[OBSERVATION\]/m)?.[1];
+            assert(observed, 'The next executor turn must see the native UCP result');
+            assert.deepEqual(JSON.parse(observed), cart);
           }
-          if (index < actorReplies.length) return actorReplies[index]!;
-          if (index === 3) {
+          const javascriptCode = executorReplies[index];
+          if (javascriptCode !== undefined) return { results: [{ index: 0, content: JSON.stringify({ javascriptCode }) }] };
+          if (index === responderIndex) {
+            const context = request.chatPrompt
+              .map((message) => message.role === 'user' && typeof message.content === 'string'
+                ? message.content.match(/^Context Data: (\{[\s\S]*?^\})$/m)?.[1] : undefined)
+              .find((value) => value !== undefined);
+            assert(context, 'The responder must receive Context Data from final');
+            const observed = object(object(JSON.parse(context)).evidence).cart;
+            assert.deepStrictEqual(observed, cart, 'The responder must receive the complete evidence.cart');
+            const { id, ucp: { version }, total } = observed;
+            return { results: [{ index: 0, content: `Cart: ${JSON.stringify({ ucp: { version }, id, total })}` }] };
+          }
+          if (index === responderIndex + 1) {
             assert(JSON.stringify(request.chatPrompt).includes('1250'), 'Structured Agent output reaches the next Flow node');
             const tool = request.functions?.find((candidate) => candidate.name.includes('get_cart'));
             assert(tool);
             return { results: [{ index: 0, functionCalls: [{ id: 'second-cart-read', type: 'function', function: { name: tool.name, params: { id: 'cart-35' } } }] }] };
           }
-          assert.equal(index, 4);
+          assert.equal(index, responderIndex + 2);
           assert(JSON.stringify(request.chatPrompt).includes('USD'));
           return { results: [{ index: 0, content: 'Amount: 1250' }] };
         });

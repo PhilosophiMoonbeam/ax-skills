@@ -1,6 +1,6 @@
 # AxGen execution, streaming, and validation
 
-Use for `ax()`, `AxGen`, `forward()`, `streamingForward()`, structured outputs, assertions, processors, hooks, and self-tuning. Source snapshot: Ax 25.4.12. Prefer short, modern, copyable code; add tutorial prose only when requested. Use [signature reference](signature.md) for field contracts, [AI reference](ai.md) for providers, [refine reference](refine.md) for reward-scored selection, [MCP reference](mcp.md) for MCP construction/transports/prompts/resources/tools/tasks/subscriptions/authentication/events, and [event runtime reference](event-runtime.md) for wake/resume routing.
+Use for `ax()`, `AxGen`, `forward()`, `streamingForward()`, structured outputs, assertions, processors, hooks, and self-tuning. Source snapshot: Ax 25.4.13. Prefer short, modern, copyable code; add tutorial prose only when requested. Use [signature reference](signature.md) for field contracts, [AI reference](ai.md) for providers, [refine reference](refine.md) for reward-scored selection, [MCP reference](mcp.md) for MCP construction/transports/prompts/resources/tools/tasks/subscriptions/authentication/events, and [event runtime reference](event-runtime.md) for wake/resume routing.
 
 ## Construction and execution defaults
 
@@ -298,7 +298,8 @@ const sig = f()
 - `.useStructured()` requests native schema-constrained JSON where supported, including OpenAI, Anthropic, Gemini.
 - Prompt contracts retain exact wire keys, required/optional status, types, constraints, nested shapes, even when provider capability fallback occurs.
 - `structuredOutputMode: 'auto'` follows the profile/model's ordered `structuredOutputModes`. Exact caller `modelInfo` overrides beat profile model rules/defaults.
-- Without native schema support, one required non-array string/code output can use provider-neutral `json_object`, exact-shape prompts, client validation, bounded correction retries; no provider-visible tools required.
+- Ordinary non-complex signatures use text parsing unless the model requires structured output. An explicit `structuredOutputMode` chooses a rung only after structured handling is selected; it does not activate it.
+- Once selected, without native schema support, one required non-array string/code output can use `json_object` when supported. It uses exact-shape prompts, client validation, and bounded correction retries without provider-visible tools. The [native DeepSeek Flash/V4/Reasoner rules](ai.md#deepseek-notes) instead advertise only the function rung, including for a structured singleton.
 - Richer shapes use the first advertised rung. `json_object` never sends synthetic `__axOutput`; exact-shape prompts, strict parsing, correction retries remain.
 - Declared tools/forced `functionCall` never change `auto` rung selection. Explicitly choose `'function'` to answer through `__axOutput` alongside tools.
 - Ax advertises only `__axOutput`, accepts legacy inbound `__finalResult` for stored-trajectory replay, and rejects user-function collisions with either reserved name.
@@ -502,6 +503,8 @@ The default returns F1; passing `true` as `returnRecall` returns recall. Two emp
 Generated Python, C++, and Rust expose `novel_f1_score`; Go exposes `NovelF1Score`; Java exposes `Ax.novelF1Score`. They share the same Core metric, including Unicode normalization, stopword/history exclusion, multiset overlap, F1/recall selection, and finite empty-input scores. [PR #862](https://github.com/ax-llm/ax/pull/862) preserves TypeScript punctuation and literal-backslash behavior in this cross-port metric work; do not infer a new TypeScript normalization contract.
 
 The official optimization examples score a rationale returned by a real provider. That is a source observation, not evidence of local provider execution. Novel F1 measures lexical novelty overlap, not factual correctness or confidence calibration. It does not replace holistic judging or explicit action invariants; see [metric versus judge](agent-optimize.md#metric-versus-judge) for agent optimization.
+
+For ordinary overlap, use the unchanged TypeScript `AxEvalUtil.f1Score(prediction, groundTruth)`. It measures normalized token multiset overlap without the novelty metric's stopword or history exclusion. [PR #911](https://github.com/ax-llm/ax/pull/911) adds the generated-source adapters `f1_score` (Python, C++, Rust), `F1Score` (Go), and `Ax.f1Score` (Java). These are source contracts for those targets, not new TypeScript aliases.
 
 ## Working examples
 

@@ -265,11 +265,35 @@ export const examples: readonly Example[] = [
       const peer = new LocalMCPPeer();
       const client = new AxMCPClient(peer, { namespace: 'inventory', authorizeToolCall: ({ tool }) => tool.name === 'lookup' });
       try {
-        const model = ctx.mode === 'live' ? ctx.ai : scriptedAI([
-          { results: [{ index: 0, content: JSON.stringify({ javascriptCode: 'await final("Look up SKU-42 using mcp.inventory.tools.lookup and report units", {sku:"SKU-42"})' }) }] },
-          { results: [{ index: 0, content: JSON.stringify({ javascriptCode: 'const item = await mcp.inventory.tools.lookup({sku:"SKU-42"}); await final("Report available units", {item});' }) }] },
-          { results: [{ index: 0, content: 'Answer: SKU-42 has 7 units.' }] },
-        ]);
+        const executorReplies = [
+          'await final("Look up SKU-42 using mcp.inventory.tools.lookup and report units", {sku:"SKU-42"})',
+          'const item = await mcp.inventory.tools.lookup({sku:"SKU-42"});',
+          'await final("Report available units from the observed inventory result", {item});',
+        ];
+        const model = ctx.mode === 'live' ? ctx.ai : scriptedAI((request, index) => {
+          if (index === 2) {
+            const actionLog = request.chatPrompt
+              .find((message) => message.role === 'user' && typeof message.content === 'string' && /^Action Log: /m.test(message.content))?.content;
+            assert(typeof actionLog === 'string', 'The next executor request must include its action log');
+            const lookup = actionLog.slice(actionLog.search(/^Action Log: /m))
+              .match(/^mcp\.inventory\.tools\.lookup: (\{[^\n]*\}|\{\n[\s\S]*?\n\})\n\[OBSERVATION\]/m)?.[1];
+            assert(lookup, 'The action log must contain the named MCP lookup observation');
+            assert.deepEqual(object(JSON.parse(lookup)).structuredContent, { sku: 'SKU-42', quantity: 7 });
+          }
+          const javascriptCode = executorReplies[index];
+          if (javascriptCode !== undefined) return { results: [{ index: 0, content: JSON.stringify({ javascriptCode }) }] };
+          assert.equal(index, executorReplies.length);
+          const context = request.chatPrompt
+            .map((message) => message.role === 'user' && typeof message.content === 'string'
+              ? message.content.match(/^Context Data: (\{[\s\S]*?^\})$/m)?.[1] : undefined)
+            .find((value) => value !== undefined);
+          assert(context, 'The responder must receive Context Data from final');
+          const evidence = object(object(JSON.parse(context)).evidence);
+          const { sku, quantity } = object(object(evidence.item).structuredContent);
+          assert.equal(sku, 'SKU-42');
+          assert.equal(quantity, 7);
+          return { results: [{ index: 0, content: `Answer: ${sku} has ${quantity} units.` }] };
+        });
         const assistant = agent('query:string -> answer:string', { mcp: [client], mcpInheritance: 'all',
           contextFields: [], directResponse: 'off' });
         const result = await assistant.forward(model, { query: 'Use the native inventory module to look up SKU-42. Report the quantity.' }, options(ctx));

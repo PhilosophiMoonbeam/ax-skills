@@ -170,19 +170,21 @@ console.log({ reviews, merged, overBudget });`, undefined, { ai: scriptedAI(() =
   },
   {
     id: '12-runtime/regex-completion-boundaries',
-    title: 'Keep real completion visible after regexes and reject regex-only fake completion',
-    features: ['regex masking', 'normal forward', 'completion policy', 'host effect ledger', 'retained runtime state'],
+    title: 'Recognize real completion after a regex without letting regex lookalikes bypass discovery policy',
+    features: ['regex masking', 'normal forward', 'completion policy', 'discovery policy', 'host effect ledger', 'retained runtime state'],
     modes: ['offline'],
     async run(ctx) {
       const results: { scenario: string; answer: string; reads: number; errors: boolean[] }[] = [];
       for (const scenario of ['clean-label', 'fake-completion'] as const) {
         const reads: number[] = [], errors: boolean[] = [];
+        const discoveries: string[] = [];
         const worker = agent('task:string -> answer:string', {
           runtime: new AxJSRuntime(), directResponse: 'off', maxTurns: 3,
           contextOptions: { model: 'fixture-distiller' },
           executorOptions: { model: 'fixture-executor' },
           responderOptions: { model: 'fixture-responder' },
           functions: [fn('read').namespace('billing').description('Read the in-memory invoice amount').returns(f.number()).handler(() => { reads.push(17); return 17; }).build()],
+          onSkillsSearch: async queries => { discoveries.push(...queries); return []; },
           actorTurnCallback: turn => { errors.push(turn.isError); },
         });
         const expected = scenario === 'clean-label' ? 'INV42' : '17';
@@ -192,18 +194,29 @@ console.log({ reviews, merged, overBudget });`, undefined, { ai: scriptedAI(() =
           answer(expected),
         ] : [
           code('await final("Read the current invoice amount", {})'),
-          code('const pattern = /final(x)/; await billing.read({});'),
-          code('const observedAmount = await billing.read({}); await final("Report the observed invoice amount", { observedAmount })'),
+          code('const rejectedPattern = /final(x)/; await discover({ skills: ["invoice status"] }); await discover({ skills: ["invoice routing"] });'),
+          code('const pattern = /final(x)/; const observedAmount = await billing.read({});'),
+          code('await final("Report the observed invoice amount", { observedAmount })'),
           answer(expected),
         ];
         const stages = scenario === 'clean-label'
           ? ['fixture-distiller', 'fixture-executor', 'fixture-responder']
-          : ['fixture-distiller', 'fixture-executor', 'fixture-executor', 'fixture-responder'];
+          : ['fixture-distiller', 'fixture-executor', 'fixture-executor', 'fixture-executor', 'fixture-responder'];
         let calls = 0;
         const model = scriptedAI((request, index) => {
           calls++;
           assert.equal(request.model, stages[index]);
-          if (scenario === 'fake-completion' && index === 2) assert.deepEqual(reads, [], 'policy rejection must precede the host read');
+          if (scenario === 'fake-completion' && index === 2) {
+            assert.deepEqual(errors, [true], 'a regex lookalike must not hide repeated discovery from policy validation');
+            assert.deepEqual(discoveries, [], 'policy rejection must happen before either discovery runs');
+            assert.match(JSON.stringify(request.chatPrompt), /Batch tool\/skill discovery into one call/);
+          }
+          if (scenario === 'fake-completion' && index === 3) {
+            assert.deepEqual(reads, [17], 'A non-final turn may read without console output');
+            const prompt = JSON.stringify(request.chatPrompt);
+            assert.match(prompt, /billing\.read: 17/);
+            assert.match(prompt, /\[OBSERVATION\]/);
+          }
           if (request.model === 'fixture-responder') assert.ok(JSON.stringify(request.chatPrompt).includes(expected), 'actual final evidence must reach synthesis');
           const response = responses[index]; assert.ok(response, 'finite regex fixture exhausted'); return response;
         }, { structuredOutputs: true });
@@ -219,12 +232,12 @@ console.log({ reviews, merged, overBudget });`, undefined, { ai: scriptedAI(() =
           } else {
             assert.equal(bindings?.observedAmount, 17);
             assert.deepEqual(reads, [17]);
-            assert.deepEqual(errors, [true, false]);
+            assert.deepEqual(errors, [true, false, false]);
           }
           results.push({ scenario, answer: result.answer, reads: reads.length, errors });
         } finally { worker.stop(); }
       }
-      return { results, boundary: 'scripted decisions; real worker completion, pre-execution policy rejection and in-memory effects, not full JavaScript parsing or model quality' };
+      return { results, boundary: 'scripted decisions; regex lookalikes cannot exempt repeated discovery from policy, and an actual host observation is reusable without another read' };
     },
   },
   {

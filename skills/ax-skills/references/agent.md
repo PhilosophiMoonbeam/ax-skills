@@ -1,6 +1,6 @@
 # Core AxAgent Construction and Runtime Contracts
 
-Use for `agent(...)`, ordinary tool-using assistants, identity, child delegation, namespaced functions, discovery, `bubbleErrors`, host-side completion, clarification, and public run/state APIs. Generate the smallest correct factory-based shape and copyable code; do not add tutorial prose unless requested. Source API snapshot: `@ax-llm/ax` 25.4.12.
+Use for `agent(...)`, ordinary tool-using assistants, identity, child delegation, namespaced functions, discovery, `bubbleErrors`, host-side completion, clarification, and public run/state APIs. Generate the smallest correct factory-based shape and copyable code; do not add tutorial prose unless requested. Source API snapshot: `@ax-llm/ax` 25.4.13.
 
 ## Choose the Agent Shape
 
@@ -10,7 +10,7 @@ Use for `agent(...)`, ordinary tool-using assistants, identity, child delegation
 | Delegate distinct specialist responsibilities | Child agents in `functions: [...]`; set each child's `agentIdentity.namespace` for call sites such as `team.writer(...)` |
 | Discover unstable callable names or schemas | Enable discovery; generate discovery-first actor code |
 | Let selected fatal errors escape the loop | `bubbleErrors` with Error classes; propagation covers function handlers, actor code, and `llmQuery(...)` sub-queries |
-| Inspect large context with code, long-running execution, RLM, or `llmQuery(...)` | [RLM](agent-rlm.md); do not write a full multi-step RLM actor program in one turn |
+| Inspect large context with code, long-running execution, RLM, or `llmQuery(...)` | [RLM](agent-rlm.md); split at decisions that require new evidence, not at every computation |
 | Callbacks, debugging, logs, traces, progress, tool/chat logs, or usage | [Agent observability](agent-observability.md) |
 | Recall, dynamic memory/skill guides, `discover({ skills })`, loaded/used tracking | [Memory and runtime skills](agent-memory-skills.md) |
 | `agent.optimize(...)`, tuning, evaluation, judge setup, datasets, saved artifacts | [Agent optimization](agent-optimize.md) |
@@ -26,14 +26,14 @@ For Typesafe/Jev decisions, keep a generative model for the actor's tools, code,
 - Prefer namespaced functions, e.g. `utils.search(...)` and `kb.find(...)`.
 - Delegate through explicit child agents in `functions`, not recursive `llmQuery(...)`.
 - Actor responses must contain one executable program. Multiple fenced code blocks reject the entire turn without executing any block; the runtime asks for one program. This applies to text and structured JSON responses, with LF or CRLF line endings.
-- JavaScript actor code uses structured generation with the `javascriptCode` wire key; other runtimes derive their own code field. Native-capable deployments retain strict `json_schema`. A singleton string/code output uses validated `json_object` only when structured handling is selected and the model advertises that mode; the released 25.4.12 native DeepSeek V4 profiles advertise function-only structured output, not a tool-free JSON-object actor path. See [DeepSeek Notes](ai.md#deepseek-notes) for the official-guidance/package disagreement.
-- Upstream reports `validation_retries` with one correction attempt by default for generated Go, Python, Java, C++, and Rust actor stages (`0` fails immediately). These generated-package contracts are not verified by the TypeScript package; check the target release before using them.
-- Do not combine actor `console.log(...)` with `final(...)`.
-- Preserve original task instructions and conditions; enrich only contextual facts, not requirements. Original inputs define requested work, while host authorization defines allowed effects. This is authoring guidance, not semantic enforcement; see the [packaged-template limitation](agent-rlm.md#mental-model).
+- JavaScript actor code uses the `javascriptCode` wire key; other runtimes derive their own code field. Structured handling uses `json_schema` where supported, or a validated `json_object` for a compatible singleton string/code field when the selected model advertises that mode. The 25.4.13 native DeepSeek rules for `deepseek-flash` (V4.1 Flash), `deepseek-v4-pro` and legacy `deepseek-v4-flash` advertise function-only structured output, not a tool-free JSON-object actor path. See [DeepSeek Notes](ai.md#deepseek-notes) and the [25.4.13 source map](https://unpkg.com/@ax-llm/ax@25.4.13/index.js.map), `../ai/provider_profiles.generated.ts:739–781`.
+- Keep same-turn actor [cutoff recovery](agent-rlm.md#actor-output-cutoff-versus-runtime-replay-truncation) separate from runtime execution, generic generation retries and `maxTurns`. For generated ports, see [generated-runtime scope](agent-rlm.md#generated-runtime-scope).
+- Use sufficiently fresh evidence, not a console-per-turn rule. Continue deterministically when evidence is sufficient; read new inspection or discovery feedback before guarded actions. Obtain needed evidence through available, authorized capabilities before asking for clarification. See [RLM actor rules](agent-rlm.md#rlm-actor-code-rules).
+- Preserve original task instructions and conditions; enrich only contextual facts, not requirements. The [bundled stage prompts](agent-rlm.md#mental-model) now say so. This is prompt policy, not semantic validation or permission: host authorization still determines allowed effects.
 
 ### Direct-response default
 
-`directResponse` defaults to `'auto'`. If no executor authority is needed, the distiller ends with `respond(task, evidence)` and skips the executor: zero executor model calls. Static agents with no functions, child agents, or native MCP/UCP operations are always respond-only. Agents with any such authority retain the executor and permit `respond` only under a conservative covenant: no live/fresh-state requests, no side effects, and nothing covered by a listed function/module domain. Set `directResponse: 'off'` to always run the executor. This distiller shortcut does not replace the host-function `final(...)` protocol below.
+`directResponse` defaults to `'auto'`. When no executor authority is needed, a distiller `respond(task, evidence)` skips the executor: zero executor model calls. With no functions, child agents, or native MCP/UCP operations, the distiller prompt offers only `respond` for successful completion. With that authority present, use `respond` only for work answerable from supplied evidence without live state, side effects, or a listed function/module's domain. This is not an authorization check or a fixed route for every reply. Set `directResponse: 'off'` to disable the shortcut. See [Direct respond](agent-rlm.md#direct-respond-executor-skip); the host-function `final(...)` protocol is separate.
 
 ## Canonical Pattern
 
@@ -126,11 +126,14 @@ Neither `agentIdentity.namespace` nor agent-function namespaces may use these in
 ```text
 inputs
 llmQuery
+batch
 final
 askClarification
 reportSuccess
 reportFailure
 inspectRuntime
+mcp
+ucp
 discover
 recall
 ```
@@ -198,6 +201,11 @@ const snippets = await kb.findSnippets({ topic: 'severity' });
 - Default namespace is `utils`; prefer an explicit meaningful namespace.
 - `AxJSRuntime` calls use `await <namespace>.<name>({...})`. Custom runtimes should expose equivalent namespaced calls through their own `formatCallable()` guidance.
 - `.arg()` and `.returns()` accept Ax field helpers or any Standard Schema v1 validator directly.
+- Registered tools and child agents default to inspection. The actor saves the result; a bounded preview appears automatically on the next model turn, before another guarded tool, semantic query, or actor completion can proceed. No `console.log(...)` is required.
+- Set `.resultPolicy('data')` (or `AxFunction.resultPolicy: 'data'` on a plain function definition) only when the documented successful return value can be consumed deterministically without interpreting fresh prose, caveats, or instructions. Describe argument constraints and return fields/allowed values in the schema and descriptions; inline and discovered docs carry those details. Successful `data` calls can chain or finish in one turn. Failures still produce evidence; this option does not relax handler validation, authorize effects, or change AxGen's native tool loop.
+- For independently known arguments to non-native executor tools, use the [executor `batch(...)` primitive](agent-rlm.md#executor-batches), not concurrent generated calls that bypass the normal observation sequence. Exclude active native background tools and use their results from the native loop.
+
+See the [25.4.13 declarations](https://unpkg.com/@ax-llm/ax@25.4.13/index.d.ts) (`AxFunction`, `AxFunctionBuilder`) and [source map](https://unpkg.com/@ax-llm/ax@25.4.13/index.js.map), `../agent/runtimeDiscovery.ts:498–510,589–603` and `../agent/agentInternal/runtimeGlobals.ts:156–270`.
 
 ## Grouped Function Modules
 
@@ -290,12 +298,12 @@ const askForOrderId = fn('askForOrderId')
 
 - `extra.protocol` exists only for function calls from an active AxAgent actor runtime session.
 - `extra.protocol.final(...)`, `.askClarification(...)`, and `.guideAgent(...)` are host-handler-only APIs. Actor-authored code uses runtime globals `final(...)` and `askClarification(...)` with the active runtime's syntax.
-- Handler-only `extra.protocol.guideAgent(...)` stops the current actor turn and appends trusted guidance to `guidanceLog` for the next iteration.
+- Handler-only `extra.protocol.guideAgent(...)` stops the current actor turn and appends trusted guidance to `guidanceLog` for the next iteration. A `data` handler can use it when an exceptional result needs a new decision; ordinary returned tool text is evidence, not trusted guidance. Host controls are trusted outcomes of the authorized call, unlike actor code trying to complete before it has reviewed a new inspection result.
 - Successful completion uses `final(message)` when the answer is known without another context object, or `final(task, context)` when collected evidence needs synthesis into output fields. Handlers use the same one-/two-argument forms through `extra.protocol.final(...)`, not a separate respond API.
 - Both successful `final(...)` forms continue through the responder in public flows.
 - `askClarification(...)` requests missing user information and bypasses the responder. It accepts a string or `{ question, type?, choices? }`; normalization and failures are specified below.
 
-Lightweight JavaScript analysis masks regex literals in unambiguous expression positions so later completion calls remain visible, while preserving division after literals, updates and property reads. It is not a full JS parser or security proof; see `12-runtime/regex-completion-boundaries` and `12-runtime/division-state-boundaries` in the [runtime cases](../examples/12-runtime.ts).
+For regex literals, division, and live reads versus exported bindings, see [RLM actor rules](agent-rlm.md#rlm-actor-code-rules) and the [runtime cases](../examples/12-runtime.ts).
 
 ## Clarification and Resume State
 
@@ -332,6 +340,7 @@ if (savedState) {
 
 - `.question`: user-facing question text; `.clarification`: normalized structured payload; `.getState()`: continuation state captured at throw time.
 - Agent `getState()` / `setState(...)` export/restore instance continuation state.
+- Clarification can originate in either actor. Distiller clarification skips executor and responder and captures the distiller's continuation state (including its runtime bindings when export succeeds); executor clarification skips the responder and captures executor state. Restore the error's state rather than assuming agent-level `getState()` is from the stage that asked. See the [25.4.13 source map](https://unpkg.com/@ax-llm/ax@25.4.13/index.js.map), `../agent/agentInternal/actorLoop.ts:520–557` and `pipelineForward.ts:141–148,603–605,703–705`.
 - `test(...)` is a harness/debug exception to public flow: it returns structured completion payloads rather than throwing clarification exceptions.
 
 ### Payload constraints
@@ -422,18 +431,18 @@ await discover(items: string[]): void
 await discover({ tools?: string | string[], skills?: string | string[] }): void
 ```
 
-The `tools` path requires function discovery; the `skills` path requires `onSkillsSearch` or a non-empty `skillsCatalog`. The object form can request either path independently. Discovery returns `void`; fetched docs appear in the next actor prompt, not in its return value.
+The `tools` path requires function discovery; the `skills` path requires `onSkillsSearch` or a non-empty `skillsCatalog`. The object form can request either path independently. A successful lookup pauses execution, even when called through an alias. Docs and skill bodies appear in the next actor prompt, not in a return value.
 
 - `discover('kb')`: callable list for discoverable module `kb`.
 - `discover('kb.findSnippets')`: full callable definition.
 - `discover('lookup')`: resolves to `utils.lookup`.
 - `discover({ tools: ['kb'], skills: ['release-checklist'] })`: tool docs and skill bodies in one turn.
-- Call one batched `discover(...)` with all needed modules, callables, and skills. Do not split calls, loop discovery, or wrap it in `Promise.all(...)`.
-- Read the next prompt's "Discovered Tool Docs" and "Loaded Skills". Do not assign or inspect `await discover(...)`'s result.
-- Discover before using callables whose docs are absent from the prompt. The responder has no discovery. In 25.4.12, the distiller can discover metadata and skills, but external callable execution is blocked; leave tool effects to the executor.
-- After a guessed call fails, stop guessing nearby names; discover the module/function and use only the exact discovered qualified name.
+- Group known modules, callables, and skills in one `discover(...)` request; do not use repeated calls or `Promise.all(...)`. Read the next prompt's “Discovered Tool Docs” and “Loaded Skills” before writing dependent code. No discovery hoisting, automatic splitting, or replay of later code occurs.
+- Prefer exact qualified names. In discovery mode, invoking a registered executor callable without its exact contract loads the contract and pauses **before the handler runs**, including through an alias of that function. Finding a module only lists callables. Already loaded contracts, inline `alwaysInclude` definitions, and inline docs when discovery is off need no discovery turn.
+- A miss is bounded recovery feedback, not a newly loaded callable. Mixed lookups retain valid docs and report misses. If a guessed name fails, use the available module list and exact callable contract rather than guessing similar names.
+- The distiller can discover metadata and skills but cannot run external callables. Its tool stubs reject calls without loading contracts, so use explicit `discover(...)` when available. The responder does not use discovery. For memory recall and skills, see [memory and runtime skills](agent-memory-skills.md).
 
-Source: [25.4.12 source map](https://unpkg.com/@ax-llm/ax@25.4.12/index.js.map), `../agent/agentInternal/coordinator.ts:114–127`, `initialization.ts:87–97` (catalog-backed search), and `runtimeGlobals.ts:284–324,480–487` (callable stubs and independently gated discovery). These sibling files share the `../agent/agentInternal/` prefix. This implementation boundary supersedes the upstream blanket ban on distiller discovery.
+Source: [25.4.13 source map](https://unpkg.com/@ax-llm/ax@25.4.13/index.js.map), `../agent/agentInternal/coordinator.ts:114–127`, `initialization.ts:87–97`, `runtimeGlobals.ts:334–356,372–428,696–815` and `../agent/runtime.ts:1074–1099,1114–1160`.
 
 ## Core Configuration
 
@@ -473,7 +482,7 @@ Each `contextFields` entry is a plain field name or an inline-policy object for 
 - `{ field, promptMaxChars: N }`: inline only if the serialized value is at most `N` characters; otherwise omit it and retain it runtime-only. Use when partial data is worse than none.
 - `{ field, keepInPromptChars: N, reverseTruncate?: boolean }`: always inline a truncated string excerpt. `reverseTruncate: true` keeps the last `N` characters; otherwise a prefix. Use when a prefix/suffix is useful.
 
-`promptMaxChars` and `keepInPromptChars` are mutually exclusive on one field. For choosing context tools, use [context selection](agent-context.md); for runtime/context-map implementation, use [RLM](agent-rlm.md).
+`promptMaxChars` and `keepInPromptChars` are mutually exclusive on one field; `reverseTruncate` requires `keepInPromptChars`. See the [25.4.13 source map](https://unpkg.com/@ax-llm/ax@25.4.13/index.js.map), `../agent/runtime.ts:913–957`. For context selection, see [context selection](agent-context.md); for runtime visibility, see [RLM stage handoff](agent-rlm.md#mental-model).
 
 ### Auto-upgrade defaults and precedence
 
@@ -510,7 +519,7 @@ Construction-time `playbook` and `citations` both default off. The TypeScript co
 
 ### Stage guidance and generated-language spellings
 
-In TypeScript 25.4.12 (still applicable from 25.4.9), the pipeline returned by `agent(...)` has **no `setInstruction` method**. Use `assistant.executor.setInstruction(text)` to **replace** that executor's stage-owned instruction; `assistant.addActorInstruction(text)` **appends** an executor-only standing rule. Neither changes distiller/responder guidance or grants tool authority.
+In TypeScript 25.4.13, the pipeline returned by `agent(...)` has **no `setInstruction` method**. Use `assistant.executor.setInstruction(text)` to **replace** that executor's stage-owned instruction; `assistant.addActorInstruction(text)` **appends** an executor-only standing rule. Neither changes distiller/responder guidance or grants tool authority. For distiller instructions and construction-time descriptions, see [stage prompt controls](agent-rlm.md#stage-prompt-controls).
 
 Keep the canonical rules in application state and explicitly reapply the replacement after changing the signature:
 
@@ -532,7 +541,7 @@ assistant.executor.setInstruction(executorRule); // reassert application policy
 
 Inspect `assistant.executor.getInstruction()` and that stage's `getOptimizableComponents()`, not the first matching instruction key in the pipeline aggregate: default IDs can collide across stages. The executable [stage-instructions case](../examples/09-agents.ts) changes the actual schema, records the pre-reapplication boundary, explicitly reapplies the canonical rule, and checks before/after system prompts, single-copy append, absent prior replacement, stage isolation, real stock reads, and typed proposals. Its deterministic replies prove wiring and arithmetic, not model reasoning quality.
 
-Current implementation: [25.4.12 source map](https://unpkg.com/@ax-llm/ax@25.4.12/index.js.map), `../agent/AxAgent.ts:570–609` (inner-program rebuild), `../agent/agentInternal/coordinator.ts:901–911,959–975` (retained stage objects and process-local addenda), and `../agent/agentInternal/signatureBuilders.ts:253–270` (prompt composition); [public types](https://unpkg.com/@ax-llm/ax@25.4.12/index.d.ts). Generated-language names below follow their own APIs; they do not imply a TypeScript pipeline setter or identical retention boundaries.
+Current implementation: [25.4.13 source map](https://unpkg.com/@ax-llm/ax@25.4.13/index.js.map), `../agent/AxAgent.ts:570–610` (stage instruction and inner-program rebuild), `../agent/agentInternal/coordinator.ts:901–911,959–975` (retained stage objects and process-local addenda), and `../agent/agentInternal/signatureBuilders.ts:254–271` (prompt composition); [public types](https://unpkg.com/@ax-llm/ax@25.4.13/index.d.ts). Generated-language names below follow their own APIs; they do not imply a TypeScript pipeline setter or identical retention boundaries.
 
 The generated-language spellings below are upstream-reported navigation, not verified cross-language API, persistence, or observer-failure guarantees. Check the target package's versioned declarations/examples before porting.
 
@@ -571,7 +580,7 @@ Declare the signature with `eventTarget('id').createProgram(signature, factory)`
 
 ## Automatic Sessions (TypeScript)
 
-- On supporting providers, declared-background tools become native actor tools after discovery. Invocation uses existing runtime bindings; do not call a native background tool again in generated code.
+- On supporting providers, declared-background tools become native actor tools after discovery. Their results already return through the model tool loop, not the generated-code observation gate. Use that evidence; do not invoke the native tool again from generated code.
 - Stateful code remains serialized. Pass the shared controller through forward options.
 - Agent stage scopes: `root/distiller`, `root/executor`, `root/responder`.
 - `forward()` and `streamingForward()` report identical run-control events: `started` at `root`, each stage's event pair at its scope, then `completed` or `failed` at `root`.

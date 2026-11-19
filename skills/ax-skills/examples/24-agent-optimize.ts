@@ -1,11 +1,21 @@
 import assert from 'node:assert/strict';
 import {
   agent, fn, f, AxJSRuntime, AxAgentClarificationError, axSerializeOptimizedProgram, axDeserializeOptimizedProgram,
-  type AxAgentState, type AxChatResponse, type AxMetricFn, type AxAgentEvalPrediction, type AxAgentEvalTask,
+  type AxAgentState, type AxChatRequest, type AxChatResponse, type AxMetricFn, type AxAgentEvalPrediction, type AxAgentEvalTask,
 } from '@ax-llm/ax';
 import { options, scriptedAI, type Example, type ExampleContext } from './support.js';
 
 const response = (content: string): AxChatResponse => ({ results: [{ index: 0, content, finishReason: 'stop' }] });
+
+function responderEvidence(request: Readonly<AxChatRequest<unknown>>): Record<string, unknown> | undefined {
+  const message = request.chatPrompt.at(-1);
+  assert.ok(message?.role === 'user' && typeof message.content === 'string', 'Expected the responder user prompt');
+  // Ax renders the contextData JSON as the last input field.
+  const contextData = /^Context Data: ([\s\S]+)$/m.exec(message.content)?.[1];
+  assert.ok(contextData, 'Expected Context Data in the responder user prompt');
+  const { evidence } = JSON.parse(contextData) as { evidence?: Record<string, unknown> };
+  return evidence;
+}
 type Input = { query: string };
 type Output = { answer: string };
 const train: readonly AxAgentEvalTask<Input>[] = [
@@ -32,9 +42,19 @@ function makeAssistant(ctx: ExampleContext, distinctActorIds = false) {
     const schema = JSON.stringify(request.responseFormat ?? {});
     const taskStage = request.chatPrompt.some(message => message.role === 'user' &&
       typeof message.content === 'string' && message.content.includes('Executor Request:'));
-    if (!schema.includes('javascriptCode')) return response(request.responseFormat ? '{"answer":"7"}' : 'Answer: 7');
+    if (!schema.includes('javascriptCode')) {
+      const stock = responderEvidence(request)?.stock;
+      assert.deepStrictEqual(stock, { sku: 'SKU-1', available: 7 }, 'The responder must receive evidence.stock from inventory.lookup');
+      const answer = String(stock.available);
+      return response(request.responseFormat ? JSON.stringify({ answer }) : `Answer: ${answer}`);
+    }
+    const observed = request.chatPrompt.some(message => message.role === 'user' &&
+      typeof message.content === 'string' && message.content.includes('[OBSERVATION]') &&
+      message.content.includes('inventory.lookup: '));
     return response(JSON.stringify({ javascriptCode: taskStage
-      ? 'const stock = await inventory.lookup({sku: "SKU-1"}); await final("Report the available count.", {stock});'
+      ? observed
+        ? 'await final("Report the observed available count.", {stock});'
+        : 'const stock = await inventory.lookup({sku: "SKU-1"});'
       : 'await final("Look up stock for SKU-1 without reserving it.", {});' }));
   }, { structuredOutputs: true });
   const assistant = agent('query:string -> answer:string', {
@@ -318,7 +338,7 @@ async function delegationCallPolicy(ctx: ExampleContext) {
   let directExecutorCalls = 0;
   const model = scriptedAI(request => {
     parentModelCalls++;
-    assert.ok(parentModelCalls <= 19, 'Five full parent pipelines plus two direct-response pipelines');
+    assert.ok(parentModelCalls <= 24, 'Five four-call parent pipelines plus two two-call direct responses');
     const prompt = JSON.stringify(request.chatPrompt);
     // Match a complete input value, not overlapping suffixes such as
     // required-child inside missing-required-child.
@@ -326,19 +346,40 @@ async function delegationCallPolicy(ctx: ExampleContext) {
     assert.ok(policy, 'Every actual stage request retains its stable task identity');
     const actor = request.chatPrompt.some(message => message.role === 'system' &&
       (message.content.includes('## Distiller\n') || message.content.includes('## Executor\n')));
-    if (!actor) return response(`Answer: ${policy.answer}`);
+    const direct = policy.id === 'direct-no-child' || policy.id === 'missing-required-child';
+    const childCall = policy.id === 'required-child' || policy.id === 'forbidden-child' || policy.id === 'unnecessary-child';
+    if (!actor) {
+      if (direct) return response(`Answer: ${policy.answer}`);
+      // A synthetic final after maxTurns also reaches the responder, but has no final evidence.
+      const evidence = responderEvidence(request);
+      if (childCall) {
+        const report = evidence?.report;
+        assert.strictEqual(report, 'Available: 7', `${policy.id}: final evidence.report must contain the Stock Clerk result`);
+        return response(`Answer: ${report.slice('Available: '.length)}`);
+      }
+      const count = evidence?.count;
+      assert.strictEqual(count, 7, `${policy.id}: final evidence.count must contain the inventory.lookup result`);
+      return response(`Answer: ${count}`);
+    }
     const executor = request.chatPrompt.some(message => message.role === 'system' &&
       message.content.includes('## Executor\n'));
-    const direct = policy.id === 'direct-no-child' || policy.id === 'missing-required-child';
     if (direct) {
       if (executor) directExecutorCalls++;
       return response(`Javascript Code: await respond("Answer directly; no child or tool is needed", {answer:${JSON.stringify(policy.answer)}});`);
     }
     if (!executor) return response('Javascript Code: await final("Follow the explicit policyCase call route using only the needed fields", {});');
-    const childCall = policy.id === 'required-child' || policy.id === 'forbidden-child' || policy.id === 'unnecessary-child';
+    const callable = childCall ? 'team.stockClerk' : 'inventory.lookup';
+    const observed = request.chatPrompt.some(message => message.role === 'user' &&
+      typeof message.content === 'string' && message.content.includes('[OBSERVATION]') &&
+      message.content.includes(`${callable}: `));
+    if (observed) {
+      return response(childCall
+        ? 'Javascript Code: await final("Return the child-reported available count", {report});'
+        : 'Javascript Code: await final("Return the tool-reported available count", {count});');
+    }
     return response(`Javascript Code: ${childCall
-      ? 'const report = await team.stockClerk({accountId:inputs.accountId, sku:inputs.sku}); await final("Return the child-reported available count", {report});'
-      : 'const count = await inventory.lookup({sku:inputs.sku}); await final("Return the tool-reported available count", {count});'}`);
+      ? 'const report = await team.stockClerk({accountId:inputs.accountId, sku:inputs.sku});'
+      : 'const count = await inventory.lookup({sku:inputs.sku});'}`);
   }, { structuredOutputs: true });
   const assistant = agent('policyCase:string, accountId:string, sku:string, privateContext:string -> answer:string', {
     ai: model, contextFields: [], functions: [child, lookup], directResponse: 'auto', maxTurns: 2,
@@ -405,7 +446,7 @@ async function delegationCallPolicy(ctx: ExampleContext) {
     assert.equal(childInputs.length, 9);
     assert.deepEqual(lookupInputs, [{ sku: 'SKU-1' }, { sku: 'SKU-1' }]);
     assert.equal(directExecutorCalls, 0, 'Direct/no-child predictions bypass the executor');
-    assert.equal(parentModelCalls, 19);
+    assert.equal(parentModelCalls, 24);
     return { scores: scored.map(({ id, score, prediction }) => ({
       id, score, calls: prediction.functionCalls.map(call => ({ name: call.qualifiedName, arguments: call.arguments })),
     })), metricCalls: result.stats.totalCalls, parentModelCalls, childModelCalls,

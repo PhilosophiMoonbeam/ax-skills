@@ -1,6 +1,6 @@
 # Executable Ax Examples
 
-Pinned to `@ax-llm/ax`, `@ax-llm/ax-tools` and `@ax-llm/ax-ai-sdk-provider` **25.4.12**. The collection declares **39 flat modules** and **238 cases**; these counts are not a complete-suite success claim. They are an executable layer beside the guides, not another skill or a replacement for API contracts. Links resolve relative to this file; run the commands below from the installed skill root.
+Pinned to `@ax-llm/ax`, `@ax-llm/ax-tools` and `@ax-llm/ax-ai-sdk-provider` **25.4.13**. CLI discovery declares **39 flat modules** and **242 cases**; see [observed acceptance](#observed-acceptance-boundary) for separate execution evidence. This is an executable layer beside the guides, not another skill or a replacement for API contracts. Links resolve relative to this file; run the commands below from the installed skill root.
 
 ## Select, then run
 
@@ -58,7 +58,7 @@ For bounded semantic judgments, start with [Native decisions](../references/type
 
 | Module | Focus | Guide |
 | --- | --- | --- |
-| [04-providers.ts](04-providers.ts) | Provider/model construction, image output, Hydrogen thinking/limits, schema/tools and streaming; released DeepSeek default, capability-gated native V4 function-only structured mode and forced-choice rejection | [Providers](../references/ai.md#gemini-4-hydrogen), [DeepSeek boundaries](../references/ai.md#deepseek-notes) |
+| [04-providers.ts](04-providers.ts) | Provider construction, image output, Hydrogen limits and streaming; DeepSeek Flash defaults, catalog/runtime image discrepancy, native Chat function-only structured mode and forced-choice rejection | [Providers](../references/ai.md#gemini-4-hydrogen), [DeepSeek boundaries](../references/ai.md#deepseek-notes) |
 | [05-provider-routing.ts](05-provider-routing.ts) | Capability routing and operational balancing | [Providers](../references/ai.md) |
 | [27-provider-replay.ts](27-provider-replay.ts) | Provider replay and cache boundaries | [Providers](../references/ai.md) |
 | [33-browser-ai.ts](33-browser-ai.ts) | Chrome-only adapter fixtures and [browser entry](browser/chrome-ai.html); model inference remains unqualified | [Providers](../references/ai.md#chrome-built-in-ai-typescriptjavascript-only) |
@@ -76,7 +76,7 @@ For bounded semantic judgments, start with [Native decisions](../references/type
 | [13-context.ts](13-context.ts) | Context orientation versus within-run policy | [Context chooser](../references/agent-context.md), [RLM](../references/agent-rlm.md) |
 | [14-memory-skills.ts](14-memory-skills.ts) | Recall and runtime skill discovery | [Memory and skills](../references/agent-memory-skills.md) |
 | [15-observability.ts](15-observability.ts) | Usage, callbacks and attribution | [Observability](../references/agent-observability.md) |
-| [32-executor-context.ts](32-executor-context.ts) | Executor/context and prompt-detail boundaries, rejected cutoff code versus prior effects; repeated-reference versus true-cycle serialization and observer failures | [RLM cutoff boundary](../references/agent-rlm.md#actor-output-cutoff-versus-runtime-replay-truncation), [Shared references](../references/agent-rlm.md#shared-references-are-not-cycles-25411), [Observability](../references/agent-observability.md) |
+| [32-executor-context.ts](32-executor-context.ts) | Actor cutoff recovery/exhaustion, prompt fidelity wiring, feedback truncation, fresh and batch observation handoffs, observer failures and repeated references versus cycles | [RLM](../references/agent-rlm.md), [Observability](../references/agent-observability.md) |
 | [17-events.ts](17-events.ts) | Explicit routes/lifecycle; malformed string envelopes reject before routing/enqueue, valid padded strings remain unchanged | [Event rules](../references/event-runtime.md#rules), [Consumer checks](../references/event-runtime.md#testing) |
 | [18-event-resume.ts](18-event-resume.ts) | Correlated continuation and delivery | [Event runtime](../references/event-runtime.md) |
 | [30-event-storage.ts](30-event-storage.ts) | Event persistence and local storage | [Event runtime](../references/event-runtime.md) |
@@ -116,22 +116,28 @@ These cases use injected I/O, not live services or model-quality evidence. Follo
 
 For the browser surface, run `bun run --no-env-file --cwd examples build:browser`, serve `examples/browser/` with a local static HTTP server and open `chrome-ai.html`. `check` includes this entry. Only a compatible Chrome profile can run its local model; Node fixtures and an unavailable-state rendering do not establish Gemini Nano inference. No model session or download starts on import.
 
-## 25.4.12 source changes and released SDK boundaries
+## 25.4.13 release and runtime boundaries
 
-Select one owning guide and exact case; these four families do not require loading all modules.
+Select one owning guide and exact case. The four **new** IDs are marked below; the other IDs retain or amend existing routes.
 
-| Family | Owning guide and exact case IDs | Released-package boundary |
-| --- | --- | --- |
-| Original-task fidelity and unexecuted actor cutoff | [Core constraints](../references/agent.md#defaults-and-execution-constraints), [RLM stages](../references/agent-rlm.md#mental-model) and [cutoff](../references/agent-rlm.md#actor-output-cutoff-versus-runtime-replay-truncation); new [`32-executor-context/actor-cutoff-no-execution`](32-executor-context.ts), amended `32-executor-context/prompt-detail-comparison` | Official guidance preserves original instructions, allows factual enrichment only and describes at most three extra calls on the same unexecuted cutoff turn. Released templates retain older wording and the described reask loop is absent. Both actual scripted stage probes failed without consuming queued valid replacements; rejected code produced no forbidden ledger effect, while an earlier executor effect remained. These are bounded observations, not recovery or general effect-safety proof. Prompt-detail comparison is wiring, not semantic-fidelity acceptance. |
-| Lightweight regex versus division analysis | [RLM actor rules](../references/agent-rlm.md#rlm-actor-code-rules); new [`12-runtime/regex-completion-boundaries`](12-runtime.ts) and `12-runtime/division-state-boundaries` | Limited scanner, not a full parser or sandbox proof. The public-runtime postfix probe read live `units: 25` but exported stale `units: 24`; arithmetic/read behavior and snapshot restoration are different contracts. |
-| DeepSeek names, default, images and tool choice | [DeepSeek](../references/ai.md#deepseek-notes); amended [`04-providers/deployment-reasoning-dialects`](04-providers.ts) | Official guidance names `DeepSeekFlash` / `deepseek-flash` V4.1 text+image, deprecated old server alias and retained V4-Pro. Released declarations instead retain `DeepSeekV4Flash` / `deepseek-v4-flash` as default, no new enum or advertised images. Native exact V4 rules are function-only when structured handling is selected; ordinary singleton signatures need not select a structured rung. Forced choices reject for matching released rules; no matching new-ID rule or live image/alias quality is established. |
-| Event envelope validation | [Event rules](../references/event-runtime.md#rules); new [`17-events/invalid-envelope-before-routing`](17-events.ts) | TypeScript requires actual nonblank strings for `id`/`source`/`type` before route/enqueue; accepted values are not normalized. Envelope validity is not authenticated identity. Generated-runtime/Python source descriptions are not runtime parity evidence. |
+| Exact case ID / module | Contract to inspect |
+| --- | --- |
+| **New:** [`04-providers/deepseek-flash-capability-boundaries`](04-providers.ts) | [Flash](../references/ai.md#deepseek-notes) defaults in Chat and Responses; native Chat reports images unsupported despite catalog text/image input and wire serialization. Structured native Chat selects the function rung, not singleton `json_object`; forced raw choice rejects. No live image or alias qualification. |
+| **New:** [`32-executor-context/actor-cutoff-recovery`](32-executor-context.ts) | [Same-turn recovery](../references/agent-rlm.md#actor-output-cutoff-versus-runtime-replay-truncation) in both stages: unchanged first reask, then a shorter-step note, then ordinary continuation when a reply succeeds. |
+| **New:** [`32-executor-context/fresh-evidence-handoff`](32-executor-context.ts) | [Default inspection and replay](../references/agent-rlm.md#rlm-actor-code-rules): automatic fresh evidence, guarded dispatch pause, and older observation excerpting under `checkpointed` versus `full`; saved values survive. |
+| **New:** [`32-executor-context/batch-evidence-handoff`](32-executor-context.ts) | [Batch](../references/agent-rlm.md#executor-batches) preflight pauses for missing contracts, then authorized independent calls yield ordered evidence; retain successful siblings and retry only needed failed work. No transaction or rollback. |
+| [`32-executor-context/actor-cutoff-no-execution`](32-executor-context.ts) | Both actor stages exhaust after three extra requests and throw the last error. Rejected ordinary code does not execute; earlier effects remain. Do not generalize to native tool dispatch. |
+| [`32-executor-context/dynamic-output-truncation`](32-executor-context.ts) | Default 12,000-character feedback ceiling, explicit caps, `full` without decay, and smaller checkpointed feedback without loss of live values. This is not a token, cost or memory bound. |
+| [`32-executor-context/prompt-detail-comparison`](32-executor-context.ts) | Shipped actor prompts preserve original instructions and add only relevant facts. Scripted delivery is not semantic compliance; bundled templates do not read `promptLevel`. |
+| [`04-providers/deployment-reasoning-dialects`](04-providers.ts) | Native, hosted and custom reasoning conventions differ; a model-like ID does not confer a deployment's privileges or capabilities. |
+| [`12-runtime/regex-completion-boundaries`](12-runtime.ts), [`12-runtime/division-state-boundaries`](12-runtime.ts) | Limited scanner, not a parser or sandbox proof. Postfix probe reads live `units: 25` but exports `units: 24`; snapshot restoration is a separate contract. |
+| [`17-events/invalid-envelope-before-routing`](17-events.ts) | [Typed event checks](../references/event-runtime.md#rules) reject non-string and blank `id`, `source` and `type` before routing/enqueue, preserve valid padded strings, and do not authenticate identity. |
 
-These are four new IDs and two amended existing IDs; the other 232 case bodies are unchanged. Body identity alone does not transfer runtime acceptance across SDK/helper/lock changes. Preserve the retained decision-pattern and feedback routes above.
+Read [RLM stage limits](../references/agent-rlm.md#mental-model) before treating responder output as completion: the real pipeline can synthesize a fallback after exhausting `maxTurns` with no explicit final. Confirm tool outcomes and effects in the host; prefer existing sufficient evidence or an authorized inspection before [clarification](../references/agent.md#clarification-and-resume-state). Generated-source observation and cutoff contracts and [Docker fixes](../references/llm.md#docker-session-fixes-25413) are not exercised by these TypeScript fixtures.
 
 ## Exact Release and Source-Backed Cases
 
-These retained **25.4.11 baseline** IDs bind that release's additions and source-backed interaction contracts, including six final protocol cases and the extended existing `teacher-permission` case; they are not new 25.4.12 additions. A listed contract is not a recorded execution result; inspect current `list` metadata before running it. Each case below is scoped to offline scripted/injected I/O, not live provider quality. Select its guide section and module only; no extra skill installation is required.
+These retained **25.4.11 baseline** IDs bind that release's additions and source-backed interaction contracts, including six final protocol cases and the extended existing `teacher-permission` case. A listed contract is not a recorded execution result; inspect current `list` metadata before running it. Each case below is scoped to offline scripted/injected I/O, not live provider quality. Select its guide section and module only; no extra skill installation is required.
 
 | Exact case ID / module | Contract to inspect |
 | --- | --- |
@@ -167,4 +173,6 @@ The protocol/playbook rows need only the pinned Node package, scripted AI and ow
 
 ## Observed acceptance boundary
 
-Current 25.4.12 receipts record **238 offline cases in 39 modules** passing on **2026-11-17**, with zero model HTTP requests, plus strict TypeScript, exact-source/structural checks and skill validation/discovery. The full invocation also recorded 197 fixture HTTP requests and 53 loopback connections; zero model HTTP is not zero network traffic. Root integration task `ax-skills-otb`, the [examples audit](../assets/examples-audit.json) and [coverage audit](../assets/coverage-audit.json) bind actual receipts, current input hashes and their scope; the historical 234-case baseline remains separate. These observations are not whole-root semantic acceptance. Exported modes, actor/model separation and producer self-checks establish neither independent review nor live quality.
+For root task `ax-skills-b6v`, **2026-11-19 UTC** CLI discovery listed **242 cases in 39 modules**; the separate full offline run executed all 242 and exited 0. It recorded **zero model HTTP requests**, 197 fixture HTTP requests and 53 loopback connections. Strict TypeScript and the browser build also exited 0; the build does not qualify browser inference. See the [examples audit](../assets/examples-audit.json) and [coverage audit](../assets/coverage-audit.json) for exact receipts and applicability. None of these results establishes live quality, independent review, generated-language parity or whole-root semantic acceptance.
+
+Historical **25.4.12** receipts separately record **238 offline cases in 39 modules** passing on **2026-11-17**, with zero model HTTP requests, 197 fixture HTTP requests and 53 loopback connections. Zero model HTTP is not zero network traffic. See the archived [examples audit](https://github.com/PhilosophiMoonbeam/ax-skills/blob/58063332e6433ad46c73bc5237478cb58eab68f2/skills/ax-skills/assets/examples-audit.json) and [coverage audit](https://github.com/PhilosophiMoonbeam/ax-skills/blob/58063332e6433ad46c73bc5237478cb58eab68f2/skills/ax-skills/assets/coverage-audit.json).

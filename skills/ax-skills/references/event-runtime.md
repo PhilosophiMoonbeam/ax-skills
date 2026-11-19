@@ -1,6 +1,6 @@
 # Ax event ingestion, continuations, and safe output routing
 
-Use `AxEventRuntime` to react to notifications, webhooks, timers, queues, task completion, and application events: explicitly wake or resume AxGen, AxAgent, or AxFlow, restore/persist state and results, and safely route output. Program construction belongs in [Generators](gen.md), [Agents](agent.md), and [Flows](flow.md); MCP transport/authentication belongs in [MCP](mcp.md). Sources and subscriptions alone must not invoke programs. Source API snapshot: 25.4.12.
+Use `AxEventRuntime` to react to notifications, webhooks, timers, queues, task completion, and application events: explicitly wake or resume AxGen, AxAgent, or AxFlow, restore/persist state and results, and safely route output. Program construction belongs in [Generators](gen.md), [Agents](agent.md), and [Flows](flow.md); MCP transport/authentication belongs in [MCP](mcp.md). Sources and subscriptions alone must not invoke programs. Source API snapshot: 25.4.13.
 
 ## Mental Model
 

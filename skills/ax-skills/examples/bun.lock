@@ -5,9 +5,9 @@
     "": {
       "name": "ax-skills-examples",
       "dependencies": {
-        "@ax-llm/ax": "25.4.12",
-        "@ax-llm/ax-ai-sdk-provider": "25.4.12",
-        "@ax-llm/ax-tools": "25.4.12",
+        "@ax-llm/ax": "25.4.13",
+        "@ax-llm/ax-ai-sdk-provider": "25.4.13",
+        "@ax-llm/ax-tools": "25.4.13",
         "@opentelemetry/api": "1.9.0",
         "@opentelemetry/sdk-trace-base": "2.0.1",
         "ai": "7.0.2",
@@ -35,11 +35,11 @@
 
     "@ai-sdk/provider-utils": ["@ai-sdk/provider-utils@5.0.0", "", { "dependencies": { "@ai-sdk/provider": "4.0.0", "@standard-schema/spec": "^1.1.0", "@workflow/serde": "4.1.0", "eventsource-parser": "^3.0.8" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-zj66M02jc6ASYwIgWZowsooDUwaVngeNZQ3H10GwcPMZ+KR6gHMhcUuKl6tkai+JPXTKDyHY1pnszuxRtw2D4A=="],
 
-    "@ax-llm/ax": ["@ax-llm/ax@25.4.12", "", { "dependencies": { "@opentelemetry/api": "^1.9.0" }, "peerDependencies": { "zod": "^3.24.0 || ^4.0.0" }, "optionalPeers": ["zod"], "hasInstallScript": true, "bin": { "ax": "cli/index.mjs" } }, "sha512-UQOoyvAEbRaw24j7LcbptSe2sd9ypJDzPUyUCE3OCU2B9CSh7ichwI9kqbObAqAsmKYbFZo2F9ZaBFXygjsqpw=="],
+    "@ax-llm/ax": ["@ax-llm/ax@25.4.13", "", { "dependencies": { "@opentelemetry/api": "^1.9.0" }, "peerDependencies": { "zod": "^3.24.0 || ^4.0.0" }, "optionalPeers": ["zod"], "hasInstallScript": true, "bin": { "ax": "cli/index.mjs" } }, "sha512-L8k0onwTgvnE42hplsS+eXgs7j/fDgp2uvjaY+7tSBWLBYfqHuhrYQ8sCLwlGDxC1lW02pzEihr4LVf96SWRkA=="],
 
-    "@ax-llm/ax-ai-sdk-provider": ["@ax-llm/ax-ai-sdk-provider@25.4.12", "", { "dependencies": { "@ai-sdk/provider": "^4.0.0", "@ai-sdk/provider-utils": "^5.0.0", "@ax-llm/ax": "25.4.12", "ai": "^7.0.2", "zod": "^3.25.76" } }, "sha512-5dUv+bgcZaRVS7e1uJ26i/isavh+hBH9GwbX0MsihQ2K0Rk0SEY47tIPT6ySQikiQYeKJvS3Nh7fF7MzTa4Lhg=="],
+    "@ax-llm/ax-ai-sdk-provider": ["@ax-llm/ax-ai-sdk-provider@25.4.13", "", { "dependencies": { "@ai-sdk/provider": "^4.0.0", "@ai-sdk/provider-utils": "^5.0.0", "@ax-llm/ax": "25.4.13", "ai": "^7.0.2", "zod": "^3.25.76" } }, "sha512-eUsh6p8xhpF8IY30UQEalzZUIPypHvvr1ItYFqA67lUQ7+Izv2npFkji+BvoIcXO9qsoccpnMxcuZTvNnB3U9w=="],
 
-    "@ax-llm/ax-tools": ["@ax-llm/ax-tools@25.4.12", "", { "dependencies": { "@ax-llm/ax": "25.4.12", "better-sqlite3": "^12.11.1" } }, "sha512-GoT+6fKLussKEuafNCSWV7xyQUocfumbBgkay00HlQ0xR+sCQjDTZN+mIMhKgyMyipngCXeYfeCubz/hbIk8Uw=="],
+    "@ax-llm/ax-tools": ["@ax-llm/ax-tools@25.4.13", "", { "dependencies": { "@ax-llm/ax": "25.4.13", "better-sqlite3": "^12.11.1" } }, "sha512-OY5yApUpjXPf/hbg34NZ0cgBS5LDqPpPe6BhN72dReVZRBuIKu9thC2RFT7U0BmV7BplEROiEACrKg89dIIbMQ=="],
 
     "@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.25.12", "", { "os": "aix", "cpu": "ppc64" }, "sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA=="],
 

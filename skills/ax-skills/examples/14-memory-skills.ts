@@ -46,12 +46,13 @@ export const examples: readonly Example[] = [
       const prompts: string[] = [];
       const responses = [
         code('await recall(["deployment window"])'),
-        // 25.4.9 updates the host/prompt snapshot, but not this stage's worker inputs.
-        // Keep this control visible rather than silently treating recalled content as worker-resident.
+        // Recall updates the host/prompt snapshot, but not this stage's worker inputs.
+        // Inspect that boundary on a fresh turn after recall.
         code('console.log("worker-memory-present=" + inputs.memories.some(item => item.id === "mem:deploy-window"))'),
         code('await final("Create a proposal using the recalled deployment-window memory and deployment runbook", { proposalOnly: true })'),
         // The executor phase receives the host's loaded memories at handoff.
-        code('console.log("worker-memory-present=" + inputs.memories.some(item => item.id === "mem:deploy-window")); await discover({ skills: ["skill:deployment"] })'),
+        code('console.log("worker-memory-present=" + inputs.memories.some(item => item.id === "mem:deploy-window"))'),
+        code('await discover({ skills: ["skill:deployment"] })'),
         code('const windowMemory = inputs.memories.find(item => item.id === "mem:deploy-window"); if (!windowMemory) throw new Error("missing recalled window at executor handoff"); await used("mem:deploy-window", "authoritative permitted window"); await used("skill:deployment", "proposal-only safety rule"); await used("unknown-id", "must be ignored"); const proposal = await ops.plan({ window: windowMemory.content }); console.log(proposal)'),
         code('await final("Report the proposal without claiming a deployment happened", { proposal })'),
         answer('Proposed deployment: Tuesday 14:00 UTC; no deployment was executed.'),
@@ -76,13 +77,14 @@ export const examples: readonly Example[] = [
       assert.deepEqual(memoryObservations, [
         { stage: 'distiller', hostLoaded: true, workerLoaded: false },
         { stage: 'executor', hostLoaded: true, workerLoaded: true },
-      ], '25.4.9 host-loaded memory reaches the executor worker at the phase boundary');
+      ], 'Host-loaded memory reaches the executor worker at the phase boundary');
       assert.match(prompts[1] ?? '', /Deployment window: Tuesday 14:00 UTC/);
       assert.doesNotMatch(prompts[3] ?? '', /Report the proposal, not a completed production deployment/);
-      assert.match(prompts[4] ?? '', /Report the proposal, not a completed production deployment/);
+      assert.doesNotMatch(prompts[4] ?? '', /Report the proposal, not a completed production deployment/);
+      assert.match(prompts[5] ?? '', /Report the proposal, not a completed production deployment/);
       assert.ok(worker.getState()?.skillsPromptState?.loaded?.some(item => item.id === 'skill:deployment'));
       assert.match(result.answer, /Tuesday/);
-      return { answer: result.answer, loadedMemories, loadedSkills, usedMemories, usedSkills, ranked, memoryObservations, boundary: '25.4.9 recall updates host/prompt memories before same-stage worker inputs; executor handoff synchronizes them', proof: 'real deterministic lexical retrieval and runtime callback paths; scripted reliance declarations are not independent proof of reasoning' };
+      return { answer: result.answer, loadedMemories, loadedSkills, usedMemories, usedSkills, ranked, memoryObservations, boundary: 'Recall updates host/prompt memories before same-stage worker inputs; executor handoff synchronizes them', proof: 'real deterministic lexical retrieval and runtime callback paths; scripted reliance declarations are not independent proof of reasoning' };
       } finally { worker.stop(); }
     },
   },
@@ -123,7 +125,8 @@ export const examples: readonly Example[] = [
       try {
       const firstModel = scriptedAI([
         // Callback-backed discovery is explicitly supported on the distiller; loaded skills carry to executor.
-        code('await recall(["deployment window"]); await discover({ skills: ["skill:deployment"] })'),
+        code('await recall(["deployment window"])'),
+        code('await discover({ skills: ["skill:deployment"] })'),
         code('await final("Use the scoped recalled memory to record a proposal for this conversation", { proposalOnly: true })'),
         code('if (inputs.memories.some(item => item.id.includes("beta"))) throw new Error("tenant leak after handoff"); const window = inputs.memories.find(item => item.id === "mem:alpha-42-window").content; const proposal = await ops.plan({ window }); console.log(proposal)'),
         code('await final("Report proposal", { proposal })'), answer('Proposed Tuesday 14:00 UTC'),

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {
-  ai, ax, axAIProfiles, axGetAIProfile, axGetSupportedAIModels,
+  ai, ax, f, axAIProfiles, axGetAIProfile, axGetSupportedAIModels,
   AxAIOpenAIModel, AxAIOpenAIEmbedModel, AxAIGoogleGeminiModel,
   AxAIGoogleGeminiEmbedModel, AxAIServiceAbortedError,
   AxAIServiceAuthenticationError, AxAIAnthropicModel, AxAIMetaModel, AxAIDeepSeekModel,
@@ -194,13 +194,13 @@ export const examples: readonly Example[] = [
       const sent = new Map<string, Wire>();
       let fetchCalls = 0;
       for (const name of ['deepseek', 'together', 'openai-compatible'] as const) {
-        // Omit the native model to exercise the released default, not the newer source-only name.
+        // Omit the native model to exercise the Chat profile's default.
         const config = name === 'deepseek' ? {} : { model: 'deepseek-ai/DeepSeek-V4-Flash' };
         const service = ai({ name, apiKey: 'fixture-only', apiURL: 'https://fixture.invalid/v1', config, options: { fetch: async (_url, init) => { fetchCalls++; sent.set(name, body(init)); return chatResponse('4'); } } });
         const response = completed(await service.chat({ chatPrompt: prompt, functions: [policyTool], functionCall: 'auto' }, { stream: false, abortSignal: ctx.signal }));
         assert.equal(response.results[0]?.content, '4');
         if (name === 'deepseek') {
-          assert.equal(sent.get(name)?.model, AxAIDeepSeekModel.DeepSeekV4Flash);
+          assert.equal(sent.get(name)?.model, AxAIDeepSeekModel.DeepSeekFlash);
           assert.deepEqual(sent.get(name)?.tools, [{ type: 'function', function: policyTool }]);
           assert.equal(sent.get(name)?.tool_choice, undefined);
           const calls = fetchCalls;
@@ -217,7 +217,85 @@ export const examples: readonly Example[] = [
       assert.equal(sent.get('openai-compatible')?.reasoning_effort, undefined);
       assert.equal(sent.get('together')?.thinking, undefined);
       assert.equal(sent.get('together')?.reasoning_effort, 'max');
-      return { native: { model: sent.get('deepseek')?.model, thinking: sent.get('deepseek')?.thinking, effort: sent.get('deepseek')?.reasoning_effort }, fetchCalls, together: sent.get('together'), customDoesNotInferReasoning: true, scope: 'released wire contracts only; official DeepSeekFlash/default/image additions unavailable in supplied package, no live quality or alias verification' };
+      return { native: { model: sent.get('deepseek')?.model, thinking: sent.get('deepseek')?.thinking, effort: sent.get('deepseek')?.reasoning_effort }, fetchCalls, together: sent.get('together'), customDoesNotInferReasoning: true, scope: 'released wire contracts only; no live quality or alias verification' };
+    },
+  },
+  {
+    id: '04-providers/deepseek-flash-capability-boundaries', title: 'Distinguish Flash catalog metadata, Chat serialization, and structured output',
+    features: ['model-catalog', 'media-capabilities', 'image-data-url', 'structuredOutputMode', 'pre-transport-rejection'], modes: ['offline'],
+    async run(ctx) {
+      const model = AxAIDeepSeekModel.DeepSeekFlash;
+      assert.equal(model, 'deepseek-flash');
+      const catalog = axGetSupportedAIModels();
+      const chatCatalog = catalog.find((provider) => provider.name === 'deepseek');
+      assert.equal(chatCatalog?.defaultModel, model);
+      assert.equal(catalog.find((provider) => provider.name === 'deepseek-responses')?.defaultModel, model);
+      const flash = chatCatalog?.models.find((entry) => entry.name === model);
+      assert.ok(flash);
+      assert.equal(flash.capabilities.textInput, true);
+      assert.equal(flash.capabilities.imageInput, true);
+      assert.equal(flash.capabilities.textOutput, true);
+      assert.equal(flash.contextWindow, 1_048_576);
+      assert.equal(flash.maxTokens, 393_216);
+
+      const requests: Wire[] = [];
+      const service = ai({
+        name: 'deepseek', apiURL: 'https://fixture.invalid/v1', apiKey: 'fixture-only',
+        config: { model, maxTokens: 96 },
+        options: { fetch: async (url, init) => {
+          assert.ok(requests.length < 3, 'Fixture allows at most three requests');
+          assert.equal(String(url), 'https://fixture.invalid/v1/chat/completions');
+          const sent = body(init);
+          assert.equal(sent.model, model);
+          requests.push(sent);
+          if (requests.length === 1) return chatResponse('Serialization fixture');
+          if (requests.length === 2) return chatResponse('Answer: four');
+          return chatResponse('', { choices: [{ index: 0, finish_reason: 'tool_calls', message: {
+            role: 'assistant', content: null,
+            tool_calls: [{ id: 'fixture-output', type: 'function', function: { name: '__axOutput', arguments: '{"answer":"four"}' } }],
+          } }] });
+        } },
+      });
+      const features = service.getFeatures();
+      assert.equal(features.media.images.supported, false);
+      assert.deepEqual(features.structuredOutputModes, ['function']);
+
+      // Synthetic bytes exercise serialization, not a valid image or provider acceptance.
+      await service.chat({ chatPrompt: [{ role: 'user', content: [
+        { type: 'image', mimeType: 'image/png', image: 'AA==' },
+      ] }] }, { stream: false, abortSignal: ctx.signal });
+      assert.equal(requests.length, 1);
+      assert.deepEqual(requests[0]?.messages, [{ role: 'user', content: [
+        { type: 'image_url', image_url: { url: 'data:image/png;base64,AA==', detail: 'auto' } },
+      ] }]);
+      assert.equal(requests[0]?.max_tokens, 96);
+      assert.equal(requests[0]?.max_completion_tokens, undefined);
+
+      const inputs = { question: 'What is two plus two?' };
+      const forwardOptions = { ...options(ctx), stream: false };
+      const plain = await ax('question:string -> answer:string').forward(service, inputs, {
+        ...forwardOptions, structuredOutputMode: 'json_object',
+      });
+      assert.equal(plain.answer, 'four');
+      assert.equal(requests.length, 2);
+      assert.equal(requests[1]?.tools, undefined);
+      assert.equal(requests[1]?.response_format, undefined);
+
+      const structured = ax(f().input('question', f.string()).output('answer', f.string()).useStructured().build());
+      for (const mode of ['native', 'json_object'] as const) {
+        await assert.rejects(() => structured.forward(service, inputs, {
+          ...forwardOptions, structuredOutputMode: mode,
+        }), /Structured output mode.*requires/);
+        assert.equal(requests.length, 2);
+      }
+      const result = await structured.forward(service, inputs, forwardOptions);
+      assert.equal(result.answer, 'four');
+      assert.equal(requests.length, 3);
+      const tools = requests[2]?.tools as { type: string; function: { name: string } }[];
+      assert.deepEqual(tools.map(({ type, function: { name } }) => ({ type, name })), [{ type: 'function', name: '__axOutput' }]);
+      assert.equal(requests[2]?.tool_choice, undefined);
+      assert.equal(requests[2]?.response_format, undefined);
+      return { model, fetchCalls: requests.length, catalogImageInput: true, runtimeImageSupport: false, outputRung: 'function', scope: 'injected Chat wire and parsing only; no live image acceptance' };
     },
   },
   {

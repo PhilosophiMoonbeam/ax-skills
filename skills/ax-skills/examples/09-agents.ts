@@ -257,8 +257,9 @@ export const examples: readonly Example[] = [
           return 'Returns accepted within 30 days.';
         }).build();
       const normalize = fn('normalize')
-        .description('Normalize a handbook key; safe and always visible')
-        .arg('key', f.string()).returns(f.string())
+        .description('Trim surrounding whitespace and lowercase a handbook key without reading external state')
+        .arg('key', f.string('Raw handbook key')).returns(f.string('Trimmed, lowercase handbook key'))
+        .resultPolicy('data')
         .handler(async ({ key }) => key.trim().toLowerCase()).build();
       const assistant = agent('query:string -> answer:string', {
         contextFields: [], directResponse: 'off', maxTurns: 4,
@@ -282,7 +283,7 @@ export const examples: readonly Example[] = [
           assert.ok(nextPromptHadDocs, 'discover returns void; callable docs must arrive in the next prompt');
         }
         const response = turns[index];
-        assert.ok(response, 'Discovery should not require an additional model call');
+        assert.ok(response, 'Expected discovery, lookup, handoff, and response in separate turns');
         return response;
       }, { structuredOutputs: true });
       try {

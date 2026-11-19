@@ -3,11 +3,11 @@
   "source_root": "upstream/ax-llm",
   "upstream": {
     "package": "@ax-llm/ax",
-    "version": "25.4.12",
-    "git_commit": "fa693cd4b94c3bcaeff81ad5d5e327ada4405723",
+    "version": "25.4.13",
+    "git_commit": "8dbb33d64629d935cc21d79734300018677d73dc",
     "index_url": "https://axllm.dev/typescript/.well-known/agent-skills/index.json",
     "archive_url": "https://axllm.dev/typescript/.well-known/agent-skills/ax-llm/skill.tar.gz",
-    "archive_sha256": "093e4a293e8bac94edf718c21249f963cbf7eacba502de3fa0768d25748b8b79"
+    "archive_sha256": "3811f3faad094ac3a4ef5f3a2a8e8a683d2f1d487bb1510c953af57f47ba190e"
   },
   "sources": [
     {
@@ -16,7 +16,7 @@
         "SKILL.md",
         "references/llm.md"
       ],
-      "sha256": "8d0b9a0d58f89fb029e868ece6a1c17ea2fdea21910ec31a009283f282e6d616",
+      "sha256": "25b535373da2b8805fff3f96877e57ac7d542b4ead21ceda332315eda0611f55",
       "original_bytes": 3360,
       "original_lines": 54
     },
@@ -61,18 +61,18 @@
       "destinations": [
         "references/agent-rlm.md"
       ],
-      "sha256": "56dd9742a0b018fe90316872bbbb202f1220109d805e0d312684b86958b595e8",
-      "original_bytes": 33746,
-      "original_lines": 499
+      "sha256": "f19c2fad8bfd769d42199bccdaf4808f68a8304c03bb1e37281b98b136838342",
+      "original_bytes": 41262,
+      "original_lines": 537
     },
     {
       "source": "upstream/ax-llm/references/ax-agent.md",
       "destinations": [
         "references/agent.md"
       ],
-      "sha256": "17a02e7308e74e1882104fb95775be383935422d8767fd1aade9c8483063d1ee",
-      "original_bytes": 36859,
-      "original_lines": 705
+      "sha256": "0dde017e96eb0e917408bfca2ef60aa142164533ed67643c5cbcf05d70f7ebcd",
+      "original_bytes": 38137,
+      "original_lines": 708
     },
     {
       "source": "upstream/ax-llm/references/ax-ai.md",
@@ -115,9 +115,9 @@
       "destinations": [
         "references/gen.md"
       ],
-      "sha256": "a97b17153f94b9a5ccc6668404c8d20516cd0f4aff7df06ebd0e89cad4c5ccd1",
-      "original_bytes": 31496,
-      "original_lines": 659
+      "sha256": "4800c4fbd12dc3b240f5b8115a99a146089b07907724f197fd6a20e3151dd23f",
+      "original_bytes": 31753,
+      "original_lines": 664
     },
     {
       "source": "upstream/ax-llm/references/ax-gepa.md",

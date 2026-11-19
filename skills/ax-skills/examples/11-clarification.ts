@@ -141,14 +141,11 @@ export const examples: readonly Example[] = [
           assert.deepEqual(hostEvents, ['ask'], 'Only clarification starts a second public forward');
           return code('await final("Finish the saved ticket with the supplied owner after host authorization", { ticket: pendingTicket, owner: inputs.answer });');
         }
-        // Ax 25.4.9 checks host calls as non-final code before executing them,
-        // so they must contain console.log. The awaited protocol call stops the
-        // turn before console.log (or the dead-code sentinel) can execute.
+        // Awaited host protocol completion stops the current turn before the
+        // sentinel can execute.
         if (/^## Executor$/m.test(systemText)) {
           if (hostEvents.length === 0 && !ticketPrepared) {
             ticketPrepared = true;
-            // Export bindings only after a successful observable runtime turn.
-            // A host interruption before that turn completes cannot capture them.
             return code('const pendingTicket = inputs.ticketRequest.match(/T-\\d+/)?.[0]; if (!pendingTicket) throw new Error("Missing ticket identifier"); console.log(pendingTicket);');
           }
           if (hostEvents.length === 0) {
@@ -201,32 +198,48 @@ export const examples: readonly Example[] = [
   {
     id: '11-clarification/payload-boundaries',
     title: 'Normalize malformed single-choice prompts; reject and correct malformed multi-choice prompts',
-    features: ['clarification-normalization', 'single_choice', 'multiple_choice', 'runtime-error-recovery'],
+    features: ['clarification-normalization', 'single_choice', 'multiple_choice', 'runtime-error-recovery', 'distiller runtime binding restoration'],
     modes: ['offline'],
     async run(ctx) {
       const normalized: unknown[] = [];
       for (const variant of ['single', 'multiple'] as const) {
-        const assistant = agent('ticketLabelRequest:string -> reply:string', { contextFields: [], maxTurns: 3 });
+        const makeAgent = () => agent('ticketLabelRequest:string, answer?:string -> reply:string', {
+          contextFields: [], directResponse: 'off', maxTurns: 3,
+          contextOptions: { model: 'fixture-distiller' },
+          executorOptions: { model: 'fixture-executor' },
+          responderOptions: { model: 'fixture-responder' },
+        });
+        const assistant = makeAgent();
+        const resumed = makeAgent();
         const turns = variant === 'single' ? [
-          code('await askClarification({ question: "Which labels?", type: "single_choice", choices: [] });'),
+          code('const pendingLabelTicket = inputs.ticketLabelRequest.match(/T-\\d+/)?.[0]; await askClarification({ question: "Which labels?", type: "single_choice", choices: [] });'),
+          code('await final("Report the saved ticket and supplied label without applying it", { ticket: pendingLabelTicket, label: inputs.answer });'),
+          code('const labelSummary = `${inputs.distilledContext.ticket}: ${inputs.distilledContext.label}`; await final("Report the prepared label summary", { labelSummary });'),
+          reply('Reply: T-21: Review'),
         ] : [
           code('await askClarification({ question: "Which labels?", type: "multiple_choice", choices: ["Urgent"] });'),
           code('await askClarification({ question: "Which labels?", type: "multiple_choice", choices: ["Urgent", "Review"] });'),
         ];
         let modelCalls = 0;
-        const model = scriptedAI((_request, index) => {
+        const model = scriptedAI((request, index) => {
           modelCalls++;
+          const expectedStage = index < 2 ? 'fixture-distiller' : index === 2 ? 'fixture-executor' : 'fixture-responder';
+          assert.equal(request.model, expectedStage);
+          if (request.model === 'fixture-responder') assert.match(JSON.stringify(request.chatPrompt), /T-21: Review/);
           const response = turns[index];
-          assert.ok(response, 'Clarification must bypass the responder');
+          assert.ok(response, 'Unexpected extra model request');
           return response;
         }, { structuredOutputs: true });
         try {
-          await assert.rejects(assistant.forward(model, { ticketLabelRequest: 'Ask which ticket labels to apply.' }, options(ctx)), (error: unknown) => {
+          let saved: AxAgentState | undefined;
+          await assert.rejects(assistant.forward(model, { ticketLabelRequest: 'Ask which ticket labels to apply to T-21.' }, options(ctx)), (error: unknown) => {
             assert.ok(error instanceof AxAgentClarificationError);
             assert.equal(error.question, 'Which labels?');
             if (variant === 'single') {
               assert.notEqual(error.clarification.type, 'single_choice');
               assert.equal(modelCalls, 1);
+              saved = error.getState();
+              assert.equal(saved?.runtimeBindings.pendingLabelTicket, 'T-21');
             } else {
               assert.equal(error.clarification.type, 'multiple_choice');
               assert.equal(modelCalls, 2, 'Invalid multi-choice was a recoverable actor error, not a clarification');
@@ -234,9 +247,17 @@ export const examples: readonly Example[] = [
             normalized.push(error.clarification);
             return true;
           });
-        } finally { assistant.stop(); }
+          if (variant === 'single') {
+            assert.ok(saved);
+            resumed.setState(structuredClone(saved));
+            const result = await resumed.forward(model, { ticketLabelRequest: 'Continue the saved ticket.', answer: 'Review' }, options(ctx));
+            assert.equal(result.reply, 'T-21: Review');
+            assert.equal(resumed.getState()?.runtimeBindings.labelSummary, 'T-21: Review');
+            assert.equal(modelCalls, 4);
+          }
+        } finally { assistant.stop(); resumed.stop(); }
       }
-      return { normalized, proof: 'real runtime payload validation; no selections applied' };
+      return { normalized, proof: 'real distiller payload validation and an initialized binding restored into a fresh agent; no labels applied' };
     },
   },
 ];

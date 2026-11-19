@@ -1,6 +1,6 @@
 # Typed decisions: Typesafe / Jev, OpenAI and Gemini
 
-Use for TypeScript decision signatures, native questions, probabilities, rubric scores, evidence and explicit hybrid generation. Source API snapshot: 25.4.12. Jev-specific details include structured criteria and experimental images/Box. Select `name: 'typesafe'` for Jev (`jev-latest` by default); neither Jev nor the dedicated OpenAI/Gemini Decisions endpoints is a freeform generation or tool-use provider. Official Jev adapter/native clients also cover Python, Java, C++, Go and Rust; use each package's syntax and qualify target behavior rather than assuming universal parity.
+Use for TypeScript decision signatures, native questions, probabilities, rubric scores, evidence and explicit hybrid generation. Source API snapshot: 25.4.13. Jev-specific details include structured criteria and experimental images/Box. Select `name: 'typesafe'` for Jev (`jev-latest` by default); neither Jev nor the dedicated OpenAI/Gemini Decisions endpoints is a freeform generation or tool-use provider. Official Jev adapter/native clients also cover Python, Java, C++, Go and Rust; use each package's syntax and qualify target behavior rather than assuming universal parity.
 
 Jev supplies observable semantic judgments → host facts/policy/effects, not direct decision authority. Compute exact arithmetic, counts, dates and lookups in code first; ask only questions whose answers feed an explicit host rule.
 
