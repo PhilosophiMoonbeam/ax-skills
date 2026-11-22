@@ -304,13 +304,13 @@ Local offline contracts: [`06-decisions`](../examples/06-decisions.ts), cases `a
 
 The four general offline cases above extend these contracts; no fixture result establishes model quality. Fresh live tests need separate permission, disclosure of transmitted data/credential use and budget approval before execution; commands below are references, not authorization.
 
-Run in the Ax repository root; `tsx` loads `.env`:
+Run the upstream examples from the root of an Ax source checkout. Supply approved credentials through the environment; these commands do not automatically load `.env` files:
 
 ```bash
-bun run tsx src/examples/typescript/generation/typesafe.ts
-bun run tsx src/examples/typescript/generation/typesafe-native.ts
-bun run tsx src/examples/typescript/generation/typesafe-hybrid.ts
-bun run tsx src/examples/typescript/generation/value-descriptions.ts
+bun --no-env-file src/examples/typescript/generation/typesafe.ts
+bun --no-env-file src/examples/typescript/generation/typesafe-native.ts
+bun --no-env-file src/examples/typescript/generation/typesafe-hybrid.ts
+bun --no-env-file src/examples/typescript/generation/value-descriptions.ts
 ```
 
 First two require `TYPESAFE_API_KEY` or `TYPESAFE_APIKEY`; last two also require `OPENAI_API_KEY` or `OPENAI_APIKEY`. [Comparison](https://github.com/ax-llm/ax/blob/main/src/examples/typescript/generation/value-descriptions.ts) uses the same described signature across providers; [native](https://github.com/ax-llm/ax/blob/main/src/examples/typescript/generation/typesafe-native.ts) covers all primitives/model discovery; [hybrid](https://github.com/ax-llm/ax/blob/main/src/examples/typescript/generation/typesafe-hybrid.ts) composes two programs. Assert response contracts in live checks, never exact model probabilities.

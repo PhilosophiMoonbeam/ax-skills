@@ -1,0 +1,68 @@
+name: Validate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+    working-directory: skills/ax-skills/examples
+
+jobs:
+  bun:
+    name: Bun validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: '1.4.5'
+          no-cache: true
+      - name: Install frozen dependencies
+        run: bun install --no-env-file --frozen-lockfile
+      - name: Check formatting, lint and types
+        run: bun run --no-env-file check
+      - name: List example inventory
+        run: bun run --no-env-file list
+      - name: Run Bun offline fixtures
+        run: bun run --no-env-file offline
+      - name: Build the browser example
+        run: bun run --no-env-file build:browser
+      - name: Run Python regression tests
+        working-directory: .
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: Validate repository structure
+        working-directory: .
+        run: python3 scripts/validate_ax_skills.py
+
+  node-compatibility:
+    name: Node compatibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: '1.4.5'
+          no-cache: true
+      - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version: '24.15.0'
+          package-manager-cache: false
+      - name: Install frozen dependencies
+        run: bun install --no-env-file --frozen-lockfile
+      - name: Enable native SQLite
+        run: bun run --no-env-file setup:sqlite
+      - name: Run Node-only SQLite and worker permission fixtures
+        run: bun run --no-env-file offline:node

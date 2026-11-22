@@ -24,7 +24,7 @@ The host discovers metadata first, loads the master when the skill activates, th
 ## Installation and one active Ax master
 
 ```sh
-bunx skills@latest add https://github.com/PhilosophiMoonbeam/ax-skills/tree/main/skills/ax-skills
+bunx --no-env-file --bun skills@latest add https://github.com/PhilosophiMoonbeam/ax-skills/tree/main/skills/ax-skills
 ```
 
 When prompted, select **`ax-skills`** and the target agent host. This collection is intended to be the workspace's one active Ax master. Do not activate a duplicate official `ax-llm` entrypoint or separately registered specialists alongside it; inspect existing installations and deliberately choose which entrypoint remains active.
@@ -32,14 +32,14 @@ When prompted, select **`ax-skills`** and the target agent host. This collection
 [Official installation guidance](https://axllm.dev/typescript/skills/) documents a separate upstream installation path. In the pinned package, when package-install scripts run, automatic setup requires the resolved consumer root's `package.json` to list `@ax-llm/ax` in `dependencies`, `devDependencies` or `optionalDependencies`. It installs official `ax-llm` and local guides in that root's `.claude/skills`, not this collection. Transitive and global installs skip setup, as does CI; runtime imports do not perform this installation. Root resolution prefers `INIT_CWD`, then the installed package's topmost `node_modules` parent. To prevent duplicate setup:
 
 - Set `AX_SKIP_SKILL_INSTALL=1` during package installation to skip that run.
-- Run `bunx @ax-llm/ax skills-auto-install off` from the project root to save `ax.skills.autoInstall: false` in `package.json`; merge that setting before the first installation if needed. `skills-auto-install on` restores future automatic setup. CI and the environment opt-out take precedence.
-- These preferences do not remove existing skills. Manual `bunx @ax-llm/ax setup-claude` still works when automatic setup is disabled; `--all` registers specialists separately. Upstream documents `remove-claude` followed by `setup-claude` for migrating an older official full installation to its official single entrypoint. Do not run that migration merely to install this collection; review existing files before intentional removal or replacement.
+- Run `bunx --no-env-file --bun @ax-llm/ax skills-auto-install off` from the project root to save `ax.skills.autoInstall: false` in `package.json`; merge that setting before the first installation if needed. `skills-auto-install on` restores future automatic setup. CI and the environment opt-out take precedence.
+- These preferences do not remove existing skills. Manual `bunx --no-env-file --bun @ax-llm/ax setup-claude` still works when automatic setup is disabled; `--all` registers specialists separately. Upstream documents `remove-claude` followed by `setup-claude` for migrating an older official full installation to its official single entrypoint. Do not run that migration merely to install this collection; review existing files before intentional removal or replacement.
 
 ## Run the installed examples
 
 The [example index](skills/ax-skills/examples/INDEX.md) maps every module, links its guide and explains fixture/live modes, prerequisites, effects and cleanup. The master routes to that single index rather than eagerly linking every module. Choose architecture → narrow guide → selected example for design work; narrow implementation tasks need only their owning guide/example. CLI metadata discovery imports modules without running cases; do not preload their source into the agent context.
 
-The examples package travels with the skill collection and needs no original fixtures, full Ax checkout or repository tooling. Use Bun **1.4.4** for installation and commands, with Node **>=22.18.0** for the SDK scripts (Node 24 has recorded baseline verification). Bun is the package manager; these scripts deliberately retain the Node runtime. From this repository root:
+The examples package travels with the skill collection and needs no original fixtures, full Ax checkout or repository tooling. Use **Bun 1.4.5** and the package's pinned **Biome 2.6.8**. From this repository root:
 
 ```sh
 bun install --no-env-file --cwd skills/ax-skills/examples --frozen-lockfile
@@ -49,9 +49,20 @@ bun run --no-env-file --cwd skills/ax-skills/examples offline 01-signatures
 bun run --no-env-file --cwd skills/ax-skills/examples offline
 ```
 
-For an installed skill, use the same commands from its `ax-skills` directory with `--cwd examples`. `--no-env-file` disables Bun's automatic `.env` loading; live runs still receive the runner's explicit `--env` path. The authoritative `bun.lock` pins Ax, Ax Tools and the Ax Vercel provider **25.4.13**; `ai` 7.0.2 with `@ai-sdk/provider` 4.0.0 and `@ai-sdk/provider-utils` 5.0.0 overrides; OpenTelemetry API 1.9.0 and trace SDK 2.0.1; root Zod 4.1.11 and the Vercel provider's nested Zod 3.25.76; TypeScript 5.9.3, tsx 4.20.6, esbuild 0.25.12 and Node types 22.18.6. The trace SDK release is registry-deprecated; compatibility evidence applies only to recorded checks. The explicit Bun `trustedDependencies` list permits lifecycle scripts only for `better-sqlite3`, requiring a compatible native prebuild or build toolchain. It replaces Bun's default allowlist and leaves Ax's skill-install postinstall disabled. Do not trust all dependencies. Installation writes `node_modules`; cases own their local resources and temporary stores.
+For an installed skill, use the same commands from its `ax-skills` directory (the one containing `SKILL.md`) with `--cwd examples`. The frozen install writes `node_modules` without running lifecycle scripts, including Ax's automatic skill installation. The commands disable automatic `.env` loading and do not load provider secrets by default. `check` runs strict Biome CI and TypeScript typechecking; `typecheck`, `lint` and `format` are available separately. `build:browser` uses Bun's native browser bundler. The lockfile pins Ax, Ax Tools and the Ax Vercel provider at **25.4.13**; see the example index for dependency details.
 
-Offline is the default: scripted model I/O drives actual SDK algorithms and local/injected protocols, not billed providers or real-provider quality evidence. Browser adapter fixtures and the browser entry do not qualify actual browser-model inference. Audio modules are offline protocol/media fixtures, not real speech or microphone acceptance. SQLite uses native `better-sqlite3`, not Node’s built-in SQLite API. Generic model credentials do not establish audio, image/Box, MCP or OAuth prerequisites.
+`list` declares **242 cases across 39 modules**, including exact IDs, supported modes and per-mode `runtimes` (`bun` or `node`). `list` and the execution scripts accept an exact case ID or module basename, not prefixes or globs; execution selects cases for the requested mode and runtime. If an exact ID belongs to the other runtime, the runner points to the correct script.
+
+The default `offline` run covers **239 Bun cases**. Complete offline acceptance also requires three cases in the explicit `offline:node` lane, using **Node 24.15.0** (the verified exception version) on `PATH`:
+
+```sh
+bun run --no-env-file --cwd skills/ax-skills/examples setup:sqlite
+bun run --no-env-file --cwd skills/ax-skills/examples offline:node
+```
+
+`setup:sqlite` is necessary only for the two native AxSQLite cases: it prepares only `better-sqlite3`, using a compatible Node prebuild or a local native build toolchain. The third case checks the published Ax worker's permission boundary under Node and does not need SQLite. Bun cannot load the published Ax Tools SQLite add-on or enforce the worker boundary demonstrated by that case. Bun fixtures use trusted/scripted input; they do not qualify Bun to run untrusted actor code.
+
+Offline fixtures exercise actual SDK algorithms and local/injected protocols, not billed providers or real-provider quality. The runner guards fixture `fetch` and Node-compatible socket calls, not all OS egress; these checks are not a security boundary. Browser adapter fixtures and the browser entry do not qualify actual browser-model inference. Audio modules are offline protocol/media fixtures, not real speech or microphone acceptance. SQLite uses native `better-sqlite3`, not Node’s built-in SQLite API. Generic model credentials do not establish audio, image/Box, MCP or OAuth prerequisites.
 
 For separately authorized live work, set `AX_EXAMPLE_ENV_FILE` to an absolute private file path. This exact exported case declares live mode; inspect `list` before selecting another case:
 
@@ -59,7 +70,7 @@ For separately authorized live work, set `AX_EXAMPLE_ENV_FILE` to an absolute pr
 bun run --no-env-file --cwd skills/ax-skills/examples live --env "$AX_EXAMPLE_ENV_FILE" 26-architecture/typed-invoice
 ```
 
-Generation configuration names are `AI_PROVIDER`, `AI_MODEL`, `AI_API_KEY`; decisions use `AI_DECISIONS_PROVIDER`, `AI_DECISIONS_MODEL`, `AI_DECISIONS_API_KEY`. Optional endpoint/deployment names and operation-specific prerequisites are in the index. Never commit or print private values. Live mode requires named selection; it does not run an implicit sweep. Offline limits are 50 fetch requests and 50 loopback socket connections per case; the live fetch limit is 50 per invocation. Cases have 120 seconds and helper-generated output is capped at 512 tokens; these are not spending or production reliability guarantees. No live microphone or external business write belongs to this suite.
+Live mode requires named selection; it does not run an implicit sweep. Use `live:node` instead of `live` for the seven AxAgent cases whose live workers require Node; selecting one of those exact IDs with Bun fails. Their scripted offline variants stay in the Bun lane. Keep the explicit `--env` file private and outside the collection. Generation configuration names are `AI_PROVIDER`, `AI_MODEL`, `AI_API_KEY`; decisions use `AI_DECISIONS_PROVIDER`, `AI_DECISIONS_MODEL`, `AI_DECISIONS_API_KEY`. Optional endpoint/deployment names and operation-specific prerequisites are in the index. Never commit or print private values. Offline limits are 50 fetch requests and 50 loopback socket connections per case along the guarded paths; the live fetch limit is 50 per invocation. Cases have 120 seconds and helper-generated output is capped at 512 tokens; these are not spending or production reliability guarantees. No live microphone or external business write belongs to this suite.
 
 Supported/exported modes are not exercised acceptance. Report actual typecheck, fixture, runtime and live-provider results separately; proposed commands and successful fixture responses do not certify live model quality. The integration owner runs all gates after module edits land.
 
@@ -167,7 +178,7 @@ skills-ref validate skills/ax-skills
 skills-ref to-prompt skills/ax-skills
 ```
 
-Also run the strict TypeScript check, actual CLI discovery and complete offline CLI commands in [Run the installed examples](#run-the-installed-examples). Inspect host discovery/disclosure, the actual master and selected local guides, not just route labels. These are acceptance instructions, not claims that this revision has passed them.
+Also run `check` (strict Biome CI plus TypeScript), `list`, `offline`, `setup:sqlite` followed by `offline:node`, and `build:browser` with the package cwd in [Run the installed examples](#run-the-installed-examples). The two offline lanes together must cover all 242 cases without model HTTP requests; no live call is part of this gate. Inspect host discovery/disclosure, the actual master and selected local guides, not just route labels. These are acceptance instructions, not claims that this revision has passed them.
 
 The final **original-versus-new full semantic coverage review** must account for all 39 supplied inputs and applicable release material against the final master and mapped references, including wrapper-only guidance, exact duplicates and organizational material. Establish the current partition from actual bytes rather than copying historical counts; resolve missing, incorrect, uncertain or conflicting findings and repeat affected review after semantic corrections. Keep the historical **447-unit full review**, the **26-hunk pre-integration source-delta triage**, and fresh changed-target/source-discrepancy/manual integration dispositions distinct. Delta triage is not full-current coverage. A destination-only Markdown migration may retain historical evidence only through a certificate proving identical resolved targets and unchanged API prose, headings and code fences; changed meaning needs fresh review.
 
@@ -179,7 +190,7 @@ Aggregate corpus compression is not task-level quality. A smaller complete colle
 
 ## 25.4.13 integration evidence and limits
 
-The exact JSON receipts for root task `ax-skills-b6v` cover the published 25.4.13 integration at `8488a0f9afea4af0ca482a0eb8503cb3e7ba7b34`, not subsequent text edits. On **2026-11-19 UTC**, actual CLI `list` discovery observed **242 declared cases in 39 modules**; the separate full offline invocation executed all 242 and exited 0. It recorded **zero model HTTP requests**, 197 fixture HTTP requests and 53 loopback connections. Strict TypeScript, exact release identity, browser build and provider code-fence compilation also exited 0. See the [coverage audit](skills/ax-skills/assets/coverage-audit.json) and [examples audit](skills/ax-skills/assets/examples-audit.json) for the recorded inputs and applicability.
+The exact JSON receipts for root task `ax-skills-b6v` cover the published 25.4.13 integration at `8488a0f9afea4af0ca482a0eb8503cb3e7ba7b34`, not the Bun 1.4.5/Biome migration or later edits. On **2026-11-19 UTC**, actual CLI `list` discovery observed **242 declared cases in 39 modules**; the separate full offline invocation used the old `node --import tsx run.ts` script, executed all 242 and exited 0. It recorded **zero model HTTP requests**, 197 fixture HTTP requests and 53 loopback connections. Strict TypeScript, exact release identity, the then-esbuild browser build and provider code-fence compilation also exited 0. See the [coverage audit](skills/ax-skills/assets/coverage-audit.json) and [examples audit](skills/ax-skills/assets/examples-audit.json) for the recorded inputs and applicability.
 
 Keep exact source/package checks, Jev triage through `@ax-llm/ax`, advisory review, offline execution and live provider evaluation separate. Model votes do not establish acceptance; reviewer or model identity alone does not establish independence. No new live inference, Docker effects, generated-language runtime parity, browser execution or production decision-quality claim follows from these checks.
 

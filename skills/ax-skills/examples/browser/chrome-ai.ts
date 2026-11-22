@@ -1,4 +1,4 @@
-import { ai, ax, type AxAIChromeAIArgs } from '@ax-llm/ax';
+import { type AxAIChromeAIArgs, ai, ax } from '@ax-llm/ax';
 
 // Minimal local browser shapes keep the Node example collection free of DOM globals.
 // These are host capabilities, not replacement implementations or a model fixture.
@@ -38,7 +38,9 @@ function buttons() {
   refreshButton.disabled = active !== undefined;
   cancelButton.disabled = active === undefined;
 }
-function errorMessage(error: unknown) { return error instanceof Error ? error.message : String(error); }
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
 
 // availability()/capabilities() only inspect state. No create(), provider construction,
 // model download, remote inference or fallback occurs when this module is imported.
@@ -47,40 +49,52 @@ async function inspect() {
   buttons();
   try {
     if (!host.isSecureContext) {
-      capability.textContent = 'Unavailable: serve this page on localhost or HTTPS (a secure context).';
+      capability.textContent =
+        'Unavailable: serve this page on localhost or HTTPS (a secure context).';
       return;
     }
     const model = host.LanguageModel ?? host.ai?.languageModel;
     if (!model) {
-      capability.textContent = 'Unavailable: this browser does not expose LanguageModel. Use a supported desktop Chrome with the Prompt API enabled and eligible hardware/profile. No browser model was exercised.';
+      capability.textContent =
+        'Unavailable: this browser does not expose LanguageModel. Use a supported desktop Chrome with the Prompt API enabled and eligible hardware/profile. No browser model was exercised.';
       return;
     }
     const availability = model.availability
       ? await model.availability()
       : (await model.capabilities?.())?.available;
     if (availability === 'unavailable' || availability === 'no') {
-      capability.textContent = 'Unavailable on this device/profile. Check Chrome hardware, storage and Prompt API prerequisites. No browser model was exercised.';
+      capability.textContent =
+        'Unavailable on this device/profile. Check Chrome hardware, storage and Prompt API prerequisites. No browser model was exercised.';
       return;
     }
     usable = true;
     if (availability === 'downloadable' || availability === 'after-download') {
-      capability.textContent = 'Model downloadable. Clicking Answer or Stream authorizes Chrome to download its local model, then run the question. Initial download requires network access and may take time; no cloud fallback exists.';
+      capability.textContent =
+        'Model downloadable. Clicking Answer or Stream authorizes Chrome to download its local model, then run the question. Initial download requires network access and may take time; no cloud fallback exists.';
     } else if (availability === 'downloading') {
-      capability.textContent = 'Chrome is downloading the local model. A request may wait for it. Cancel remains available; this Ax adapter does not expose download-progress monitoring.';
+      capability.textContent =
+        'Chrome is downloading the local model. A request may wait for it. Cancel remains available; this Ax adapter does not expose download-progress monitoring.';
     } else if (availability === 'available' || availability === 'readily') {
-      capability.textContent = 'Chrome reports the local model available. Click Answer to run Ax with native JSON Schema, or Stream to inspect successive text chunks.';
+      capability.textContent =
+        'Chrome reports the local model available. Click Answer to run Ax with native JSON Schema, or Stream to inspect successive text chunks.';
     } else {
-      capability.textContent = 'LanguageModel exists, but this browser exposes no recognized availability state. Click to attempt the real SDK; success is not assumed.';
+      capability.textContent =
+        'LanguageModel exists, but this browser exposes no recognized availability state. Click to attempt the real SDK; success is not assumed.';
     }
   } catch (error) {
     capability.textContent = `Capability check failed: ${errorMessage(error)}. No browser model was exercised.`;
-  } finally { buttons(); }
+  } finally {
+    buttons();
+  }
 }
 
 async function run(mode: 'answer' | 'stream') {
   if (active || !usable) return;
   const text = question.value.trim();
-  if (!text) { status.textContent = 'Enter an English question first.'; return; }
+  if (!text) {
+    status.textContent = 'Enter an English question first.';
+    return;
+  }
   const controller = new AbortController();
   active = controller;
   buttons();
@@ -91,25 +105,38 @@ async function run(mode: 'answer' | 'stream') {
     // Omit temperature/topK: ordinary web pages use Chrome defaults, not extension settings.
     const llm = ai({ name: 'chrome-ai' });
     if (mode === 'answer') {
-      const program = ax('question:string "A short factual question in English" -> answer:string "A concise answer in English"');
-      const result = await program.forward(llm, { question: text }, {
-        stream: false,
-        structuredOutputMode: 'native',
-        abortSignal: controller.signal,
-        maxRetries: 0,
-        maxSteps: 1,
-        debug: false,
-        verbose: false,
-        excludeContentFromTrace: true,
-      });
+      const program = ax(
+        'question:string "A short factual question in English" -> answer:string "A concise answer in English"',
+      );
+      const result = await program.forward(
+        llm,
+        { question: text },
+        {
+          stream: false,
+          structuredOutputMode: 'native',
+          abortSignal: controller.signal,
+          maxRetries: 0,
+          maxSteps: 1,
+          debug: false,
+          verbose: false,
+          excludeContentFromTrace: true,
+        },
+      );
       output.textContent = result.answer;
-      status.textContent = 'Answer complete. Ax parsed the schema-constrained response and released the request’s session. Verify factual claims yourself.';
+      status.textContent =
+        'Answer complete. Ax parsed the schema-constrained response and released the request’s session. Verify factual claims yourself.';
     } else {
-      const response = await llm.chat({ chatPrompt: [
-        { role: 'system', content: 'Answer in English. Keep the answer concise.' },
-        { role: 'user', content: text },
-      ] }, { stream: true, abortSignal: controller.signal });
-      if (!(response instanceof ReadableStream)) throw new Error('Expected a streaming Chrome response');
+      const response = await llm.chat(
+        {
+          chatPrompt: [
+            { role: 'system', content: 'Answer in English. Keep the answer concise.' },
+            { role: 'user', content: text },
+          ],
+        },
+        { stream: true, abortSignal: controller.signal },
+      );
+      if (!(response instanceof ReadableStream))
+        throw new Error('Expected a streaming Chrome response');
       const reader = response.getReader();
       let count = 0;
       try {
@@ -125,8 +152,11 @@ async function run(mode: 'answer' | 'stream') {
           }
           status.textContent = `Streaming local text: ${count} chunk(s). Output is provisional until completion.`;
         }
-      } finally { reader.releaseLock(); }
-      status.textContent = 'Stream complete. Native successive chunks are shown verbatim; Ax released the session.';
+      } finally {
+        reader.releaseLock();
+      }
+      status.textContent =
+        'Stream complete. Native successive chunks are shown verbatim; Ax released the session.';
     }
   } catch (error) {
     status.textContent = controller.signal.aborted
@@ -140,10 +170,20 @@ async function run(mode: 'answer' | 'stream') {
     buttons();
   }
 }
-answerButton.addEventListener('click', () => { void run('answer'); });
-streamButton.addEventListener('click', () => { void run('stream'); });
-cancelButton.addEventListener('click', () => { active?.abort(); });
-refreshButton.addEventListener('click', () => { void inspect(); });
-host.addEventListener('pagehide', () => { active?.abort(); });
+answerButton.addEventListener('click', () => {
+  void run('answer');
+});
+streamButton.addEventListener('click', () => {
+  void run('stream');
+});
+cancelButton.addEventListener('click', () => {
+  active?.abort();
+});
+refreshButton.addEventListener('click', () => {
+  void inspect();
+});
+host.addEventListener('pagehide', () => {
+  active?.abort();
+});
 status.textContent = 'Browser entry loaded. Capability inspection does not start a model download.';
 void inspect();

@@ -18,7 +18,7 @@ Use for `AxMCPClient`, transports, catalogs, tools/prompts/resources, tasks, sub
 | Current remote MCP | `AxMCPStreamableHTTPTransport` |
 | Legacy HTTP/SSE only | `AxMCPHTTPSSETransport` |
 | Custom WebSocket server binding | `AxMCPWebSocketTransport` |
-| Local Node child process | `AxMCPStdioTransport` from `@ax-llm/ax-tools` |
+| Local child process | `AxMCPStdioTransport` from `@ax-llm/ax-tools` |
 | Application-owned binding | Caller-defined `AxMCPTransport` |
 
 WebSocket also exists in Python, Java, C++, Go, and Rust. Pending requests are removed on send failure, abort, response, and close; concurrent active IDs must be unique. Batches require negotiated MCP `2025-03-26`. Text and binary frames are accepted. TypeScript sets `binaryType = 'arraybuffer'`; wrapping `webSocketFactory` implementations must pass it to the underlying socket. Built-in sockets require Python's `realtime` extra, C++'s `AXLLM_ENABLE_REALTIME`, or Rust's `realtime` feature; custom factories do not require those optional dependencies.
@@ -68,15 +68,15 @@ console.log(modern.getEra(), discovery.supportedVersions);
 import { AxMCPClient } from '@ax-llm/ax';
 import { AxMCPStdioTransport } from '@ax-llm/ax-tools';
 const stdio = new AxMCPStdioTransport({
-  command: 'node',
-  args: ['./server.mjs'],
+  command: 'bun',
+  args: ['--no-env-file', '--no-install', './server.mjs'],
 });
 const local = new AxMCPClient(stdio, { namespace: 'local' });
 ```
 
 Stdio owns its child process. After `local.close()`, also call `stdio.terminate()` until the transport directly exposes the common `close()` lifecycle.
 
-On Windows, the Node-hosted stdio transport resolves commands using the effective child environment (`PATH`, `PATHEXT`, `ComSpec`). Prefer the native `bun.exe` with `args: ['x', '--no-install', 'owned-mcp-server']` for an installed CLI. Batch files such as `.cmd` launch through `cmd.exe` with argument escaping; native `.exe` / `.com` programs spawn directly. This is part of the separate [Node tools transport](https://unpkg.com/@ax-llm/ax-tools@25.4.13/index.js.map) (embedded `../mcp/windowsSpawn.ts`), not portable AxIR clients. See [PR #870](https://github.com/ax-llm/ax/pull/870) for the fix history. Windows execution was not qualified by this collection's Linux checks.
+On Windows, the stdio transport resolves commands using the effective child environment (`PATH`, `PATHEXT`, `ComSpec`). For an installed CLI, configure `command: 'bun.exe'` with `args: ['x', '--no-env-file', '--no-install', '--bun', 'owned-mcp-server']`. Batch files such as `.cmd` launch through `cmd.exe` with argument escaping; native `.exe` / `.com` programs spawn directly. This behavior belongs to the separate [Ax tools stdio transport](https://unpkg.com/@ax-llm/ax-tools@25.4.13/index.js.map) (embedded `../mcp/windowsSpawn.ts`), not portable AxIR clients. The transport uses Node-compatible APIs, but that does not require the Node runtime for these examples. See [PR #870](https://github.com/ax-llm/ax/pull/870) for the fix history. Windows execution was not verified.
 
 ## Gen, Agent, Flow, and chat
 
@@ -255,6 +255,6 @@ Read the [example index](../examples/INDEX.md#modes-prerequisites-and-effects) f
 | [`38-mcp-events/managed-subscriptions`](../examples/38-mcp-events.ts) | Concrete-resource selectors, catalog diff/failure recovery, manual plus two-source ownership and reconnect; templates do not expand and notifications do not implicitly invoke a model. |
 | [`38-mcp-events/owned-task-resume`](../examples/38-mcp-events.ts) | Task notifications resume only the trusted owner and matching namespace/task continuation; working/progress observes, foreign ownership and consumed continuation cannot repeat effects. |
 
-All five are **offline-only**: scripted AI and owned local/injected peers need the pinned Node package, not an external server, OAuth consent/credentials or live model. They change fixture catalogs, logical subscriptions and volatile continuation state only. Close sources/runtimes and listening handles before caller-owned clients, terminate workers and restore injected globals in `finally`; never remove unrelated data. Names and supported modes are contracts, not observed acceptance.
+All five are **offline-only**: scripted AI and owned local/injected peers run under Bun with the pinned Ax packages and need no external server, OAuth consent/credentials or live model. They change fixture catalogs, logical subscriptions and volatile continuation state only. Close sources/runtimes and listening handles before caller-owned clients, terminate workers and restore injected globals in `finally`; never remove unrelated data. Names and supported modes are contracts, not observed acceptance.
 
 Other selected examples: [native catalogs/tasks, stdio and WebSocket](../examples/19-mcp.ts), [host requests, Apps policy and record/replay](../examples/20-mcp-host.ts), and [HTTP authentication, OAuth and listener ownership](../examples/29-mcp-oauth.ts). OAuth fixtures do not create public revocation/introspection APIs: those remain helper-internal in this release. These bounded TypeScript fixtures do not establish cross-language parity, browser rendering, credential security, remote-server interoperability or live model quality.

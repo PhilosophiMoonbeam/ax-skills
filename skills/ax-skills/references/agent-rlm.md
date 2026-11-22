@@ -287,7 +287,9 @@ If the result suffices, the next turn can finish using `snippets`. Later code in
 
 ## AxJSRuntime Security
 
-Default `new AxJSRuntime()` is hardened: no network, no filesystem, no child process, dynamic `import()` blocked, intrinsics frozen, `ShadowRealm` locked to `undefined`, worker IPC locked in browser/Deno/Bun, Bun workers use `smol: true`, and on Node 20+ the OS Permission Model auto-engages where available.
+The published default `new AxJSRuntime()` is designed to deny network, filesystem, child process, and dynamic imports. It freezes intrinsics, locks `ShadowRealm` to `undefined`, and locks worker IPC in browser/Deno/Bun. Bun workers use `smol: true`; on Node 20+ the Node Permission Model auto-engages where available.
+
+With Ax 25.4.13, Bun 1.4.5 does not enforce the default worker permission boundary exercised by `12-runtime/permission-and-test-boundaries`; Node 24.15.0 does in that case. In this collection, Bun runs only trusted, scripted worker fixture code. Use the [example index](../examples/INDEX.md) to run the actual permission check in `offline:node` and live AxAgent worker examples in `live:node`. The permission check establishes that case's behavior, not a general isolation guarantee.
 
 Threat model: this is defense-in-depth for LLM-authored code, not a container or VM boundary. Host callbacks and granted runtime permissions remain the authority boundary; keep durable secrets and privileged effects in host-side functions.
 

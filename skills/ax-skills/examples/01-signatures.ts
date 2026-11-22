@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { ax, f, s, type AxChatResponse, type AxGenInput, type AxGenOutput } from '@ax-llm/ax';
+import { type AxChatResponse, type AxGenInput, type AxGenOutput, ax, f, s } from '@ax-llm/ax';
 import { z } from 'zod';
-import { options, scriptedAI, type Example } from './support.js';
+import { type Example, options, scriptedAI } from './support.ts';
 
 // These are deterministic model-output fixtures, not evidence of model quality.
 const json = (value: unknown): AxChatResponse => ({
@@ -12,7 +12,15 @@ export const examples: readonly Example[] = [
   {
     id: '01-signatures/string-contract',
     title: 'Reusable strings: constrained invoice extraction and lossless serialization',
-    features: ['s', 'modifiers', 'nested objects', 'arrays', 'optional', 'value descriptions', 'round-trip'],
+    features: [
+      's',
+      'modifiers',
+      'nested objects',
+      'arrays',
+      'optional',
+      'value descriptions',
+      'round-trip',
+    ],
     modes: ['offline', 'live'],
     async run(ctx) {
       // Strings own shape/constraints; outcome descriptions guide, rather than validate, decisions.
@@ -26,18 +34,38 @@ export const examples: readonly Example[] = [
       const serialized = signature.toString();
       assert.equal(s(serialized).toString(), serialized);
       const gen = ax(signature);
-      const ai = ctx.mode === 'live' ? ctx.ai : scriptedAI([json({
-        invoiceNumber: 'INV-42', totalAmount: 24,
-        lineItems: [{ productName: 'Notebook', quantity: 2 }], tags: ['stationery'],
-        approved: true, department: 'billing',
-      })], { structuredOutputs: true });
-      const result = await gen.forward(ai, {
-        invoiceText: 'INV-42: two Notebook items at $12 each, total $24. Policy permits totals below $100. Department billing. Category stationery.',
-      }, options(ctx));
+      const ai =
+        ctx.mode === 'live'
+          ? ctx.ai
+          : scriptedAI(
+              [
+                json({
+                  invoiceNumber: 'INV-42',
+                  totalAmount: 24,
+                  lineItems: [{ productName: 'Notebook', quantity: 2 }],
+                  tags: ['stationery'],
+                  approved: true,
+                  department: 'billing',
+                }),
+              ],
+              { structuredOutputs: true },
+            );
+      const result = await gen.forward(
+        ai,
+        {
+          invoiceText:
+            'INV-42: two Notebook items at $12 each, total $24. Policy permits totals below $100. Department billing. Category stationery.',
+        },
+        options(ctx),
+      );
       assert.equal(result.invoiceNumber, 'INV-42');
       assert.equal(result.totalAmount, 24);
       assert.equal(result.lineItems[0]?.quantity, 2);
-      return { result, roundTrip: true, proof: 'shape and facts on this input; descriptions are not extra constraints' };
+      return {
+        result,
+        roundTrip: true,
+        proof: 'shape and facts on this input; descriptions are not extra constraints',
+      };
     },
   },
   {
@@ -55,24 +83,52 @@ export const examples: readonly Example[] = [
         skills: f.string().min(2).array(),
         education: f.object({ schoolName: f.string(), degreeName: f.string().optional() }).array(),
       });
-      const signature = f().description('Normalize a member profile')
+      const signature = f()
+        .description('Normalize a member profile')
         .input('profileNotes', f.string().cache())
         .input('previousTags', f.string().array().optional())
         .output('scratchpad', f.string().internal())
-        .output('memberProfile', profile).build();
-      const result = await ax(signature).forward(scriptedAI([json({
-        scratchpad: 'Normalize the supplied facts',
-        memberProfile: { displayName: 'Ada', contactEmail: 'ada@example.com', ageYears: 36,
-          skills: ['math'], education: [{ schoolName: 'Home study' }] },
-      })], { structuredOutputs: true }), { profileNotes: 'Ada, 36, ada@example.com; math; Home study' }, options(ctx));
+        .output('memberProfile', profile)
+        .build();
+      const result = await ax(signature).forward(
+        scriptedAI(
+          [
+            json({
+              scratchpad: 'Normalize the supplied facts',
+              memberProfile: {
+                displayName: 'Ada',
+                contactEmail: 'ada@example.com',
+                ageYears: 36,
+                skills: ['math'],
+                education: [{ schoolName: 'Home study' }],
+              },
+            }),
+          ],
+          { structuredOutputs: true },
+        ),
+        { profileNotes: 'Ada, 36, ada@example.com; math; Home study' },
+        options(ctx),
+      );
       assert.equal(result.memberProfile.contactEmail, 'ada@example.com');
       assert.equal('scratchpad' in result, false);
       const hybrid = s('taskBrief:string -> pythonCode:code(python)')
         .appendInputField('metadata', f.json().optional())
         .appendOutputField('qualityScore', f.number().min(0).max(1));
-      const generated = await ax(hybrid).forward(scriptedAI([{
-        results: [{ index: 0, content: 'Python Code: ```python\nprint(2 + 2)\n```\nQuality Score: 1', finishReason: 'stop' }],
-      }]), { taskBrief: 'Print 2+2', metadata: { audience: 'beginner' } }, options(ctx));
+      const generated = await ax(hybrid).forward(
+        scriptedAI([
+          {
+            results: [
+              {
+                index: 0,
+                content: 'Python Code: ```python\nprint(2 + 2)\n```\nQuality Score: 1',
+                finishReason: 'stop',
+              },
+            ],
+          },
+        ]),
+        { taskBrief: 'Print 2+2', metadata: { audience: 'beginner' } },
+        options(ctx),
+      );
       assert.equal(generated.pythonCode.trim(), 'print(2 + 2)');
       assert.equal(generated.qualityScore, 1);
       return { profile: result.memberProfile, generated, internalRemoved: true };
@@ -81,20 +137,47 @@ export const examples: readonly Example[] = [
   {
     id: '01-signatures/standard-schema',
     title: 'Standard Schema preserves typed enums, arrays and original Zod validators',
-    features: ['StandardSchema', 'zod', 'per-field schema', 'whole-object schema', 'enum', 'optional arrays', 'transform', 'regex flags', 'refine', 'superRefine'],
+    features: [
+      'StandardSchema',
+      'zod',
+      'per-field schema',
+      'whole-object schema',
+      'enum',
+      'optional arrays',
+      'transform',
+      'regex flags',
+      'refine',
+      'superRefine',
+    ],
     modes: ['offline'],
     async run(ctx) {
       // Zod owns application-specific semantics that modifier bags cannot express.
       const signature = f()
-        .input(z.object({ policyText: z.string(), customerNote: z.string().min(1) }),
-          { fields: { policyText: { cache: true } } })
+        .input(z.object({ policyText: z.string(), customerNote: z.string().min(1) }), {
+          fields: { policyText: { cache: true } },
+        })
         .output('scratchpad', z.string(), { internal: true })
-        .output('contactEmail', z.string().email().transform((value) => value.toLowerCase()))
-        .output('accountCode', z.string().refine((value) => value.startsWith('AC-'), 'Use an AC- account code'))
+        .output(
+          'contactEmail',
+          z
+            .string()
+            .email()
+            .transform((value) => value.toLowerCase()),
+        )
+        .output(
+          'accountCode',
+          z.string().refine((value) => value.startsWith('AC-'), 'Use an AC- account code'),
+        )
         // Lowercasing runs before the case-insensitive check; the final result
         // deliberately no longer matches that regex. Reconstructed checks lose semantics.
-        .output('validatedCode', z.string().toLowerCase().regex(/^AC-\d+$/i)
-          .transform((value) => `verified:${value}`))
+        .output(
+          'validatedCode',
+          z
+            .string()
+            .toLowerCase()
+            .regex(/^AC-\d+$/i)
+            .transform((value) => `verified:${value}`),
+        )
         .output('normalizedLabel', z.string().trim().min(3))
         // Flat fields otherwise select the text-label protocol despite provider capability.
         .useStructured()
@@ -105,14 +188,36 @@ export const examples: readonly Example[] = [
       assert.ok(outputSchema.properties?.normalizedLabel);
       assert.equal('pattern' in (outputSchema.properties?.validatedCode ?? {}), false);
       assert.equal('minLength' in (outputSchema.properties?.normalizedLabel ?? {}), false);
-      const result = await gen.forward(scriptedAI([
-        json({ scratchpad: 'Normalize', contactEmail: 'ADA@EXAMPLE.COM', accountCode: 'bad',
-          validatedCode: 'invalid', normalizedLabel: 'abc' }),
-        json({ scratchpad: 'Correct code', contactEmail: 'ADA@EXAMPLE.COM', accountCode: 'AC-42',
-          validatedCode: 'Ac-42', normalizedLabel: '  ab  ' }),
-        json({ scratchpad: 'Correct label', contactEmail: 'ADA@EXAMPLE.COM', accountCode: 'AC-42',
-          validatedCode: 'Ac-42', normalizedLabel: '  abc  ' }),
-      ], { structuredOutputs: true }), { policyText: 'Codes start AC-', customerNote: 'ADA@EXAMPLE.COM, account AC-42' }, { ...options(ctx), maxRetries: 2 });
+      const result = await gen.forward(
+        scriptedAI(
+          [
+            json({
+              scratchpad: 'Normalize',
+              contactEmail: 'ADA@EXAMPLE.COM',
+              accountCode: 'bad',
+              validatedCode: 'invalid',
+              normalizedLabel: 'abc',
+            }),
+            json({
+              scratchpad: 'Correct code',
+              contactEmail: 'ADA@EXAMPLE.COM',
+              accountCode: 'AC-42',
+              validatedCode: 'Ac-42',
+              normalizedLabel: '  ab  ',
+            }),
+            json({
+              scratchpad: 'Correct label',
+              contactEmail: 'ADA@EXAMPLE.COM',
+              accountCode: 'AC-42',
+              validatedCode: 'Ac-42',
+              normalizedLabel: '  abc  ',
+            }),
+          ],
+          { structuredOutputs: true },
+        ),
+        { policyText: 'Codes start AC-', customerNote: 'ADA@EXAMPLE.COM, account AC-42' },
+        { ...options(ctx), maxRetries: 2 },
+      );
       assert.equal(result.contactEmail, 'ada@example.com');
       assert.equal(result.accountCode, 'AC-42');
       assert.equal(result.validatedCode, 'verified:ac-42');
@@ -120,34 +225,71 @@ export const examples: readonly Example[] = [
       assert.equal('scratchpad' in result, false);
       assert.equal(gen.getChatLog().length, 3);
       const prioritySchema = z.enum(['low', 'high']);
-      const whole = f().input('requestText', z.string())
-        .output(z.object({
-          priority: prioritySchema,
-          priorityList: z.array(prioritySchema),
-          optionalPriorities: z.array(prioritySchema).optional(),
-          tags: z.array(z.string()),
-          optionalTags: z.array(z.string()).optional(),
-          counts: z.array(z.number()),
-          flags: z.array(z.boolean()),
-          summary: z.string().superRefine((value, context) => {
-            if (!value.includes('invoice')) context.addIssue({ code: 'custom', message: 'Mention invoice' });
+      const whole = f()
+        .input('requestText', z.string())
+        .output(
+          z.object({
+            priority: prioritySchema,
+            priorityList: z.array(prioritySchema),
+            optionalPriorities: z.array(prioritySchema).optional(),
+            tags: z.array(z.string()),
+            optionalTags: z.array(z.string()).optional(),
+            counts: z.array(z.number()),
+            flags: z.array(z.boolean()),
+            summary: z.string().superRefine((value, context) => {
+              if (!value.includes('invoice'))
+                context.addIssue({ code: 'custom', message: 'Mention invoice' });
+            }),
           }),
-        })).useStructured().build();
+        )
+        .useStructured()
+        .build();
       for (const name of ['priority', 'priorityList', 'optionalPriorities']) {
-        assert.deepEqual(whole.getOutputFields().find((field) => field.name === name)?.type?.options, ['low', 'high']);
+        assert.deepEqual(
+          whole.getOutputFields().find((field) => field.name === name)?.type?.options,
+          ['low', 'high'],
+        );
       }
       const wholeGen = ax(whole);
-      const triage = await wholeGen.forward(scriptedAI([
-        json({ priority: 'high', priorityList: ['urgent'], optionalPriorities: ['low'],
-          tags: ['invoice'], optionalTags: ['review'], counts: [1, 2], flags: [true, false],
-          summary: 'Review the dispute' }),
-        json({ priority: 'high', priorityList: ['low', 'high'], optionalPriorities: ['low'],
-          tags: ['invoice'], optionalTags: ['review'], counts: [1, 2], flags: [true, false],
-          summary: 'Review the dispute' }),
-        json({ priority: 'high', priorityList: ['low', 'high'], optionalPriorities: ['low'],
-          tags: ['invoice'], optionalTags: ['review'], counts: [1, 2], flags: [true, false],
-          summary: 'Review the invoice' }),
-      ], { structuredOutputs: true }), { requestText: 'Urgent invoice dispute' }, { ...options(ctx), maxRetries: 2 });
+      const triage = await wholeGen.forward(
+        scriptedAI(
+          [
+            json({
+              priority: 'high',
+              priorityList: ['urgent'],
+              optionalPriorities: ['low'],
+              tags: ['invoice'],
+              optionalTags: ['review'],
+              counts: [1, 2],
+              flags: [true, false],
+              summary: 'Review the dispute',
+            }),
+            json({
+              priority: 'high',
+              priorityList: ['low', 'high'],
+              optionalPriorities: ['low'],
+              tags: ['invoice'],
+              optionalTags: ['review'],
+              counts: [1, 2],
+              flags: [true, false],
+              summary: 'Review the dispute',
+            }),
+            json({
+              priority: 'high',
+              priorityList: ['low', 'high'],
+              optionalPriorities: ['low'],
+              tags: ['invoice'],
+              optionalTags: ['review'],
+              counts: [1, 2],
+              flags: [true, false],
+              summary: 'Review the invoice',
+            }),
+          ],
+          { structuredOutputs: true },
+        ),
+        { requestText: 'Urgent invoice dispute' },
+        { ...options(ctx), maxRetries: 2 },
+      );
       assert.equal(triage.priority, 'high');
       assert.match(triage.summary, /invoice/);
       assert.equal(wholeGen.getChatLog().length, 3);
@@ -159,13 +301,17 @@ export const examples: readonly Example[] = [
       assert.deepEqual(triage.flags, [true, false]);
       // Inspect declared output types, not control-flow types narrowed by assert.
       type TriageOutput = AxGenOutput<typeof wholeGen>;
-      const fluentGen = ax(f().input('requestText', f.string())
-        .output('priority', f.class(['low', 'high']))
-        .output('priorityList', f.class(['low', 'high']).array())
-        .output('optionalPriorities', f.class(['low', 'high']).array().optional()).build());
+      const fluentGen = ax(
+        f()
+          .input('requestText', f.string())
+          .output('priority', f.class(['low', 'high']))
+          .output('priorityList', f.class(['low', 'high']).array())
+          .output('optionalPriorities', f.class(['low', 'high']).array().optional())
+          .build(),
+      );
       type FluentOutput = AxGenOutput<typeof fluentGen>;
-      type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends
-        (<T>() => T extends B ? 1 : 2) ? true : false;
+      type Equal<A, B> =
+        (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
       const inferredContracts: [
         Equal<TriageOutput['priority'], 'low' | 'high'>,
         Equal<TriageOutput['priorityList'], ('low' | 'high')[]>,
@@ -178,14 +324,34 @@ export const examples: readonly Example[] = [
         Equal<FluentOutput['priorityList'], ('low' | 'high')[]>,
         Equal<FluentOutput['optionalPriorities'], ('low' | 'high')[] | undefined>,
       ] = [true, true, true, true, true, true, true, true, true, true];
-      const omitted = await ax(whole).forward(scriptedAI([json({
-        priority: 'low', priorityList: ['low'], tags: ['invoice'], counts: [], flags: [],
-        summary: 'Review invoice',
-      })], { structuredOutputs: true }), { requestText: 'Routine invoice question' }, options(ctx));
+      const omitted = await ax(whole).forward(
+        scriptedAI(
+          [
+            json({
+              priority: 'low',
+              priorityList: ['low'],
+              tags: ['invoice'],
+              counts: [],
+              flags: [],
+              summary: 'Review invoice',
+            }),
+          ],
+          { structuredOutputs: true },
+        ),
+        { requestText: 'Routine invoice question' },
+        options(ctx),
+      );
       assert.equal(omitted.optionalPriorities, undefined);
       assert.equal(omitted.optionalTags, undefined);
-      return { result, triage, omitted, inferredContracts, correctionRequests: gen.getChatLog().length,
-        proof: 'Deterministic Ax forwards exercise Zod enum/array contracts, regex flags, transformation order and refinement corrections; no live quality or generated-language validator claim' };
+      return {
+        result,
+        triage,
+        omitted,
+        inferredContracts,
+        correctionRequests: gen.getChatLog().length,
+        proof:
+          'Deterministic Ax forwards exercise Zod enum/array contracts, regex flags, transformation order and refinement corrections; no live quality or generated-language validator claim',
+      };
     },
   },
   {
@@ -194,26 +360,55 @@ export const examples: readonly Example[] = [
     features: ['date', 'datetime', 'dateRange', 'datetimeRange', 'validation failures'],
     modes: ['offline'],
     async run(ctx) {
-      const gen = ax('bookingNote:string -> birthDate:date, startsAt:datetime, stayWindow:dateRange, meetingWindow:datetimeRange');
-      const result = await gen.forward(scriptedAI([{ results: [{ index: 0, content:
-        'Birth Date: 1990-05-09\nStarts At: 2024-07-01 10:00 PST\nStay Window: 2024-07-01/2024-07-03\nMeeting Window: ["2024-07-01T18:00:00Z", "2024-07-01T19:00:00Z"]', finishReason: 'stop' }] }]),
-        { bookingNote: 'Born May 9 1990; July 1 at 10 PST; stay July 1-3; meeting 18-19 UTC' }, options(ctx));
+      const gen = ax(
+        'bookingNote:string -> birthDate:date, startsAt:datetime, stayWindow:dateRange, meetingWindow:datetimeRange',
+      );
+      const result = await gen.forward(
+        scriptedAI([
+          {
+            results: [
+              {
+                index: 0,
+                content:
+                  'Birth Date: 1990-05-09\nStarts At: 2024-07-01 10:00 PST\nStay Window: 2024-07-01/2024-07-03\nMeeting Window: ["2024-07-01T18:00:00Z", "2024-07-01T19:00:00Z"]',
+                finishReason: 'stop',
+              },
+            ],
+          },
+        ]),
+        { bookingNote: 'Born May 9 1990; July 1 at 10 PST; stay July 1-3; meeting 18-19 UTC' },
+        options(ctx),
+      );
       assert(result.birthDate instanceof Date);
       assert.equal(result.startsAt.toISOString(), '2024-07-01T18:00:00.000Z');
       assert(result.stayWindow.start < result.stayWindow.end);
       assert.equal(result.meetingWindow.end.toISOString(), '2024-07-01T19:00:00.000Z');
       const rejected: string[] = [];
       for (const [type, value] of [
-        ['date', '2024-02-30'], ['datetime', '2024-07-01 10:00 IST'],
-        ['datetime', '2024-03-10 02:30 America/New_York'], ['dateRange', '2024-07-03/2024-07-01'],
+        ['date', '2024-02-30'],
+        ['datetime', '2024-07-01 10:00 IST'],
+        ['datetime', '2024-03-10 02:30 America/New_York'],
+        ['dateRange', '2024-07-03/2024-07-01'],
       ] as const) {
         const invalid = ax(s(`bookingNote:string -> parsedDate:${type}`));
-        await assert.rejects(() => invalid.forward(scriptedAI([{ results: [{ index: 0,
-          content: `Parsed Date: ${value}`, finishReason: 'stop' }] }]),
-          { bookingNote: value }, { ...options(ctx), maxRetries: 0 }), /validation|date|range|timezone|invalid/i);
+        await assert.rejects(
+          () =>
+            invalid.forward(
+              scriptedAI([
+                { results: [{ index: 0, content: `Parsed Date: ${value}`, finishReason: 'stop' }] },
+              ]),
+              { bookingNote: value },
+              { ...options(ctx), maxRetries: 0 },
+            ),
+          /validation|date|range|timezone|invalid/i,
+        );
         rejected.push(value);
       }
-      return { result, rejected, proof: 'Parsing and boundary validation, not calendar interpretation quality' };
+      return {
+        result,
+        rejected,
+        proof: 'Parsing and boundary validation, not calendar interpretation quality',
+      };
     },
   },
   {
@@ -223,57 +418,144 @@ export const examples: readonly Example[] = [
     modes: ['offline'],
     async run(ctx) {
       // Tiny owned fixtures test forwarding only, not decoding, vision or speech quality.
-      const signature = f().input('productPhotos', f.image().array())
-        .input('meetingAudio', f.audio()).input('priceSheet', f.file())
-        .input('sourceUrl', f.url()).output('summaryText', f.string()).build();
+      const signature = f()
+        .input('productPhotos', f.image().array())
+        .input('meetingAudio', f.audio())
+        .input('priceSheet', f.file())
+        .input('sourceUrl', f.url())
+        .output('summaryText', f.string())
+        .build();
       // The chat-part metadata is wider than AxAudioInput in this release.
-      const meetingAudio = { data: 'YXVkaW8=', format: 'wav' as const, mimeType: 'audio/wav',
-        sampleRate: 16000, channels: 1, transcription: 'fixture speech', duration: 1 };
+      const meetingAudio = {
+        data: 'YXVkaW8=',
+        format: 'wav' as const,
+        mimeType: 'audio/wav',
+        sampleRate: 16000,
+        channels: 1,
+        transcription: 'fixture speech',
+        duration: 1,
+      };
       const input: AxGenInput<typeof signature> = {
-        productPhotos: [{ mimeType: 'image/png', data: 'aW1hZ2U=', details: 'low', altText: 'fixture swatch', optimize: 'size', cache: true }],
+        productPhotos: [
+          {
+            mimeType: 'image/png',
+            data: 'aW1hZ2U=',
+            details: 'low',
+            altText: 'fixture swatch',
+            optimize: 'size',
+            cache: true,
+          },
+        ],
         meetingAudio,
-        priceSheet: { mimeType: 'text/plain', data: 'UHJpY2U6IDI0', filename: 'price.txt', extractedText: 'Price: 24', cache: true },
+        priceSheet: {
+          mimeType: 'text/plain',
+          data: 'UHJpY2U6IDI0',
+          filename: 'price.txt',
+          extractedText: 'Price: 24',
+          cache: true,
+        },
         sourceUrl: 'https://example.com/catalog',
       };
       let captured = '';
-      const result = await ax(signature).forward(scriptedAI((request) => {
-        captured = JSON.stringify(request.chatPrompt);
-        return { results: [{ index: 0, content: 'Summary Text: Fixture assets received', finishReason: 'stop' }] };
-      }, { media: {
-        images: { supported: true, formats: ['image/png'] },
-        audio: { supported: true, formats: ['wav'] },
-        files: { supported: true, formats: ['text/plain'], uploadMethod: 'inline' },
-        urls: { supported: true, webSearch: false, contextFetching: false },
-      } }), input, options(ctx));
-      for (const marker of ['fixture swatch', 'price.txt', 'fixture speech', '16000']) assert(captured.includes(marker));
-      return { result, forwardedMetadata: ['image details/altText', 'file filename/extractedText', 'audio transcription/sampleRate'], proof: 'request mapping only; fixture bytes are not valid media' };
+      const result = await ax(signature).forward(
+        scriptedAI(
+          (request) => {
+            captured = JSON.stringify(request.chatPrompt);
+            return {
+              results: [
+                {
+                  index: 0,
+                  content: 'Summary Text: Fixture assets received',
+                  finishReason: 'stop',
+                },
+              ],
+            };
+          },
+          {
+            media: {
+              images: { supported: true, formats: ['image/png'] },
+              audio: { supported: true, formats: ['wav'] },
+              files: { supported: true, formats: ['text/plain'], uploadMethod: 'inline' },
+              urls: { supported: true, webSearch: false, contextFetching: false },
+            },
+          },
+        ),
+        input,
+        options(ctx),
+      );
+      for (const marker of ['fixture swatch', 'price.txt', 'fixture speech', '16000'])
+        assert(captured.includes(marker));
+      return {
+        result,
+        forwardedMetadata: [
+          'image details/altText',
+          'file filename/extractedText',
+          'audio transcription/sampleRate',
+        ],
+        proof: 'request mapping only; fixture bytes are not valid media',
+      };
     },
   },
   {
     id: '01-signatures/box-boundaries',
     title: 'Normalized boxes are geometry, not target presence or native confidence',
-    features: ['box', 'box evidence', 'nested boxes', 'optional boxes', 'box arrays', 'geometry validation'],
+    features: [
+      'box',
+      'box evidence',
+      'nested boxes',
+      'optional boxes',
+      'box arrays',
+      'geometry validation',
+    ],
     modes: ['offline'],
     async run(ctx) {
-      const signature = f().input('sceneDescription', f.string())
+      const signature = f()
+        .input('sceneDescription', f.string())
         .output('targetPresent', f.boolean())
         .output('targetRegion', f.box().withEvidence())
         .output('otherRegions', f.box().array())
-        .output('annotation', f.object({ cropRegion: f.box().optional() })).build();
+        .output('annotation', f.object({ cropRegion: f.box().optional() }))
+        .build();
       const box = { top: 0.1, bottom: 0.6, left: 0.2, right: 0.8 };
-      const result = await ax(signature).forward(scriptedAI([json({ targetPresent: true,
-        targetRegion: { box }, otherRegions: [box], annotation: { cropRegion: box } })], { structuredOutputs: true }),
-        { sceneDescription: 'A target occupies x=20..80, y=10..60 in a 100x100 image' }, options(ctx));
+      const result = await ax(signature).forward(
+        scriptedAI(
+          [
+            json({
+              targetPresent: true,
+              targetRegion: { box },
+              otherRegions: [box],
+              annotation: { cropRegion: box },
+            }),
+          ],
+          { structuredOutputs: true },
+        ),
+        { sceneDescription: 'A target occupies x=20..80, y=10..60 in a 100x100 image' },
+        options(ctx),
+      );
       assert.equal(result.targetPresent, true);
       assert.deepEqual(result.targetRegion.value, box);
       assert.equal(result.targetRegion.confidence, undefined);
       assert.equal(result.targetRegion.provenance.source, 'elicited');
-      for (const invalid of [{ ...box, left: 0.9 }, { ...box, top: 0.6 }, { ...box, right: 1.1 }]) {
-        await assert.rejects(() => ax('sceneDescription:string -> targetRegion:box').forward(
-          scriptedAI([json({ targetRegion: invalid })], { structuredOutputs: true }),
-          { sceneDescription: 'Invalid geometry fixture' }, { ...options(ctx), maxRetries: 0 }), /box|validation|coordinate|left|top|right/i);
+      for (const invalid of [
+        { ...box, left: 0.9 },
+        { ...box, top: 0.6 },
+        { ...box, right: 1.1 },
+      ]) {
+        await assert.rejects(
+          () =>
+            ax('sceneDescription:string -> targetRegion:box').forward(
+              scriptedAI([json({ targetRegion: invalid })], { structuredOutputs: true }),
+              { sceneDescription: 'Invalid geometry fixture' },
+              { ...options(ctx), maxRetries: 0 },
+            ),
+          /box|validation|coordinate|left|top|right/i,
+        );
       }
-      return { result, pixels: { x: box.left * 100, y: box.top * 100, width: (box.right - box.left) * 100 }, proof: 'geometry only; no image localization was performed' };
+      return {
+        result,
+        pixels: { x: box.left * 100, y: box.top * 100, width: (box.right - box.left) * 100 },
+        proof: 'geometry only; no image localization was performed',
+      };
     },
   },
   {
@@ -294,7 +576,11 @@ export const examples: readonly Example[] = [
       ];
       for (const contract of invalid) assert.throws(() => s(contract));
       const description = 'Keep "quotes" and \\ paths';
-      const sig = f().description(description).input('requestText', f.string()).output('answerText', f.string()).build();
+      const sig = f()
+        .description(description)
+        .input('requestText', f.string())
+        .output('answerText', f.string())
+        .build();
       assert.equal(s(sig.toString()).getDescription(), description);
       return { rejectedContracts: invalid.length, descriptionRoundTrip: true };
     },

@@ -101,7 +101,7 @@ const llm = ai({
 
 ### Chrome Built-in AI (TypeScript/JavaScript only)
 
-The `chrome-ai` provider calls Chrome's browser `LanguageModel` API and runs Gemini Nano locally without an API key. It is available only to the TypeScript/JavaScript package inside Chrome, not to Node.js or the generated Python, Java, C++, Go, and Rust packages. It has a browser-only AxIR exemption; do not add it to portable provider catalogs or migration backlogs.
+The `chrome-ai` provider calls Chrome's browser `LanguageModel` API and runs Gemini Nano locally without an API key. It is available only to the TypeScript/JavaScript package inside Chrome, not to server-side JavaScript runtimes such as Bun or Node.js, or to the generated Python, Java, C++, Go, and Rust packages. It has a browser-only AxIR exemption; do not add it to portable provider catalogs or migration backlogs.
 
 ```typescript
 import { ai, ax } from '@ax-llm/ax';
@@ -856,7 +856,7 @@ const result = await generateText({
 });
 ```
 
-The package for the [integration examples](../examples/34-vercel.ts) pins `@ax-llm/ax-ai-sdk-provider@25.4.13` with `ai@7.0.2` on Node ≥22.18. Keep their shared provider types coherent; the example package pins `@ai-sdk/provider@4.0.0` and `@ai-sdk/provider-utils@5.0.0` through overrides.
+The [integration examples](../examples/34-vercel.ts) run under Bun with `@ax-llm/ax-ai-sdk-provider@25.4.13` and `ai@7.0.2`. Both packages publish `engines.node: ">=22"`; that metadata applies to Node, and these Bun fixtures do not require a Node runtime. Keep their shared provider types coherent; the example package pins `@ai-sdk/provider@4.0.0` and `@ai-sdk/provider-utils@5.0.0` through overrides.
 
 This adapter's `createChatRequest` drops `abortSignal`, `providerOptions` and `responseFormat`; sampling fields are not forwarded through Ax's `modelConfig`. Vercel typed-output validation is client-side, not native schema enforcement. Do not assume transport cancellation or provider-option forwarding from the higher-level call. See the [pinned adapter implementation](https://unpkg.com/@ax-llm/ax-ai-sdk-provider@25.4.13/index.js). The examples use actual adapter/SDK algorithms with explicitly scripted model I/O, not live cross-provider qualification.
 
@@ -964,13 +964,13 @@ The standalone [OpenAI Decisions wire case](../examples/06-decisions.ts) uses th
 
 Both interfaces accept `apiURL` including `/v1` (default `https://api.openai.com/v1`) and renewable credentials. Native and adapter transport options support fetch, timeout, retry, and cancellation. Both instance and per-call cancellation apply to native requests. Credential-provider headers override static credentials and native custom headers regardless of header-name capitalization. Native requests can include `safety_identifier`; adapter instances accept `safetyIdentifier`. Unsupported requests are excluded from router/balancer selection and fallbacks.
 
-In an Ax source checkout, run the upstream examples from its repository root:
+In an Ax source checkout, run the upstream examples from its repository root. Supply approved credentials through the environment; these commands do not automatically load `.env` files:
 
 ```bash
-bun run tsx src/examples/typescript/generation/decision-evidence.ts
-bun run tsx src/examples/typescript/generation/openai-decisions.ts
-bun run tsx src/examples/typescript/generation/openai-decisions-native.ts
-bun run tsx src/examples/typescript/generation/openai-decisions-image.ts
+bun --no-env-file src/examples/typescript/generation/decision-evidence.ts
+bun --no-env-file src/examples/typescript/generation/openai-decisions.ts
+bun --no-env-file src/examples/typescript/generation/openai-decisions-native.ts
+bun --no-env-file src/examples/typescript/generation/openai-decisions-image.ts
 ```
 
 They use `OPENAI_API_KEY` or `OPENAI_APIKEY`. Python, Java, C++, Go, and Rust also support the signature adapter and native ordered questions. Their native factories are `openai_decisions`, `Ax.openaiDecisions`, `axllm::openai_decisions`, `axllm.OpenAIDecisions`, and `openai_decisions`, respectively. Native requests and responses use the language JSON map/value representation and preserve refusals and all usage fields. Runnable examples are under each language generation directory as `openai-decisions` and `openai-decisions-native` (Java uses `OpenAIDecisionsExample` and `OpenAIDecisionsNativeExample`). See the [Decisions guide](https://developers.openai.com/api/docs/guides/decisions) for the current provider contract and availability.

@@ -1,9 +1,9 @@
 import {
-  AxMockAIService,
   type AxAIService,
   type AxAITypesafeClient,
   type AxChatRequest,
   type AxChatResponse,
+  AxMockAIService,
   type AxMockAIServiceConfig,
   type AxProgramForwardOptions,
 } from '@ax-llm/ax';
@@ -24,14 +24,18 @@ export interface Example {
   readonly title: string;
   readonly features: readonly string[];
   readonly modes: readonly ExampleMode[];
+  /** Declared modes that require the Node execution lane rather than Bun. */
+  readonly nodeOnly?: readonly ExampleMode[];
   run(ctx: ExampleContext): Promise<unknown>;
 }
 
 type ScriptResult = AxChatResponse | ReadableStream<AxChatResponse>;
-type Script = readonly AxChatResponse[] | ((
-  request: Readonly<AxChatRequest<unknown>>,
-  index: number,
-) => ScriptResult | Promise<ScriptResult>);
+type Script =
+  | readonly AxChatResponse[]
+  | ((
+      request: Readonly<AxChatRequest<unknown>>,
+      index: number,
+    ) => ScriptResult | Promise<ScriptResult>);
 type FixtureFeatures = AxMockAIServiceConfig<string>['features'];
 
 /** Explicit scripted model I/O; fixtures make no claim about model quality. */

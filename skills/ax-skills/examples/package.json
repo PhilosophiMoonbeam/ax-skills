@@ -3,15 +3,31 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "engines": {
-    "node": ">=22.18.0"
-  },
+  "files": [
+    "[0-9][0-9]-*.ts",
+    "support.ts",
+    "run.ts",
+    "tsconfig.json",
+    "biome.jsonc",
+    "bunfig.toml",
+    "browser/"
+  ],
   "scripts": {
-    "check": "tsc --noEmit",
-    "list": "node --import tsx run.ts --list",
-    "offline": "node --import tsx run.ts",
-    "live": "node --import tsx run.ts --live",
-    "build:browser": "esbuild browser/chrome-ai.ts --bundle --platform=browser --conditions=browser --format=esm --target=chrome138 --external:node:* --outfile=browser/dist/chrome-ai.js"
+    "build:browser": "bun build --no-env-file browser/chrome-ai.ts --target=browser --conditions=browser --format=esm --external='node:*' --outfile=browser/dist/chrome-ai.js",
+    "check": "bun --bun --no-env-file --no-install ./node_modules/@biomejs/biome/bin/biome ci --error-on-warnings && bun run --no-env-file typecheck",
+    "format": "bun --bun --no-env-file --no-install ./node_modules/@biomejs/biome/bin/biome check --write",
+    "lint": "bun --bun --no-env-file --no-install ./node_modules/@biomejs/biome/bin/biome lint --error-on-warnings",
+    "list": "bun --no-env-file --no-install run.ts --list",
+    "live": "bun --no-env-file --no-install run.ts --live",
+    "live:node": "node run.ts --live",
+    "offline": "bun --no-env-file --no-install run.ts",
+    "offline:node": "node run.ts",
+    "setup:sqlite": "bun run --no-env-file --cwd node_modules/better-sqlite3 install",
+    "typecheck": "bun --bun --no-env-file --no-install ./node_modules/typescript/bin/tsc --noEmit"
+  },
+  "overrides": {
+    "@ai-sdk/provider": "4.0.0",
+    "@ai-sdk/provider-utils": "5.0.0"
   },
   "dependencies": {
     "@ax-llm/ax": "25.4.13",
@@ -23,23 +39,13 @@
     "zod": "4.1.11"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.6.8",
     "@types/node": "22.18.6",
-    "esbuild": "0.25.12",
-    "tsx": "4.20.6",
     "typescript": "5.9.3"
   },
-  "files": [
-    "[0-9][0-9]-*.ts",
-    "support.ts",
-    "run.ts",
-    "tsconfig.json",
-    "browser/"
-  ],
-  "overrides": {
-    "@ai-sdk/provider": "4.0.0",
-    "@ai-sdk/provider-utils": "5.0.0"
+  "packageManager": "bun@1.4.5",
+  "engines": {
+    "bun": "1.4.5"
   },
-  "trustedDependencies": [
-    "better-sqlite3"
-  ]
+  "trustedDependencies": []
 }

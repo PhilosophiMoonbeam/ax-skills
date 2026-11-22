@@ -3,11 +3,22 @@ import { generateKeyPairSync, sign } from 'node:crypto';
 import { once } from 'node:events';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import {
-  agent, ax, flow, axSignUCPRequest, AxUCPClient, AxUCPWebhookEventSource,
-  AxInMemoryEventStore, eventPath, eventRoute, eventRuntime, eventTarget,
-  type AxEventPublishReceipt, type AxEventRuntime, type AxUCPProfile,
+  type AxEventPublishReceipt,
+  type AxEventRuntime,
+  AxInMemoryEventStore,
+  AxUCPClient,
+  type AxUCPProfile,
+  AxUCPWebhookEventSource,
+  agent,
+  ax,
+  axSignUCPRequest,
+  eventPath,
+  eventRoute,
+  eventRuntime,
+  eventTarget,
+  flow,
 } from '@ax-llm/ax';
-import { options, scriptedAI, type Example } from './support.js';
+import { type Example, options, scriptedAI } from './support.ts';
 
 // Select either 35-ucp case in the collection's offline runner. No merchant
 // account, credentials or purchases: owned loopback exposes one cart read.
@@ -22,7 +33,11 @@ interface SignedWebhook {
 }
 const key = (kid: string) => {
   const pair = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
-  return { privateKey: pair.privateKey, publicJWK: { ...pair.publicKey.export({ format: 'jwk' }), kid, alg: 'ES256' }, kid };
+  return {
+    privateKey: pair.privateKey,
+    publicJWK: { ...pair.publicKey.export({ format: 'jwk' }), kid, alg: 'ES256' },
+    kid,
+  };
 };
 const object = (value: unknown): Record<string, unknown> => {
   assert(value !== null && typeof value === 'object' && !Array.isArray(value));
@@ -67,15 +82,28 @@ async function merchant() {
     });
   });
   async function handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
-    assert.equal(request.headers.host, new URL(origin).host, 'Bind the HTTP host, not a forwarded/payload host');
+    assert.equal(
+      request.headers.host,
+      new URL(origin).host,
+      'Bind the HTTP host, not a forwarded/payload host',
+    );
     if (request.method === 'GET' && request.url === '/.well-known/ucp') {
       profileReads++;
       const profile: AxUCPProfile = {
-        ucp: { version, services: { 'dev.ucp.shopping': [{ version, transport: 'mcp', endpoint: `${origin}/mcp` }] },
-          capabilities: { 'dev.ucp.shopping.cart': [{ version }], 'dev.ucp.shopping.order': [{ version }] } },
+        ucp: {
+          version,
+          services: {
+            'dev.ucp.shopping': [{ version, transport: 'mcp', endpoint: `${origin}/mcp` }],
+          },
+          capabilities: {
+            'dev.ucp.shopping.cart': [{ version }],
+            'dev.ucp.shopping.order': [{ version }],
+          },
+        },
         signing_keys: [activeKey.publicJWK],
       };
-      json(response, 200, profile); return;
+      json(response, 200, profile);
+      return;
     }
     if (request.method === 'POST' && request.url === '/hooks/account-a') {
       assert(webhook, 'Install the application ingress before accepting webhooks');
@@ -83,64 +111,124 @@ async function merchant() {
       for (const [name, value] of Object.entries(request.headers)) {
         if (typeof value === 'string') headers.set(name, value);
       }
-      const incoming = new Request(`${origin}/hooks/account-a`, { method: 'POST', headers, body: await bodyOf(request) });
-      try { json(response, 202, await webhook(incoming)); }
-      catch (error) { json(response, 401, { rejected: error instanceof Error ? error.message : String(error) }); }
+      const incoming = new Request(`${origin}/hooks/account-a`, {
+        method: 'POST',
+        headers,
+        body: await bodyOf(request),
+      });
+      try {
+        json(response, 202, await webhook(incoming));
+      } catch (error) {
+        json(response, 401, { rejected: error instanceof Error ? error.message : String(error) });
+      }
       return;
     }
-    if (request.url !== '/mcp') { json(response, 404, { error: 'Unknown owned route' }); return; }
+    if (request.url !== '/mcp') {
+      json(response, 404, { error: 'Unknown owned route' });
+      return;
+    }
     if (request.method === 'DELETE') {
       assert.equal(request.headers['mcp-session-id'], session);
-      sessionDeletes++; response.writeHead(200); response.end(); return;
+      sessionDeletes++;
+      response.writeHead(200);
+      response.end();
+      return;
     }
-    if (request.method === 'GET') { response.writeHead(405); response.end(); return; }
+    if (request.method === 'GET') {
+      response.writeHead(405);
+      response.end();
+      return;
+    }
     assert.equal(request.method, 'POST');
     const message = object(JSON.parse(await bodyOf(request)));
     if (message.method === 'initialize') {
       initializations++;
       response.setHeader('Mcp-Session-Id', session);
-      json(response, 200, { jsonrpc: '2.0', id: message.id, result: {
-        protocolVersion: '2025-11-25', capabilities: { tools: {} },
-        serverInfo: { name: 'owned-read-only-merchant', version: '1.0' },
-      } }); return;
+      json(response, 200, {
+        jsonrpc: '2.0',
+        id: message.id,
+        result: {
+          protocolVersion: '2025-11-25',
+          capabilities: { tools: {} },
+          serverInfo: { name: 'owned-read-only-merchant', version: '1.0' },
+        },
+      });
+      return;
     }
     assert.equal(request.headers['mcp-session-id'], session);
     sessions.push(String(request.headers['mcp-session-id']));
-    if (message.method === 'notifications/initialized' || message.method === 'notifications/cancelled') {
-      response.writeHead(202); response.end(); return;
+    if (
+      message.method === 'notifications/initialized' ||
+      message.method === 'notifications/cancelled'
+    ) {
+      response.writeHead(202);
+      response.end();
+      return;
     }
-    const reply = (result: unknown) => json(response, 200, { jsonrpc: '2.0', id: message.id, result });
+    const reply = (result: unknown) =>
+      json(response, 200, { jsonrpc: '2.0', id: message.id, result });
     if (message.method === 'tools/list') {
-      reply({ tools: [{ name: 'get_cart', description: 'Read the owned fixture cart; never purchase',
-        inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
-        annotations: { readOnlyHint: true } }] }); return;
+      reply({
+        tools: [
+          {
+            name: 'get_cart',
+            description: 'Read the owned fixture cart; never purchase',
+            inputSchema: {
+              type: 'object',
+              properties: { id: { type: 'string' } },
+              required: ['id'],
+            },
+            annotations: { readOnlyHint: true },
+          },
+        ],
+      });
+      return;
     }
-    if (message.method === 'ping') { reply({}); return; }
+    if (message.method === 'ping') {
+      reply({});
+      return;
+    }
     if (message.method !== 'tools/call') {
-      json(response, 200, { jsonrpc: '2.0', id: message.id, error: { code: -32601, message: 'Unsupported fixture method' } }); return;
+      json(response, 200, {
+        jsonrpc: '2.0',
+        id: message.id,
+        error: { code: -32601, message: 'Unsupported fixture method' },
+      });
+      return;
     }
     const params = object(message.params);
     const args = object(params.arguments);
     if (params.name !== 'get_cart' || !['cart-35', 'wait'].includes(String(args.id))) {
-      json(response, 200, { jsonrpc: '2.0', id: message.id, error: { code: -32602, message: 'Only owned cart reads are permitted' } }); return;
+      json(response, 200, {
+        jsonrpc: '2.0',
+        id: message.id,
+        error: { code: -32602, message: 'Only owned cart reads are permitted' },
+      });
+      return;
     }
     // UCP, not the model, injects the platform profile in protocol metadata.
     assert.equal(object(object(args.meta)['ucp-agent']).profile, `${origin}/platform-profile`);
     if (args.id === 'wait') {
-      delayedResponse = response; delayedStarted.resolve();
+      delayedResponse = response;
+      delayedStarted.resolve();
       // Finite owned request; cancellation closes this response first.
-      const deadline = setTimeout(() => { if (!response.destroyed) reply({ content: [], structuredContent: cart }); }, 3000);
+      const deadline = setTimeout(() => {
+        if (!response.destroyed) reply({ content: [], structuredContent: cart });
+      }, 3000);
       response.once('close', () => clearTimeout(deadline));
       return;
     }
     cartReads++;
-    reply({ content: [{ type: 'text', text: 'Untrusted merchant cart data' }], structuredContent: cart });
+    reply({
+      content: [{ type: 'text', text: 'Untrusted merchant cart data' }],
+      structuredContent: cart,
+    });
   }
   async function closeServer(): Promise<void> {
     delayedResponse?.destroy();
     if (!server.listening) return;
     const closed = Promise.withResolvers<void>();
-    server.close((error) => error ? closed.reject(error) : closed.resolve());
+    server.close((error) => (error ? closed.reject(error) : closed.resolve()));
     server.closeAllConnections();
     await closed.promise;
   }
@@ -151,47 +239,116 @@ async function merchant() {
     assert(address && typeof address !== 'string');
     origin = `http://127.0.0.1:${address.port}`;
     const profileUrl = `${origin}/.well-known/ucp`;
-    const client = new AxUCPClient({ profileUrl, agentProfile: `${origin}/platform-profile`, namespace: 'merchant',
-      evaluationMode: 'sandbox', webhookMaxAgeSeconds: 60,
-      mcp: { timeoutMs: 3000, retry: false, ssrfProtection: { allowHTTP: true, allowLoopback: true,
-        validateURL(url) { assert.equal(url.origin, origin); } } },
+    const client = new AxUCPClient({
+      profileUrl,
+      agentProfile: `${origin}/platform-profile`,
+      namespace: 'merchant',
+      evaluationMode: 'sandbox',
+      webhookMaxAgeSeconds: 60,
+      mcp: {
+        timeoutMs: 3000,
+        retry: false,
+        ssrfProtection: {
+          allowHTTP: true,
+          allowLoopback: true,
+          validateURL(url) {
+            assert.equal(url.origin, origin);
+          },
+        },
+      },
     });
     return {
-      client, origin, profileUrl, delayedStarted: delayedStarted.promise,
-      installWebhook(handler: NonNullable<typeof webhook>) { webhook = handler; },
-      rotate() { activeKey = key('rotated-key'); },
-      stats: () => ({ profileReads, initializations, cartReads, sessionDeletes, sessions: [...sessions] }),
-      async signedWebhook(id: string, extra: Record<string, unknown> = {}, timestamp = Math.floor(Date.now() / 1000),
-        parameterOrder: 'default' | 'created-last' = 'default'): Promise<SignedWebhook> {
-        const body = JSON.stringify({ ucp: { version }, id: 'order-35', checkout_id: 'checkout-35', status: 'updated',
-          tenantId: 'payload-attacker', accountId: 'payload-attacker', ...extra });
+      client,
+      origin,
+      profileUrl,
+      delayedStarted: delayedStarted.promise,
+      installWebhook(handler: NonNullable<typeof webhook>) {
+        webhook = handler;
+      },
+      rotate() {
+        activeKey = key('rotated-key');
+      },
+      stats: () => ({
+        profileReads,
+        initializations,
+        cartReads,
+        sessionDeletes,
+        sessions: [...sessions],
+      }),
+      async signedWebhook(
+        id: string,
+        extra: Record<string, unknown> = {},
+        timestamp = Math.floor(Date.now() / 1000),
+        parameterOrder: 'default' | 'created-last' = 'default',
+      ): Promise<SignedWebhook> {
+        const body = JSON.stringify({
+          ucp: { version },
+          id: 'order-35',
+          checkout_id: 'checkout-35',
+          status: 'updated',
+          tenantId: 'payload-attacker',
+          accountId: 'payload-attacker',
+          ...extra,
+        });
         const url = `${origin}/hooks/account-a`;
         let reorderedInput: string | undefined;
-        const headers = await axSignUCPRequest({ url, method: 'POST', body, headers: {
-          'UCP-Agent': `profile="${profileUrl}"`, 'Request-Id': id,
-          'Webhook-Id': id, 'Webhook-Timestamp': String(timestamp),
-        } }, { keyId: activeKey.kid, algorithm: 'ES256', created: () => timestamp, nonce: () => id,
-          components: ['@method', '@authority', '@path', 'ucp-agent', 'request-id', 'content-digest', 'content-type'],
-          sign: (base, { signatureInput }) => {
-            if (parameterOrder === 'default') {
-              return sign('sha256', base, { key: activeKey.privateKey, dsaEncoding: 'ieee-p1363' });
-            }
-            // A merchant may legally put created last. Sign the reordered
-            // parameter bytes, then emit that exact order in Signature-Input.
-            const parameters = `${signatureInput.replace(/;created=\d+/, '')};created=${timestamp}`;
-            const originalTail = `"@signature-params": ${signatureInput}`;
-            const text = Buffer.from(base).toString('utf8');
-            assert(text.endsWith(originalTail));
-            const reorderedBase = `${text.slice(0, -originalTail.length)}"@signature-params": ${parameters}`;
-            reorderedInput = `sig1=${parameters}`;
-            return sign('sha256', Buffer.from(reorderedBase), { key: activeKey.privateKey, dsaEncoding: 'ieee-p1363' });
+        const headers = await axSignUCPRequest(
+          {
+            url,
+            method: 'POST',
+            body,
+            headers: {
+              'UCP-Agent': `profile="${profileUrl}"`,
+              'Request-Id': id,
+              'Webhook-Id': id,
+              'Webhook-Timestamp': String(timestamp),
+            },
           },
-        });
+          {
+            keyId: activeKey.kid,
+            algorithm: 'ES256',
+            created: () => timestamp,
+            nonce: () => id,
+            components: [
+              '@method',
+              '@authority',
+              '@path',
+              'ucp-agent',
+              'request-id',
+              'content-digest',
+              'content-type',
+            ],
+            sign: (base, { signatureInput }) => {
+              if (parameterOrder === 'default') {
+                return sign('sha256', base, {
+                  key: activeKey.privateKey,
+                  dsaEncoding: 'ieee-p1363',
+                });
+              }
+              // A merchant may legally put created last. Sign the reordered
+              // parameter bytes, then emit that exact order in Signature-Input.
+              const parameters = `${signatureInput.replace(/;created=\d+/, '')};created=${timestamp}`;
+              const originalTail = `"@signature-params": ${signatureInput}`;
+              const text = Buffer.from(base).toString('utf8');
+              assert(text.endsWith(originalTail));
+              const reorderedBase = `${text.slice(0, -originalTail.length)}"@signature-params": ${parameters}`;
+              reorderedInput = `sig1=${parameters}`;
+              return sign('sha256', Buffer.from(reorderedBase), {
+                key: activeKey.privateKey,
+                dsaEncoding: 'ieee-p1363',
+              });
+            },
+          },
+        );
         if (reorderedInput !== undefined) headers['Signature-Input'] = reorderedInput;
         return { url, body, headers };
       },
       async close() {
-        try { await client.close(); } finally { await closeServer(); }
+        try {
+          await client.close();
+        } finally {
+          await closeServer();
+        }
         assert.deepEqual(errors, [], 'Owned merchant protocol must not fail silently');
       },
     };
@@ -213,23 +370,44 @@ function bindWebhookHeaders(request: Request): void {
   // Bounded application policy: exactly one sig1 member, simple quoted
   // component names and unambiguous parameters. Do not search across labels:
   // the pinned SDK verifies the first member, not an arbitrary later created.
-  const member = /^sig1=\(((?:"[@a-z0-9-]+"(?: "[@a-z0-9-]+")*))\)((?:;[a-z][a-z0-9_-]*=(?:"[^"\\,;\r\n]*"|\d+))*)$/.exec(input);
+  const member =
+    /^sig1=\(((?:"[@a-z0-9-]+"(?: "[@a-z0-9-]+")*))\)((?:;[a-z][a-z0-9_-]*=(?:"[^"\\,;\r\n]*"|\d+))*)$/.exec(
+      input,
+    );
   assert(member, 'Require exactly one unambiguous sig1 Signature-Input member');
-  assert(/^sig1=:[A-Za-z0-9+/]+={0,2}:$/.test(request.headers.get('Signature') ?? ''),
-    'Require exactly one matching sig1 Signature member');
-  const components = [...member[1]!.matchAll(/"([^"]+)"/g)].map((match) => match[1]!);
-  assert.equal(new Set(components).size, components.length, 'Duplicate signature components are ambiguous');
+  assert(
+    /^sig1=:[A-Za-z0-9+/]+={0,2}:$/.test(request.headers.get('Signature') ?? ''),
+    'Require exactly one matching sig1 Signature member',
+  );
+  const [, componentList, parameterList] = member;
+  assert(componentList !== undefined && parameterList !== undefined, 'Require both sig1 captures');
+  const components = Array.from(componentList.matchAll(/"([^"]+)"/g), ([, component]) => {
+    assert(component !== undefined, 'Require a signature component capture');
+    return component;
+  });
+  assert.equal(
+    new Set(components).size,
+    components.length,
+    'Duplicate signature components are ambiguous',
+  );
   assert(components.includes('request-id') && components.includes('ucp-agent'));
   const parameters = new Map<string, string>();
-  for (const parameter of member[2]!.matchAll(/;([a-z][a-z0-9_-]*)=("[^"\\,;\r\n]*"|\d+)/g)) {
-    const name = parameter[1]!;
-    assert(['created', 'keyid', 'alg', 'nonce', 'expires'].includes(name), 'Unsupported signature parameter');
+  for (const [, name, value] of parameterList.matchAll(
+    /;([a-z][a-z0-9_-]*)=("[^"\\,;\r\n]*"|\d+)/g,
+  )) {
+    assert(name !== undefined && value !== undefined, 'Require both signature parameter captures');
+    assert(
+      ['created', 'keyid', 'alg', 'nonce', 'expires'].includes(name),
+      'Unsupported signature parameter',
+    );
     assert(!parameters.has(name), 'Duplicate signature parameters are ambiguous');
-    parameters.set(name, parameter[2]!);
+    parameters.set(name, value);
   }
   const created = parameters.get('created');
-  assert(created && /^\d+$/.test(created) && Number.isSafeInteger(Number(created)),
-    'Require one integer created parameter from the verified sig1 member');
+  assert(
+    created && /^\d+$/.test(created) && Number.isSafeInteger(Number(created)),
+    'Require one integer created parameter from the verified sig1 member',
+  );
   const requestId = request.headers.get('Request-Id');
   assert(requestId, 'Require a signed request ID');
   assert.equal(request.headers.get('Webhook-Id'), requestId);
@@ -238,8 +416,20 @@ function bindWebhookHeaders(request: Request): void {
 
 export const examples: readonly Example[] = [
   {
-    id: '35-ucp/verified-webhook', title: 'Verify a rotating merchant key before host-bound tenant routing',
-    features: ['UCP', 'AxUCPWebhookEventSource', 'RFC9421', 'digest', 'freshness', 'key-rotation', 'replay', 'trusted-identity', 'eventTarget', 'stored-result'],
+    id: '35-ucp/verified-webhook',
+    title: 'Verify a rotating merchant key before host-bound tenant routing',
+    features: [
+      'UCP',
+      'AxUCPWebhookEventSource',
+      'RFC9421',
+      'digest',
+      'freshness',
+      'key-rotation',
+      'replay',
+      'trusted-identity',
+      'eventTarget',
+      'stored-result',
+    ],
     modes: ['offline'],
     async run(ctx) {
       const owned = await merchant();
@@ -247,12 +437,16 @@ export const examples: readonly Example[] = [
       try {
         let enqueued = 0;
         class CountingStore extends AxInMemoryEventStore {
-          override enqueue(...args: Parameters<AxInMemoryEventStore['enqueue']>) { enqueued++; return super.enqueue(...args); }
+          override enqueue(...args: Parameters<AxInMemoryEventStore['enqueue']>) {
+            enqueued++;
+            return super.enqueue(...args);
+          }
         }
         const store = new CountingStore();
         let identityResolutions = 0;
         let businessRuns = 0;
-        const source = new AxUCPWebhookEventSource({ client: owned.client,
+        const source = new AxUCPWebhookEventSource({
+          client: owned.client,
           identity(_event, request) {
             identityResolutions++;
             // Trusted application registration for this exact host/route/signer,
@@ -262,24 +456,68 @@ export const examples: readonly Example[] = [
             return { tenantId: 'tenant-a', accountId: 'account-a' };
           },
         });
-        const business = ax('orderEventId:string, tenant:string, account:string -> orderId:string, disposition:string');
+        const business = ax(
+          'orderEventId:string, tenant:string, account:string -> orderId:string, disposition:string',
+        );
         const model = scriptedAI((request) => {
           businessRuns++;
           const prompt = JSON.stringify(request.chatPrompt);
-          assert(prompt.includes('tenant-a') && prompt.includes('account-a') && !prompt.includes('payload-attacker'));
-          return { results: [{ index: 0, content: 'Order Id: order-35\nDisposition: Review recorded; no purchase or shipment performed.' }] };
+          assert(
+            prompt.includes('tenant-a') &&
+              prompt.includes('account-a') &&
+              !prompt.includes('payload-attacker'),
+          );
+          return {
+            results: [
+              {
+                index: 0,
+                content:
+                  'Order Id: order-35\nDisposition: Review recorded; no purchase or shipment performed.',
+              },
+            ],
+          };
         });
-        const target = eventTarget('order-review').program(business).ai(model).forwardOptions(options(ctx))
-          .input((input) => input.field('orderEventId', eventPath.data('id'))
-            .field('tenant', eventPath.identity('tenantId')).field('account', eventPath.identity('accountId'))).build();
-        runtime = eventRuntime({ store, sources: [source], allowVolatile: true, maxAttempts: 1,
-          routes: [eventRoute('owned-orders').sources(owned.profileUrl).types('ucp.order.updated').authenticated()
-            .authorize(({ identity }) => identity?.tenantId === 'tenant-a' && identity.accountId === 'account-a')
-            .instanceKey(eventPath.subject()).wake(target).build()],
+        const target = eventTarget('order-review')
+          .program(business)
+          .ai(model)
+          .forwardOptions(options(ctx))
+          .input((input) =>
+            input
+              .field('orderEventId', eventPath.data('id'))
+              .field('tenant', eventPath.identity('tenantId'))
+              .field('account', eventPath.identity('accountId')),
+          )
+          .build();
+        runtime = eventRuntime({
+          store,
+          sources: [source],
+          allowVolatile: true,
+          maxAttempts: 1,
+          routes: [
+            eventRoute('owned-orders')
+              .sources(owned.profileUrl)
+              .types('ucp.order.updated')
+              .authenticated()
+              .authorize(
+                ({ identity }) =>
+                  identity?.tenantId === 'tenant-a' && identity.accountId === 'account-a',
+              )
+              .instanceKey(eventPath.subject())
+              .wake(target)
+              .build(),
+          ],
         });
-        owned.installWebhook(async (request) => { bindWebhookHeaders(request); return source.ingest(request, ctx.signal); });
+        owned.installWebhook(async (request) => {
+          bindWebhookHeaders(request);
+          return source.ingest(request, ctx.signal);
+        });
         const send = async (signed: SignedWebhook) => {
-          const response = await fetch(signed.url, { method: 'POST', headers: signed.headers, body: signed.body, signal: ctx.signal });
+          const response = await fetch(signed.url, {
+            method: 'POST',
+            headers: signed.headers,
+            body: signed.body,
+            signal: ctx.signal,
+          });
           return { status: response.status, body: object(await response.json()) };
         };
         await runtime.start();
@@ -289,9 +527,22 @@ export const examples: readonly Example[] = [
         const damaged = { ...valid, body: valid.body.replace('order-35', 'order-99') };
         assert.equal((await send(damaged)).status, 401, 'Digest mismatch must precede enqueue');
         const forged = await owned.signedWebhook('forged');
-        assert.equal((await send({ ...forged, headers: { ...forged.headers, Signature: 'sig1=:AAAA:' } })).status, 401);
-        assert.equal((await send(await owned.signedWebhook('expired', {}, Math.floor(Date.now() / 1000) - 120))).status, 401);
-        assert.equal(enqueued, 0); assert.equal(identityResolutions, 0); assert.equal(businessRuns, 0);
+        assert.equal(
+          (await send({ ...forged, headers: { ...forged.headers, Signature: 'sig1=:AAAA:' } }))
+            .status,
+          401,
+        );
+        assert.equal(
+          (
+            await send(
+              await owned.signedWebhook('expired', {}, Math.floor(Date.now() / 1000) - 120),
+            )
+          ).status,
+          401,
+        );
+        assert.equal(enqueued, 0);
+        assert.equal(identityResolutions, 0);
+        assert.equal(businessRuns, 0);
         const accepted = await send(valid);
         assert.equal(accepted.status, 202);
         await runtime.waitForIdle();
@@ -302,16 +553,40 @@ export const examples: readonly Example[] = [
         const run = await runtime.getRun(delivery.runId);
         assert(run);
         assert.equal(run?.status, 'succeeded', run?.error);
-        assert.deepEqual(run.output, { orderId: 'order-35', disposition: 'Review recorded; no purchase or shipment performed.' });
-        assert.equal((await send(valid)).status, 401, 'Client rejects an accepted Webhook-Id replay');
-        assert.equal((await send({ ...valid, headers: { ...valid.headers, 'Webhook-Id': 'changed-id' } })).status, 401,
-          'Host rejects replay-header mutation before calling ingest');
-        assert.equal(enqueued, 1); assert.equal(identityResolutions, 1); assert.equal(businessRuns, 1);
+        assert.deepEqual(run.output, {
+          orderId: 'order-35',
+          disposition: 'Review recorded; no purchase or shipment performed.',
+        });
+        assert.equal(
+          (await send(valid)).status,
+          401,
+          'Client rejects an accepted Webhook-Id replay',
+        );
+        assert.equal(
+          (await send({ ...valid, headers: { ...valid.headers, 'Webhook-Id': 'changed-id' } }))
+            .status,
+          401,
+          'Host rejects replay-header mutation before calling ingest',
+        );
+        assert.equal(enqueued, 1);
+        assert.equal(identityResolutions, 1);
+        assert.equal(businessRuns, 1);
         assert.equal(owned.stats().profileReads, 2, 'Missing key triggers real discovery refresh');
-        return { status: run.status, output: run.output, enqueued, rejected: 5, keyRotation: true,
-          boundary: 'Owned fixture only. Volatile inbox and process-local webhook replay state are not restart durability; deploy durable replay/idempotency policy and HTTPS.' };
+        return {
+          status: run.status,
+          output: run.output,
+          enqueued,
+          rejected: 5,
+          keyRotation: true,
+          boundary:
+            'Owned fixture only. Volatile inbox and process-local webhook replay state are not restart durability; deploy durable replay/idempotency policy and HTTPS.',
+        };
       } finally {
-        try { await runtime?.close({ drain: false }); } finally { await owned.close(); }
+        try {
+          await runtime?.close({ drain: false });
+        } finally {
+          await owned.close();
+        }
       }
     },
   },
@@ -328,10 +603,14 @@ export const examples: readonly Example[] = [
         let identityResolutions = 0;
         let businessRuns = 0;
         class CountingStore extends AxInMemoryEventStore {
-          override enqueue(...args: Parameters<AxInMemoryEventStore['enqueue']>) { enqueued++; return super.enqueue(...args); }
+          override enqueue(...args: Parameters<AxInMemoryEventStore['enqueue']>) {
+            enqueued++;
+            return super.enqueue(...args);
+          }
         }
         const store = new CountingStore();
-        const source = new AxUCPWebhookEventSource({ client: owned.client,
+        const source = new AxUCPWebhookEventSource({
+          client: owned.client,
           identity(_event, request) {
             identityResolutions++;
             assert.equal(request.url, `${owned.origin}/hooks/account-a`);
@@ -342,18 +621,47 @@ export const examples: readonly Example[] = [
         const business = ax('orderEventId:string -> disposition:string');
         const model = scriptedAI(() => {
           businessRuns++;
-          return { results: [{ index: 0, content: 'Disposition: Recorded verified fixture order.' }] };
+          return {
+            results: [{ index: 0, content: 'Disposition: Recorded verified fixture order.' }],
+          };
         });
-        const target = eventTarget('freshness-review').program(business).ai(model).forwardOptions(options(ctx))
-          .input((input) => input.field('orderEventId', eventPath.data('id'))).build();
-        runtime = eventRuntime({ store, sources: [source], allowVolatile: true, workerConcurrency: 1, maxAttempts: 1,
-          routes: [eventRoute('freshness-bound-orders').sources(owned.profileUrl).types('ucp.order.updated').authenticated()
-            .authorize(({ identity }) => identity?.tenantId === 'tenant-a' && identity.accountId === 'account-a')
-            .instanceKey(eventPath.subject()).wake(target).build()],
+        const target = eventTarget('freshness-review')
+          .program(business)
+          .ai(model)
+          .forwardOptions(options(ctx))
+          .input((input) => input.field('orderEventId', eventPath.data('id')))
+          .build();
+        runtime = eventRuntime({
+          store,
+          sources: [source],
+          allowVolatile: true,
+          workerConcurrency: 1,
+          maxAttempts: 1,
+          routes: [
+            eventRoute('freshness-bound-orders')
+              .sources(owned.profileUrl)
+              .types('ucp.order.updated')
+              .authenticated()
+              .authorize(
+                ({ identity }) =>
+                  identity?.tenantId === 'tenant-a' && identity.accountId === 'account-a',
+              )
+              .instanceKey(eventPath.subject())
+              .wake(target)
+              .build(),
+          ],
         });
-        owned.installWebhook(async (request) => { bindWebhookHeaders(request); return source.ingest(request, ctx.signal); });
+        owned.installWebhook(async (request) => {
+          bindWebhookHeaders(request);
+          return source.ingest(request, ctx.signal);
+        });
         const send = async (signed: SignedWebhook) => {
-          const response = await fetch(signed.url, { method: 'POST', headers: signed.headers, body: signed.body, signal: ctx.signal });
+          const response = await fetch(signed.url, {
+            method: 'POST',
+            headers: signed.headers,
+            body: signed.body,
+            signal: ctx.signal,
+          });
           await response.json();
           return response.status;
         };
@@ -363,41 +671,82 @@ export const examples: readonly Example[] = [
         const stale = await owned.signedWebhook('stale-primary-35', {}, now - 120, 'created-last');
         // sig2 has NO signature. Preserve the real stale sig1/base/body,
         // append unsigned parameters, and change only the unsigned timestamp.
-        const attack = { ...stale, headers: { ...stale.headers,
-          'Signature-Input': `${stale.headers['Signature-Input']},sig2=("@method");created=${now}`,
-          'webhook-timestamp': String(now),
-        } };
-        assert.equal(await send(attack), 401, 'Unsigned sig2.created must not refresh merchant-signed sig1.created');
+        const attack = {
+          ...stale,
+          headers: {
+            ...stale.headers,
+            'Signature-Input': `${stale.headers['Signature-Input']},sig2=("@method");created=${now}`,
+            'webhook-timestamp': String(now),
+          },
+        };
+        assert.equal(
+          await send(attack),
+          401,
+          'Unsigned sig2.created must not refresh merchant-signed sig1.created',
+        );
         assert.equal(enqueued, 0);
         assert.equal(identityResolutions, 0);
         assert.equal(businessRuns, 0);
         const fresh = await owned.signedWebhook('fresh-primary-35', {}, now, 'created-last');
-        assert.equal(await send(fresh), 202, 'Legal fresh single-member created-last signatures remain accepted');
+        assert.equal(
+          await send(fresh),
+          202,
+          'Legal fresh single-member created-last signatures remain accepted',
+        );
         await runtime.waitForIdle();
         assert.equal(enqueued, 1);
         assert.equal(identityResolutions, 1);
         assert.equal(businessRuns, 1);
-        return { staleUnsignedMember: 'rejected-before-enqueue', freshCreatedLast: 'accepted', enqueued, businessRuns };
+        return {
+          staleUnsignedMember: 'rejected-before-enqueue',
+          freshCreatedLast: 'accepted',
+          enqueued,
+          businessRuns,
+        };
       } finally {
-        try { await runtime?.close({ drain: false }); } finally { await owned.close(); }
+        try {
+          await runtime?.close({ drain: false });
+        } finally {
+          await owned.close();
+        }
       }
     },
   },
   {
-    id: '35-ucp/native-flow-agent', title: 'Inherit native UCP into Agent and Gen, reuse the MCP session, cancel a pending read',
-    features: ['UCP', 'native-attachment', 'Agent', 'Flow', 'mcpInheritance', 'structured-results', 'session-reuse', 'cancellation'],
+    id: '35-ucp/native-flow-agent',
+    title: 'Inherit native UCP into Agent and Gen, reuse the MCP session, cancel a pending read',
+    features: [
+      'UCP',
+      'native-attachment',
+      'Agent',
+      'Flow',
+      'mcpInheritance',
+      'structured-results',
+      'session-reuse',
+      'cancellation',
+    ],
     modes: ['offline'],
     async run(ctx) {
       const owned = await merchant();
       try {
-        const reader = agent('query:string -> cart:json', { contextFields: [], directResponse: 'off', mcpInheritance: 'all' });
+        const reader = agent('query:string -> cart:json', {
+          contextFields: [],
+          directResponse: 'off',
+          mcpInheritance: 'all',
+        });
         const check = ax('cart:json -> amount:number');
         // Neither node declares ucp: the Flow passes its live execution context.
-        const workflow = flow<{ query: string }, { cart: unknown; amount: number }>({ ucp: owned.client })
-          .node('readCart', reader).node('checkCart', check)
+        const workflow = flow<{ query: string }, { cart: unknown; amount: number }>({
+          ucp: owned.client,
+        })
+          .node('readCart', reader)
+          .node('checkCart', check)
           .execute('readCart', (state) => ({ query: state.query }))
           .execute('checkCart', (state) => ({ cart: state.readCartResult.cart }))
-          .returns((state) => ({ cart: state.readCartResult.cart, amount: state.checkCartResult.amount }));
+          .returns((state) => ({
+            cart: state.readCartResult.cart,
+            amount: state.checkCartResult.amount,
+          }));
         const executorReplies = [
           'await final("Read the owned cart through ucp.merchant.get_cart; retain its structured value", {id:"cart-35"})',
           'const cart = await ucp.merchant.get_cart({id:"cart-35"});',
@@ -406,39 +755,88 @@ export const examples: readonly Example[] = [
         const responderIndex = executorReplies.length;
         const model = scriptedAI((request, index) => {
           if (index === 2) {
-            const actionLog = request.chatPrompt
-              .find((message) => message.role === 'user' && typeof message.content === 'string' && /^Action Log: /m.test(message.content))?.content;
-            assert(typeof actionLog === 'string', 'The next executor request must include its action log');
-            const observed = actionLog.slice(actionLog.search(/^Action Log: /m))
-              .match(/^ucp\.merchant\.get_cart: (\{[^\n]*\}|\{\n[\s\S]*?\n\})\n\[OBSERVATION\]/m)?.[1];
+            const actionLog = request.chatPrompt.find(
+              (message) =>
+                message.role === 'user' &&
+                typeof message.content === 'string' &&
+                /^Action Log: /m.test(message.content),
+            )?.content;
+            assert(
+              typeof actionLog === 'string',
+              'The next executor request must include its action log',
+            );
+            const observed = actionLog
+              .slice(actionLog.search(/^Action Log: /m))
+              .match(
+                /^ucp\.merchant\.get_cart: (\{[^\n]*\}|\{\n[\s\S]*?\n\})\n\[OBSERVATION\]/m,
+              )?.[1];
             assert(observed, 'The next executor turn must see the native UCP result');
             assert.deepEqual(JSON.parse(observed), cart);
           }
           const javascriptCode = executorReplies[index];
-          if (javascriptCode !== undefined) return { results: [{ index: 0, content: JSON.stringify({ javascriptCode }) }] };
+          if (javascriptCode !== undefined)
+            return { results: [{ index: 0, content: JSON.stringify({ javascriptCode }) }] };
           if (index === responderIndex) {
             const context = request.chatPrompt
-              .map((message) => message.role === 'user' && typeof message.content === 'string'
-                ? message.content.match(/^Context Data: (\{[\s\S]*?^\})$/m)?.[1] : undefined)
+              .map((message) =>
+                message.role === 'user' && typeof message.content === 'string'
+                  ? message.content.match(/^Context Data: (\{[\s\S]*?^\})$/m)?.[1]
+                  : undefined,
+              )
               .find((value) => value !== undefined);
             assert(context, 'The responder must receive Context Data from final');
             const observed = object(object(JSON.parse(context)).evidence).cart;
-            assert.deepStrictEqual(observed, cart, 'The responder must receive the complete evidence.cart');
-            const { id, ucp: { version }, total } = observed;
-            return { results: [{ index: 0, content: `Cart: ${JSON.stringify({ ucp: { version }, id, total })}` }] };
+            assert.deepStrictEqual(
+              observed,
+              cart,
+              'The responder must receive the complete evidence.cart',
+            );
+            const {
+              id,
+              ucp: { version },
+              total,
+            } = observed;
+            return {
+              results: [
+                { index: 0, content: `Cart: ${JSON.stringify({ ucp: { version }, id, total })}` },
+              ],
+            };
           }
           if (index === responderIndex + 1) {
-            assert(JSON.stringify(request.chatPrompt).includes('1250'), 'Structured Agent output reaches the next Flow node');
-            const tool = request.functions?.find((candidate) => candidate.name.includes('get_cart'));
+            assert(
+              JSON.stringify(request.chatPrompt).includes('1250'),
+              'Structured Agent output reaches the next Flow node',
+            );
+            const tool = request.functions?.find((candidate) =>
+              candidate.name.includes('get_cart'),
+            );
             assert(tool);
-            return { results: [{ index: 0, functionCalls: [{ id: 'second-cart-read', type: 'function', function: { name: tool.name, params: { id: 'cart-35' } } }] }] };
+            return {
+              results: [
+                {
+                  index: 0,
+                  functionCalls: [
+                    {
+                      id: 'second-cart-read',
+                      type: 'function',
+                      function: { name: tool.name, params: { id: 'cart-35' } },
+                    },
+                  ],
+                },
+              ],
+            };
           }
           assert.equal(index, responderIndex + 2);
           assert(JSON.stringify(request.chatPrompt).includes('USD'));
           return { results: [{ index: 0, content: 'Amount: 1250' }] };
         });
-        const result = await workflow.forward(model, { query: 'Read cart-35 only; preserve JSON and independently check the amount.' }, options(ctx));
-        assert.deepEqual(result.cart, cart); assert.equal(result.amount, 1250);
+        const result = await workflow.forward(
+          model,
+          { query: 'Read cart-35 only; preserve JSON and independently check the amount.' },
+          options(ctx),
+        );
+        assert.deepEqual(result.cart, cart);
+        assert.equal(result.amount, 1250);
         assert.equal(owned.stats().cartReads, 2);
         assert.equal(owned.stats().initializations, 1);
         assert.equal(owned.stats().profileReads, 1);
@@ -447,29 +845,69 @@ export const examples: readonly Example[] = [
         const cancelModel = scriptedAI((request) => {
           const tool = request.functions?.find((candidate) => candidate.name.includes('get_cart'));
           assert(tool, 'Inherited native UCP tools must reach Gen');
-          return { results: [{ index: 0, functionCalls: [{ id: 'pending-cart-read', type: 'function', function: { name: tool.name, params: { id: 'wait' } } }] }] };
+          return {
+            results: [
+              {
+                index: 0,
+                functionCalls: [
+                  {
+                    id: 'pending-cart-read',
+                    type: 'function',
+                    function: { name: tool.name, params: { id: 'wait' } },
+                  },
+                ],
+              },
+            ],
+          };
         });
         const pending = flow<{ query: string }, { amount: number }>({ ucp: owned.client })
-          .node('read', 'query:string -> amount:number').execute('read', (state) => ({ query: state.query }))
+          .node('read', 'query:string -> amount:number')
+          .execute('read', (state) => ({ query: state.query }))
           .returns((state) => ({ amount: state.readResult.amount }));
-        const request = pending.forward(cancelModel, { query: 'Read the pending owned cart.' }, {
-          ...options(ctx), abortSignal: AbortSignal.any([ctx.signal, abort.signal]),
-        });
+        const request = pending.forward(
+          cancelModel,
+          { query: 'Read the pending owned cart.' },
+          {
+            ...options(ctx),
+            abortSignal: AbortSignal.any([ctx.signal, abort.signal]),
+          },
+        );
         const rejected = assert.rejects(request);
-        await Promise.race([owned.delayedStarted, request.then(
-          () => { throw new Error('Pending read completed before application cancellation'); },
-          (error: unknown) => { throw error; },
-        )]);
+        await Promise.race([
+          owned.delayedStarted,
+          request.then(
+            () => {
+              throw new Error('Pending read completed before application cancellation');
+            },
+            (error: unknown) => {
+              throw error;
+            },
+          ),
+        ]);
         abort.abort(new Error('Application cancelled owned cart read'));
         await rejected;
-        assert.equal(owned.stats().cartReads, 2, 'Cancelled request never completes a business read');
+        assert.equal(
+          owned.stats().cartReads,
+          2,
+          'Cancelled request never completes a business read',
+        );
         const stats = owned.stats();
-        return { result, initializations: stats.initializations, profileReads: stats.profileReads,
-          reads: stats.cartReads, cancelled: true,
-          proof: 'Real UCP/MCP session and native Flow→Agent/Gen execution; merchant data and model decisions are explicit offline fixtures, not model-quality evidence.' };
+        return {
+          result,
+          initializations: stats.initializations,
+          profileReads: stats.profileReads,
+          reads: stats.cartReads,
+          cancelled: true,
+          proof:
+            'Real UCP/MCP session and native Flow→Agent/Gen execution; merchant data and model decisions are explicit offline fixtures, not model-quality evidence.',
+        };
       } finally {
         await owned.close();
-        assert.equal(owned.stats().sessionDeletes, owned.stats().initializations, 'Every acquired MCP session is closed');
+        assert.equal(
+          owned.stats().sessionDeletes,
+          owned.stats().initializations,
+          'Every acquired MCP session is closed',
+        );
       }
     },
   },

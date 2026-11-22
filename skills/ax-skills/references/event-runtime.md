@@ -70,9 +70,14 @@ await source.publish({ event, identity, trust: 'authenticated' });
   events is part of the route's declared policy.
 - Observe source failures with `onSourceError`.
 - The in-memory store is volatile and single-process.
-- For cooperating Node processes on one local disk, use
-  `AxSQLiteEventStore` from `@ax-llm/ax-tools/event/sqlite` with explicit
-  retention and `coordination: 'multi-worker'`. Never recommend SQLite on a
+- For cooperating processes on one local disk, use `AxSQLiteEventStore` from
+  `@ax-llm/ax-tools/event/sqlite` with explicit retention and
+  `coordination: 'multi-worker'`. The published 25.4.13 adapter loads a
+  `better-sqlite3` native addon that Bun 1.4.5 rejects. Use Node 24.15.0 for
+  the SQLite examples: from the directory containing `SKILL.md`, run
+  `bun run --no-env-file --cwd examples setup:sqlite` once, then
+  `bun run --no-env-file --cwd examples offline:node 30-event-storage`.
+  See the [example index](../examples/INDEX.md). Never recommend SQLite on a
   network filesystem.
 - Close the runtime and caller-owned protocol clients explicitly.
 - Fan out to several Agents with several matching routes, not a multi-target

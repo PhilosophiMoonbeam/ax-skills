@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
-import { type AxChatResponse } from '@ax-llm/ax';
+import type { AxChatResponse } from '@ax-llm/ax';
 import { AxAIProvider } from '@ax-llm/ax-ai-sdk-provider';
 import { generateText, NoObjectGeneratedError, Output, streamText } from 'ai';
 import { z } from 'zod';
-import { scriptedAI, type Example } from './support.js';
+import { type Example, scriptedAI } from './support.ts';
 
-// Pin @ax-llm/ax-ai-sdk-provider@25.4.13 with ai@7.0.2 (Node >=22).
+// Run the pinned @ax-llm/ax-ai-sdk-provider@25.4.13 and ai@7.0.2 on Bun.
+// The SDK's upstream Node >=22 engine metadata is not a Node runtime requirement for these fixtures.
 // Only model I/O is scripted: AxAIProvider and Vercel generation/parsing are real.
 // Replace the scripted Ax service with a configured Ax ai(...) service in an app.
 // This adapter does NOT forward providerOptions, responseFormat or abortSignal.
@@ -18,7 +19,13 @@ export const examples: readonly Example[] = [
   {
     id: '34-vercel/generate-text',
     title: 'Wrap an Ax service and consume Vercel text, usage and response metadata',
-    features: ['AxAIProvider', 'generateText', 'message conversion', 'token usage', 'provider metadata'],
+    features: [
+      'AxAIProvider',
+      'generateText',
+      'message conversion',
+      'token usage',
+      'provider metadata',
+    ],
     modes: ['offline'],
     async run(ctx) {
       ctx.signal.throwIfAborted();
@@ -27,15 +34,21 @@ export const examples: readonly Example[] = [
         requests++;
         assert.deepEqual(request.chatPrompt, [
           { role: 'system', content: 'Write one concise delivery update.' },
-          { role: 'user', content: [{ type: 'text', text: 'Order AX-42 arrived at 14:05; tell the customer.' }] },
+          {
+            role: 'user',
+            content: [{ type: 'text', text: 'Order AX-42 arrived at 14:05; tell the customer.' }],
+          },
         ]);
         return {
           ...reply('Order AX-42 was delivered at 14:05.'),
           remoteId: 'delivery-response-42',
           remoteRequestId: 'delivery-request-42',
           remoteSessionId: 'delivery-conversation-42',
-          modelUsage: { ai: 'offline-script', model: 'delivery-fixture',
-            tokens: { promptTokens: 17, completionTokens: 10, totalTokens: 27 } },
+          modelUsage: {
+            ai: 'offline-script',
+            model: 'delivery-fixture',
+            tokens: { promptTokens: 17, completionTokens: 10, totalTokens: 27 },
+          },
           providerMetadata: { delivery: { source: 'explicit model-I/O fixture' } },
         };
       });
@@ -58,18 +71,30 @@ export const examples: readonly Example[] = [
       assert.equal(result.response.id, 'delivery-response-42');
       assert.equal(result.response.modelId, 'delivery-fixture');
       assert.deepEqual(result.providerMetadata?.[model.provider], {
-        requestId: 'delivery-request-42', remoteSessionId: 'delivery-conversation-42',
+        requestId: 'delivery-request-42',
+        remoteSessionId: 'delivery-conversation-42',
       });
       assert.equal(result.providerMetadata?.delivery?.source, 'explicit model-I/O fixture');
       assert.equal(requests, 1);
-      return { text, usage: result.usage, responseId: result.response.id,
-        providerMetadata: result.providerMetadata, proof: 'Scripted Ax model I/O; real Ax-to-Vercel request and response conversion' };
+      return {
+        text,
+        usage: result.usage,
+        responseId: result.response.id,
+        providerMetadata: result.providerMetadata,
+        proof: 'Scripted Ax model I/O; real Ax-to-Vercel request and response conversion',
+      };
     },
   },
   {
     id: '34-vercel/typed-output',
     title: 'Validate a typed consumer result without claiming native JSON-schema enforcement',
-    features: ['generateText', 'Output.object', 'Zod', 'typed consumer output', 'NoObjectGeneratedError'],
+    features: [
+      'generateText',
+      'Output.object',
+      'Zod',
+      'typed consumer output',
+      'NoObjectGeneratedError',
+    ],
     modes: ['offline'],
     async run(ctx) {
       ctx.signal.throwIfAborted();
@@ -80,17 +105,28 @@ export const examples: readonly Example[] = [
       });
       const output = Output.object({ schema });
       let requests = 0;
-      const model = new AxAIProvider(scriptedAI((request, index) => {
-        requests++;
-        // AxAIProvider omits the Vercel responseFormat when constructing this request.
-        assert.equal(request.responseFormat, undefined);
-        return reply(index === 0
-          ? '{"orderId":"AX-42","itemCount":2,"paid":true}'
-          : '{"orderId":"AX-42","itemCount":"two","paid":true}');
-      }));
+      const model = new AxAIProvider(
+        scriptedAI((request, index) => {
+          requests++;
+          // AxAIProvider omits the Vercel responseFormat when constructing this request.
+          assert.equal(request.responseFormat, undefined);
+          return reply(
+            index === 0
+              ? '{"orderId":"AX-42","itemCount":2,"paid":true}'
+              : '{"orderId":"AX-42","itemCount":"two","paid":true}',
+          );
+        }),
+      );
       // State the JSON contract in the prompt too: this adapter does not send the schema to Ax.
-      const prompt = 'Return only JSON for order AX-42: orderId (string), itemCount (integer), paid (boolean). There are 2 items and payment is complete.';
-      const result = await generateText({ model, prompt, output, maxRetries: 0, abortSignal: ctx.signal });
+      const prompt =
+        'Return only JSON for order AX-42: orderId (string), itemCount (integer), paid (boolean). There are 2 items and payment is complete.';
+      const result = await generateText({
+        model,
+        prompt,
+        output,
+        maxRetries: 0,
+        abortSignal: ctx.signal,
+      });
       ctx.signal.throwIfAborted();
       const order: z.infer<typeof schema> = result.output;
       const itemCount: number = order.itemCount;
@@ -106,8 +142,13 @@ export const examples: readonly Example[] = [
       );
       ctx.signal.throwIfAborted();
       assert.equal(requests, 2);
-      return { order, totalUsd: itemCount * 12, invalidCountRejected: true,
-        proof: 'Real Vercel Output.object parsing and validation; provider schema enforcement is not demonstrated' };
+      return {
+        order,
+        totalUsd: itemCount * 12,
+        invalidCountRejected: true,
+        proof:
+          'Real Vercel Output.object parsing and validation; provider schema enforcement is not demonstrated',
+      };
     },
   },
   {
@@ -119,23 +160,37 @@ export const examples: readonly Example[] = [
       ctx.signal.throwIfAborted();
       // A finite, already-closed model-I/O stream owns no timers, readers or external handles.
       // Do not append an empty-results sentinel: adapter flush emits the terminal Vercel events.
-      const source = new ReadableStream<AxChatResponse>({ start(controller) {
-        controller.enqueue({ results: [{ index: 0, content: 'Order AX-42 ' }] });
-        controller.enqueue({ results: [{ index: 0, content: 'is ready ' }] });
-        controller.enqueue({ results: [{ index: 0, content: 'for pickup.', finishReason: 'stop' }],
-          modelUsage: { ai: 'offline-script', model: 'pickup-fixture',
-            tokens: { promptTokens: 8, completionTokens: 9, totalTokens: 17 } } });
-        controller.close();
-      } });
+      const source = new ReadableStream<AxChatResponse>({
+        start(controller) {
+          controller.enqueue({ results: [{ index: 0, content: 'Order AX-42 ' }] });
+          controller.enqueue({ results: [{ index: 0, content: 'is ready ' }] });
+          controller.enqueue({
+            results: [{ index: 0, content: 'for pickup.', finishReason: 'stop' }],
+            modelUsage: {
+              ai: 'offline-script',
+              model: 'pickup-fixture',
+              tokens: { promptTokens: 8, completionTokens: 9, totalTokens: 17 },
+            },
+          });
+          controller.close();
+        },
+      });
       const service = scriptedAI(async (request) => {
-        assert.deepEqual(request.chatPrompt, [{ role: 'user', content: [
-          { type: 'text', text: 'Summarize pickup status for order AX-42.' },
-        ] }]);
+        assert.deepEqual(request.chatPrompt, [
+          {
+            role: 'user',
+            content: [{ type: 'text', text: 'Summarize pickup status for order AX-42.' }],
+          },
+        ]);
         return source;
       });
       const model = new AxAIProvider(service);
-      const result = streamText({ model, prompt: 'Summarize pickup status for order AX-42.',
-        maxRetries: 0, abortSignal: ctx.signal });
+      const result = streamText({
+        model,
+        prompt: 'Summarize pickup status for order AX-42.',
+        maxRetries: 0,
+        abortSignal: ctx.signal,
+      });
       const deltas: string[] = [];
       try {
         for await (const delta of result.textStream) {
@@ -146,7 +201,11 @@ export const examples: readonly Example[] = [
         // Drain this finite fixture even when the consumer aborts; this does not cancel live Ax I/O.
         await result.consumeStream();
       }
-      const [text, finishReason, usage] = await Promise.all([result.text, result.finishReason, result.usage]);
+      const [text, finishReason, usage] = await Promise.all([
+        result.text,
+        result.finishReason,
+        result.usage,
+      ]);
       ctx.signal.throwIfAborted();
       assert.equal(deltas.join(''), 'Order AX-42 is ready for pickup.');
       assert.equal(text, deltas.join(''));
@@ -155,8 +214,14 @@ export const examples: readonly Example[] = [
       assert.equal(usage.outputTokens, 9);
       assert.equal(usage.totalTokens, 17);
       assert.equal(service.getMetrics().latency.chat.samples.length, 1);
-      return { deltas, text, finishReason, usage,
-        proof: 'Scripted Ax chunks; real adapter streaming transformation and Vercel stream aggregation' };
+      return {
+        deltas,
+        text,
+        finishReason,
+        usage,
+        proof:
+          'Scripted Ax chunks; real adapter streaming transformation and Vercel stream aggregation',
+      };
     },
   },
 ];
